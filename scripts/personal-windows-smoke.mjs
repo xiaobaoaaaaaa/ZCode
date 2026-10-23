@@ -30,6 +30,31 @@ export function createDevToolsEndpointReader() {
   };
 }
 
+// 旧检查会把启动 logo 当成就绪；只观察真实登录按钮，不点击或绕过认证。
+export function visibleLoginReady() {
+  const visible = (element) => {
+    if (!element) return false;
+    const style = getComputedStyle(element);
+    const rect = element.getBoundingClientRect();
+    return (
+      style.visibility === "visible" &&
+      style.display !== "none" &&
+      Number(style.opacity) > 0 &&
+      rect.width > 0 &&
+      rect.height > 0
+    );
+  };
+  const button = document.querySelector('[data-testid="login-use-api-key-button"]');
+  const blocker = document.querySelector('[data-testid="root-startup-loading"]');
+  return (
+    document.readyState === "complete" &&
+    !visible(blocker) &&
+    visible(button) &&
+    !button.disabled &&
+    button.getAttribute("aria-disabled") !== "true"
+  );
+}
+
 export function smokeEnvironment(env, temporaryHome) {
   // 不把 Actions token/仓库凭据传给预览程序；使用产品已有路径覆盖，不改 HOME。
   const clean = Object.fromEntries(
@@ -67,6 +92,8 @@ export async function smokePreview() {
   let child;
   let browser;
   let logs = "";
+  let page;
+  const rendererErrors = [];
   try {
     const probe =
       "const assert=require('node:assert/strict');assert.equal(process.versions.electron,'41.0.3');const {DatabaseSync}=require('node:sqlite');new DatabaseSync(':memory:').close();require('./resources/app.asar/node_modules/node-pty');console.log(JSON.stringify(process.versions));";
@@ -126,7 +153,6 @@ export async function smokePreview() {
     const require = createRequire(resolve(root, "packages/desktop/package.json"));
     const { chromium } = require("playwright-core");
     browser = await chromium.connectOverCDP(endpoint, { timeout: 15000 });
-    let page;
     while (Date.now() < deadline) {
       page = browser
         .contexts()
@@ -139,6 +165,7 @@ export async function smokePreview() {
       await delay(500);
     }
     if (!page) throw new Error("Packaged renderer page did not open");
+    page.on("pageerror", (error) => rendererErrors.push(error.message.slice(0, 2048)));
     await page.waitForFunction(
       () =>
         document.readyState === "complete" &&
@@ -146,6 +173,7 @@ export async function smokePreview() {
       undefined,
       { timeout: 30000 },
     );
+    await page.waitForFunction(visibleLoginReady, undefined, { timeout: 90000 });
     await page.screenshot({ path: resolve(evidence, "renderer.png") });
     await writeFile(
       resolve(evidence, "result.json"),
@@ -154,6 +182,8 @@ export async function smokePreview() {
           commit: process.env.GITHUB_SHA,
           nativeRuntime: "passed",
           rendererMounted: true,
+          visibleUi: "login-entry",
+          loginControlVisibleAndEnabled: true,
           signed: false,
           fullNativeAcceptance: false,
           oauthTested: false,
@@ -164,6 +194,29 @@ export async function smokePreview() {
       ),
     );
   } finally {
+    if (page && !page.isClosed()) {
+      await page.screenshot({ path: resolve(evidence, "renderer.png") }).catch(() => {});
+      const state = await page
+        .evaluate(() => ({
+          readyState: document.readyState,
+          visibleText: document.body.innerText.slice(0, 8192),
+          testIds: Array.from(document.querySelectorAll("[data-testid]"))
+            .slice(0, 100)
+            .map((element) => element.getAttribute("data-testid")),
+        }))
+        .catch((error) => ({ captureError: error.message }));
+      await writeFile(
+        resolve(evidence, "renderer-state.json"),
+        JSON.stringify(
+          {
+            ...state,
+            errors: rendererErrors.slice(-30),
+          },
+          null,
+          2,
+        ),
+      );
+    }
     if (browser) await browser.close().catch(() => {});
     if (child?.pid && child.exitCode === null)
       spawnSync("taskkill.exe", ["/PID", String(child.pid), "/T", "/F"], {

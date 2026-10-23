@@ -10,6 +10,7 @@ import {
 } from "../personal-windows-preview.mjs";
 import {
   smokeEnvironment,
+  visibleLoginReady,
   parseDevToolsEndpoint,
   createDevToolsEndpointReader,
 } from "../personal-windows-smoke.mjs";
@@ -120,4 +121,48 @@ test("manual workflow proposal preserves successful checks and uploads candidate
   assert.ok(smoke >= 0 && upload > smoke);
   assert.equal(steps[upload].if, undefined);
   assert.equal(steps.at(-1).if, "always()");
+});
+
+test("visible login readiness rejects startup shells and hidden or disabled controls", () => {
+  const oldDocument = globalThis.document;
+  const oldStyle = globalThis.getComputedStyle;
+  let button;
+  let blocker;
+  const element = (overrides = {}) => ({
+    disabled: false,
+    style: { visibility: "visible", display: "block", opacity: "1" },
+    getBoundingClientRect: () => ({ width: 200, height: 40 }),
+    getAttribute: () => null,
+    ...overrides,
+  });
+  try {
+    globalThis.document = {
+      readyState: "complete",
+      querySelector: (selector) => (selector.includes("login-use") ? button : blocker),
+    };
+    globalThis.getComputedStyle = (node) => node.style;
+    assert.equal(visibleLoginReady(), false);
+    button = element();
+    blocker = element();
+    assert.equal(visibleLoginReady(), false);
+    blocker = undefined;
+    assert.equal(visibleLoginReady(), true);
+    for (const overrides of [
+      { disabled: true },
+      { getAttribute: () => "true" },
+      { style: { visibility: "hidden", display: "block", opacity: "1" } },
+      { style: { visibility: "visible", display: "none", opacity: "1" } },
+      { style: { visibility: "visible", display: "block", opacity: "0" } },
+      { getBoundingClientRect: () => ({ width: 0, height: 0 }) },
+    ]) {
+      button = element(overrides);
+      assert.equal(visibleLoginReady(), false);
+    }
+    button = element();
+    document.readyState = "loading";
+    assert.equal(visibleLoginReady(), false);
+  } finally {
+    globalThis.document = oldDocument;
+    globalThis.getComputedStyle = oldStyle;
+  }
 });
