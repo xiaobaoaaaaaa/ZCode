@@ -1,3 +1,4 @@
+import type { AppearanceImportContract } from "../profile-import/contract.js";
 import type { AppSettings } from "@zcode/shared";
 import { ServiceChannels } from "@zcode/shared";
 import { createServiceDescriptor } from "../descriptors.js";
@@ -8,7 +9,7 @@ export type WorkspaceSettingsProjection = Pick<
   "lastActiveWorkspace" | "lastWorkspaceSession" | "recentProjects" | "lastActiveTabIndex"
 >;
 
-export interface ISettingService {
+export interface ISettingService extends Partial<AppearanceImportContract> {
   get(): Promise<AppSettings>;
   /** 完整连接映射写入必须传入原快照和操作版本；服务在锁内比较并递增版本。 */
   update(

@@ -1,3 +1,5 @@
 # Personal profile import
 
 Two methods: preview an explicitly selected official profile; confirm that exact expiring preview. Only project Markdown layout verified against upstream 3.16.2 is supported. No SQLite or credentials are opened. One adapter owns the in-memory lease and serial admission; no background work. Destination root is injected by MemoryService, never supplied by RPC/UI. All existing destination workspaces are preserved. Duplicate/conflict results count whole workspaces. Failure rolls back owned files; failed rollback lists recovery paths. See docs/personal/profile-import.md for bounds, state order, limitations and recovery.
+
+Appearance import is a separate two-method lease on SettingService: whitelist locale, localePreference and bounded desktopZoomLevel; source settings are read-only, target conditional merge uses the existing settings queue/file lock/atomic writer. Theme, credentials, sessions and project registration remain unsupported. Existing locale fields are preserved together, all unknown personal settings retained, no migration performed on the source.

@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type IMemoryService,
+  type AppearanceImportContract,
+  type AppearanceImportPreview,
+  type AppearanceImportReport,
   type GlobalMemorySnapshot,
   type ProfileImportPreview,
   type ProfileImportReport,
@@ -58,12 +61,14 @@ function getErrorMessage(error: unknown): string {
 export function MemorySettingsSection({
   memoryEnabled,
   memoryService,
+  settingService,
   onMemoryEnabledChange,
   projectMemoryViewerAvailable,
   workspaceDisplayNames = [],
 }: {
   memoryEnabled: boolean;
   memoryService: MemoryCatalogService;
+  settingService?: Partial<AppearanceImportContract>;
   onMemoryEnabledChange: (enabled: boolean) => Promise<void>;
   projectMemoryViewerAvailable: boolean;
   workspaceDisplayNames?: readonly string[];
@@ -169,6 +174,11 @@ export function MemorySettingsSection({
 
   return (
     <div className="space-y-6">
+      {projectMemoryViewerAvailable &&
+      settingService?.previewAppearanceImport &&
+      settingService.confirmAppearanceImport ? (
+        <AppearanceImportSettings service={settingService as AppearanceImportContract} />
+      ) : null}
       {projectMemoryViewerAvailable &&
       memoryService.previewProfileImport &&
       memoryService.confirmProfileImport ? (
@@ -482,6 +492,111 @@ function ProfileImportSettings({
             {report.conflicts.length > 0 && (
               <p className="break-all text-ui-caption">{report.conflicts.join(", ")}</p>
             )}
+          </div>
+        )}
+        {error && (
+          <p role="alert" className="break-all text-ui-caption text-destructive">
+            {error}
+          </p>
+        )}
+      </div>
+    </SettingsGroupCard>
+  );
+}
+
+function AppearanceImportSettings({ service }: { service: AppearanceImportContract }) {
+  const { intl } = useZCodeIntl();
+  const [source, setSource] = useState("");
+  const [preview, setPreview] = useState<AppearanceImportPreview | null>(null);
+  const [report, setReport] = useState<AppearanceImportReport | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const admitted = useRef(false);
+  const label = (key: string) => intl.formatMessage({ id: `settings.appearanceImport.${key}` });
+  const run = async (confirm: boolean) => {
+    if (admitted.current) return;
+    admitted.current = true;
+    setBusy(true);
+    setError(null);
+    setReport(null);
+    try {
+      if (confirm && preview) {
+        setReport(await service.confirmAppearanceImport({ token: preview.token }));
+        setPreview(null);
+      } else {
+        setPreview(null);
+        setPreview(await service.previewAppearanceImport({ source: source.trim() }));
+      }
+    } catch (reason) {
+      setError(getErrorMessage(reason));
+      setPreview(null);
+    } finally {
+      admitted.current = false;
+      setBusy(false);
+    }
+  };
+  return (
+    <SettingsGroupCard>
+      <SettingsRow label={label("title")} description={label("scope")} control={null} />
+      <div className="space-y-3 px-4 py-3 text-ui-base">
+        <label htmlFor="appearance-import-source">{label("source")}</label>
+        <input
+          id="appearance-import-source"
+          className="w-full rounded-lg border border-border bg-transparent p-3 text-ui-base"
+          value={source}
+          disabled={busy}
+          onChange={(event) => {
+            setSource(event.target.value);
+            setPreview(null);
+            setReport(null);
+            setError(null);
+          }}
+        />
+        <button
+          type="button"
+          disabled={busy || !source.trim()}
+          onClick={() => {
+            void run(false);
+          }}
+        >
+          {label("preview")}
+        </button>
+        {preview && (
+          <div className="space-y-2" role="status">
+            <p>
+              {Object.keys(preview.settings).length} {label("fields")}
+            </p>
+            <dl className="space-y-1 text-ui-caption">
+              {Object.entries(preview.settings).map(([key, value]) => (
+                <div key={key}>
+                  <dt className="inline">{label(`field.${key}`)}: </dt>
+                  <dd className="inline">{String(value)}</dd>
+                </div>
+              ))}
+            </dl>
+            <button
+              type="button"
+              disabled={busy || !Object.keys(preview.settings).length}
+              onClick={() => {
+                void run(true);
+              }}
+            >
+              {label("confirm")}
+            </button>
+          </div>
+        )}
+        {busy && <p role="status">{label("busy")}</p>}
+        {report && (
+          <div role="status">
+            <p>
+              {label("imported")}:{" "}
+              {report.imported.map((key) => label(`field.${key}`)).join(", ") || "0"}
+            </p>
+            <p>
+              {label("preserved")}:{" "}
+              {report.preserved.map((key) => label(`field.${key}`)).join(", ") || "0"}
+            </p>
+            <p>{label("restart")}</p>
           </div>
         )}
         {error && (

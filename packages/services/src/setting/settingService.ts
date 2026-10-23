@@ -1,3 +1,6 @@
+import { createAppearanceImporter } from "../profile-import/index.js";
+import type { AppearanceImportReport } from "../profile-import/contract.js";
+import { readProjectMemoryFileFromStableHandle } from "../memory/projectMemoryStableRead.js";
 import { readFile, mkdir, rename } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
@@ -275,7 +278,63 @@ export function createSettingServiceWithMigrations(): {
     await queued;
   };
 
+  const appearanceImporter = createAppearanceImporter(
+    dirname(getSettingsDir()),
+    async (settings, validateTarget) => {
+      const result: AppearanceImportReport = { imported: [], preserved: [] };
+      await enqueueSettingsWrite(async (shouldCommit, enterCommitPhase) => {
+        await validateTarget();
+        let raw: Record<string, unknown> = {};
+        try {
+          const file = await readProjectMemoryFileFromStableHandle({
+            fileName: "setting.json",
+            filePath: settingsFile,
+            maxBytes: 1024 * 1024,
+            validatePath: validateTarget,
+          });
+          const parsed: unknown = JSON.parse(file.content);
+          if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+            throw new Error("Personal settings must be repaired before import");
+          raw = parsed as Record<string, unknown>;
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        }
+        const patch: Partial<AppSettings> = {};
+        const keepLocale = Object.hasOwn(raw, "locale") || Object.hasOwn(raw, "localePreference");
+        for (const key of ["locale", "localePreference", "desktopZoomLevel"] as const) {
+          if (!Object.hasOwn(settings, key)) continue;
+          if (Object.hasOwn(raw, key) || (key !== "desktopZoomLevel" && keepLocale)) {
+            result.preserved.push(key);
+          } else {
+            Object.assign(patch, { [key]: settings[key] });
+            result.imported.push(key);
+          }
+        }
+        if (!result.imported.length) return;
+        // 只补缺失白名单字段；不能让完整 schema 迁移覆盖现有值或剥离未来版本字段。
+        const validatedPatch = appSettingsPatchSchema.parse(patch);
+        await validateTarget();
+        maybeThrowInjectedFsFault({ operation: "writeFile", path: settingsFile });
+        await atomicWriteText(
+          settingsFile,
+          JSON.stringify({ ...raw, ...validatedPatch }, null, 2),
+          {
+            useFileLock: false,
+            beforeRename: async () => {
+              await validateTarget();
+              if (!shouldCommit())
+                throw new Error("stale settings import skipped before atomic rename");
+              enterCommitPhase();
+            },
+          },
+        );
+      });
+      return result;
+    },
+  );
+
   const service: ISettingService = {
+    ...appearanceImporter,
     async get(): Promise<AppSettings> {
       // 设置切换后可能立即创建或冷恢复 Session；读取若越过已入队写入，
       // runtime 会固定旧开关值。先等待现有写队列，保证启动偏好读取到已提交的选择。

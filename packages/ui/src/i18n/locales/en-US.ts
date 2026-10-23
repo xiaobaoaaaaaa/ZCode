@@ -8135,6 +8135,21 @@ const enUS: Record<string, string> = {
   "settings.profileImport.busy": "Checking or copying memories…",
   "settings.profileImport.result": "Copied {imported} projects · {duplicates} duplicates skipped · {conflicts} conflicts preserved",
 
+  "settings.appearanceImport.title": "Import language and zoom settings",
+  "settings.appearanceImport.scope": "Only language preference and desktop zoom from v2/setting.json. Existing values are preserved. Close the official app first. Credentials and all other settings are excluded. Theme uses browser storage; select it manually in Appearance.",
+  "settings.appearanceImport.source": "Official profile folder (absolute path on this computer)",
+  "settings.appearanceImport.preview": "Preview safe settings",
+  "settings.appearanceImport.fields": "supported fields",
+  "settings.appearanceImport.confirm": "Confirm import of missing settings",
+  "settings.appearanceImport.busy": "Checking or importing settings…",
+  "settings.appearanceImport.imported": "Imported",
+  "settings.appearanceImport.preserved": "Existing values preserved",
+  "settings.appearanceImport.restart": "Restart the personal app to apply imported preferences.",
+
+  "settings.appearanceImport.field.locale": "Display language",
+  "settings.appearanceImport.field.localePreference": "Language preference",
+  "settings.appearanceImport.field.desktopZoomLevel": "Desktop zoom level",
+
 };
 
 export default enUS;

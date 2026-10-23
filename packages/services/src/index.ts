@@ -401,3 +401,9 @@ export type {
 } from "#src/task-groups/contract.js";
 
 export type { ProfileImportPreview, ProfileImportReport } from "./profile-import/contract.js";
+
+export type {
+  AppearanceImportPreview,
+  AppearanceImportReport,
+  AppearanceImportContract,
+} from "./profile-import/contract.js";

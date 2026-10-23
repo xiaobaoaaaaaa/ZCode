@@ -1,6 +1,7 @@
+import { plainAncestors, ensureDirectory, overlaps } from "./pathSafety.js";
 import { createHash, randomUUID } from "node:crypto";
 import { lstat, mkdir, open, readdir, rmdir, unlink } from "node:fs/promises";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { readProjectMemoryFileFromStableHandle } from "../memory/projectMemoryStableRead.js";
 import type {
   PersonalProfileImportContract,
@@ -23,35 +24,6 @@ function safeName(name: string): boolean {
     name !== ".." &&
     !/^(con|prn|aux|nul|com[0-9]|lpt[0-9])(?:\.|$)/i.test(name)
   );
-}
-async function plainAncestors(path: string, allowMissing = false): Promise<void> {
-  let current = resolve(path);
-  for (;;) {
-    try {
-      const stat = await lstat(current);
-      if (!stat.isDirectory() || stat.isSymbolicLink())
-        throw new Error(`Unsafe directory: ${current}`);
-    } catch (e) {
-      if (!(allowMissing && missing(e))) throw e;
-    }
-    const parent = dirname(current);
-    if (parent === current) return;
-    current = parent;
-  }
-}
-async function ensureDirectory(path: string): Promise<void> {
-  await plainAncestors(path, true);
-  try {
-    await mkdir(path, { mode: 0o700 });
-  } catch (e) {
-    if (missing(e)) {
-      await ensureDirectory(dirname(path));
-      await mkdir(path, { mode: 0o700 }).catch(async (reason) => {
-        if ((reason as NodeJS.ErrnoException).code !== "EEXIST") throw reason;
-      });
-    } else if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
-  }
-  await plainAncestors(path);
 }
 async function snapshot(source: string): Promise<Snapshot> {
   const root = join(source, "cli", "memories", "projects");
@@ -113,10 +85,6 @@ async function snapshot(source: string): Promise<Snapshot> {
     .update(JSON.stringify([...result.projects].map(([id, files]) => [id, [...files]])))
     .digest("hex");
   return result;
-}
-function overlaps(a: string, b: string): boolean {
-  const rel = relative(a, b);
-  return !rel || (!rel.startsWith("..") && !isAbsolute(rel));
 }
 
 export function createProfileImporter(destination: () => string): PersonalProfileImportContract {
@@ -288,3 +256,5 @@ export function createProfileImporter(destination: () => string): PersonalProfil
     },
   };
 }
+
+export { createAppearanceImporter } from "./appearance.js";

@@ -411,3 +411,38 @@ describe("Official project memory import", () => {
     expect(screen.queryByRole("button", { name: "settings.profileImport.confirm" })).toBeNull();
   });
 });
+
+it("requires separate confirmation for safe settings and displays preserved fields", async () => {
+  const settings = {
+    previewAppearanceImport: vi.fn(async () => ({
+      token: "settings-preview",
+      source: "/synthetic/official",
+      settings: { locale: "en-US" as const, desktopZoomLevel: 2 },
+    })),
+    confirmAppearanceImport: vi.fn(async () => ({
+      imported: ["desktopZoomLevel"],
+      preserved: ["locale"],
+    })),
+  };
+  render(
+    createElement(MemorySettingsSection, {
+      memoryEnabled: false,
+      memoryService: createService(),
+      settingService: settings,
+      onMemoryEnabledChange: vi.fn(async () => {}),
+      projectMemoryViewerAvailable: true,
+    }),
+  );
+  fireEvent.change(screen.getByRole("textbox", { name: "settings.appearanceImport.source" }), {
+    target: { value: "/synthetic/official" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "settings.appearanceImport.preview" }));
+  const confirm = await screen.findByRole("button", { name: "settings.appearanceImport.confirm" });
+  expect(settings.confirmAppearanceImport).not.toHaveBeenCalled();
+  expect(screen.getByText("en-US")).toBeTruthy();
+  fireEvent.click(confirm);
+  await waitFor(() =>
+    expect(settings.confirmAppearanceImport).toHaveBeenCalledWith({ token: "settings-preview" }),
+  );
+  await screen.findByText("settings.appearanceImport.restart");
+});

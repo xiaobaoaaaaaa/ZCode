@@ -2102,6 +2102,7 @@ export function SettingsPage({
                               <MemorySettingsSection
                                 memoryEnabled={memoryEnabled}
                                 memoryService={localHostServices.memoryService}
+                                settingService={localHostServices.settingService}
                                 onMemoryEnabledChange={handleMemoryEnabledChange}
                                 projectMemoryViewerAvailable={Boolean(isDesktop)}
                                 workspaceDisplayNames={memoryWorkspaceDisplayNames}

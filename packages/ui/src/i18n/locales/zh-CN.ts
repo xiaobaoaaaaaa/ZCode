@@ -7721,6 +7721,21 @@ const zhCN: Record<string, string> = {
   "settings.profileImport.busy": "正在检查或复制记忆…",
   "settings.profileImport.result": "已复制 {imported} 个项目 · 跳过 {duplicates} 个重复项目 · 保留 {conflicts} 个冲突项目",
 
+  "settings.appearanceImport.title": "导入语言与缩放设置",
+  "settings.appearanceImport.scope": "仅导入 v2/setting.json 中的语言偏好和桌面缩放；已有值保留。请先关闭官方应用。凭据与其他设置排除；主题存于浏览器存储，请在外观中手动选择。",
+  "settings.appearanceImport.source": "官方版数据目录（本机绝对路径）",
+  "settings.appearanceImport.preview": "预览安全设置",
+  "settings.appearanceImport.fields": "个支持的设置字段",
+  "settings.appearanceImport.confirm": "确认导入缺失设置",
+  "settings.appearanceImport.busy": "正在检查或导入设置…",
+  "settings.appearanceImport.imported": "已导入",
+  "settings.appearanceImport.preserved": "已保留已有值",
+  "settings.appearanceImport.restart": "重启个人版后应用导入的偏好。",
+
+  "settings.appearanceImport.field.locale": "显示语言",
+  "settings.appearanceImport.field.localePreference": "语言偏好",
+  "settings.appearanceImport.field.desktopZoomLevel": "桌面缩放级别",
+
 };
 
 export default zhCN;
