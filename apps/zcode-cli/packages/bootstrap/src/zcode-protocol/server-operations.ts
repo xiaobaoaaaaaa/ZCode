@@ -1,3 +1,6 @@
+import { isAbsolute } from "node:path";
+import { stat } from "node:fs/promises";
+import { zcodeOfficialHistoryImportParamsSchema } from "@zcode/shared";
 import {
   isAuxiliarySessionKind,
   isReadonlyAgentSessionKind,
@@ -1237,6 +1240,41 @@ async function persistImportedSessionHistory(params: {
     workspaceKey: workspace.workspaceKey,
     workspacePath: workspace.workspacePath,
   });
+}
+
+/** Pure offline import: never materialize an app or run a model, MCP or tools. */
+export async function importHistory(context: ZCodeProtocolAgentServerContext, rawParams: unknown) {
+  const { bundle } = parseParams(zcodeOfficialHistoryImportParamsSchema, rawParams);
+  if (
+    bundle.workspaceId ||
+    !isAbsolute(bundle.directory) ||
+    !(await stat(bundle.directory)).isDirectory()
+  )
+    throw new ProtocolRequestError(
+      -32602,
+      "Official history requires an existing local project directory",
+    );
+  if (context.sessions.get(`official_import_${bundle.sourceKey}`)?.activeAbortController)
+    throw new ProtocolRequestError(
+      -32003,
+      "Wait for the imported session to finish before retrying",
+    );
+  const store = context.deps.sessionStore;
+  if (!store?.importOfficialHistory)
+    throw new ProtocolRequestError(-32003, "Atomic history import unavailable");
+  const result = await store.importOfficialHistory({
+    bundle,
+    projectID: projectIdFromDirectory(bundle.directory),
+    version: context.deps.version ?? "0.0.0",
+  });
+  return {
+    sessionId: result.session.id,
+    workspacePath: result.session.directory,
+    title: result.session.title,
+    createdAt: result.session.time.created,
+    updatedAt: result.session.time.updated,
+    alreadyImported: result.alreadyImported,
+  };
 }
 
 export async function createSession(

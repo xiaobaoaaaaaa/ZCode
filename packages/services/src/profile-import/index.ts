@@ -259,3 +259,4 @@ export function createProfileImporter(destination: () => string): PersonalProfil
 
 export { createAppearanceImporter } from "./appearance.js";
 export { createHistoryImporter } from "./history.js";
+export { registerImportedHistory } from "./targetRegistration.js";

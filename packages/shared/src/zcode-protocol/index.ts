@@ -1073,6 +1073,51 @@ export const zcodeMcpUiCallToolResultSchema = z
   .strict();
 export type ZCodeMcpUiCallToolResult = z.infer<typeof zcodeMcpUiCallToolResultSchema>;
 
+/** Personal edition: offline text only, never runtime state or tool calls. */
+export const zcodeOfficialHistoryBundleSchema = z
+  .object({
+    sourceKey: z.string().regex(/^[0-9a-f]{64}$/u),
+    sourceSessionId: z.string().min(1).max(1024),
+    sourceProfile: z.string().min(1).max(4096),
+    sourceDatabaseHash: z.string().regex(/^[0-9a-f]{64}$/u),
+    contentHash: z.string().regex(/^[0-9a-f]{64}$/u),
+    title: z.string().max(4096),
+    directory: z.string().min(1).max(4096),
+    workspaceId: z.string().nullable(),
+    createdAt: timestampMsSchema,
+    updatedAt: timestampMsSchema,
+    messages: z
+      .array(
+        z
+          .object({
+            role: z.enum(["user", "assistant"]),
+            text: z.string().max(262144),
+            createdAt: timestampMsSchema,
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(10000),
+  })
+  .strict();
+export type ZCodeOfficialHistoryBundle = z.infer<typeof zcodeOfficialHistoryBundleSchema>;
+export const zcodeOfficialHistoryImportParamsSchema = z
+  .object({ bundle: zcodeOfficialHistoryBundleSchema })
+  .strict();
+export const zcodeOfficialHistoryImportResultSchema = z
+  .object({
+    sessionId: z.string(),
+    workspacePath: z.string(),
+    title: z.string(),
+    createdAt: timestampMsSchema,
+    updatedAt: timestampMsSchema,
+    alreadyImported: z.boolean(),
+  })
+  .strict();
+export type ZCodeOfficialHistoryImportResult = z.infer<
+  typeof zcodeOfficialHistoryImportResultSchema
+>;
+
 export const zcodeSessionImportMessageSchema = z
   .object({
     role: z.enum(["user", "assistant"]),
@@ -4109,6 +4154,7 @@ export type ZCodeOffPeakListProtocolResult = z.infer<typeof zcodeOffPeakListResu
 export const zcodeProtocolMethods = {
   runtimeCapabilities: "runtime/capabilities",
   computerUseOperationEvent: "computer-use/operation-event",
+  sessionImportHistory: "session/importHistory",
   sessionCreate: "session/create",
   sessionResume: "session/resume",
   sessionList: "session/list",

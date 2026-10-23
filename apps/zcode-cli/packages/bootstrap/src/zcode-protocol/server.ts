@@ -37,6 +37,7 @@ import {
   closeSession,
   compactSession,
   createSession,
+  importHistory,
   forkSession,
   generateWorkspaceText,
   goalSession,
@@ -656,6 +657,8 @@ export class ZCodeProtocolAgentServer {
         return this.requireV4Gateway().queryCommands(request.params);
       case V4_METHODS.sessionsIndexReconcile:
         return this.requireV4Gateway().reconcileSessions(request.params);
+      case zcodeProtocolMethods.sessionImportHistory:
+        return await importHistory(this.context, request.params);
       case zcodeProtocolMethods.sessionCreate:
         return await createSession(this.context, request.params, request.trace);
       case zcodeProtocolMethods.sessionResume:

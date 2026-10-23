@@ -3268,3 +3268,108 @@ describe("session input ledger (0016)", () => {
     }
   });
 });
+
+describe("official safe text history transaction", () => {
+  const bundle = (sourceKey = "a".repeat(64)) => {
+    const content = {
+      title: "Imported title",
+      directory: "/synthetic/project",
+      messages: [
+        { role: "user" as const, text: "Question", createdAt: 30 },
+        { role: "assistant" as const, text: "Answer", createdAt: 20 },
+      ],
+    };
+    return {
+      ...content,
+      sourceKey,
+      sourceSessionId: "old-official-id",
+      sourceProfile: "/synthetic/official",
+      sourceDatabaseHash: "b".repeat(64),
+      contentHash: createHash("sha256").update(JSON.stringify(content)).digest("hex"),
+      workspaceId: null,
+      createdAt: 20,
+      updatedAt: 30,
+    };
+  };
+  it("remaps all IDs, links assistant to imported user, isolates sources, and deduplicates", async () => {
+    const store = await createSqliteSessionStore({ dbPath: ":memory:" });
+    const input = {
+      bundle: bundle(),
+      projectID: createProjectId("local-project"),
+      version: "test",
+    };
+    const first = await store.importOfficialHistory!(input);
+    expect(first.alreadyImported).toBe(false);
+    const messages = await store.messages({ sessionID: first.session.id });
+    expect(messages).toHaveLength(2);
+    expect(messages[1]!.info).toMatchObject({
+      parentID: messages[0]!.info.id,
+      role: "assistant",
+      time: { created: 31 },
+    });
+    expect(messages.flatMap((message) => message.parts).every((part) => part.type === "text")).toBe(
+      true,
+    );
+    expect(JSON.stringify(messages)).not.toContain("old-official-id");
+    expect(first.session.permission).toBeUndefined();
+    const again = await store.importOfficialHistory!(input);
+    expect(again).toMatchObject({ alreadyImported: true, session: { id: first.session.id } });
+    const other = await store.importOfficialHistory!({ ...input, bundle: bundle("c".repeat(64)) });
+    expect(other.session.id).not.toBe(first.session.id);
+    expect(await store.messages({ sessionID: first.session.id })).toEqual(messages);
+    await expect(
+      store.importOfficialHistory!({
+        ...input,
+        bundle: { ...input.bundle, messages: [{ role: "user", text: "tampered", createdAt: 30 }] },
+      }),
+    ).rejects.toThrow("hash mismatch");
+    await store.close();
+  });
+  it("rolls back session/messages/provenance if a part insert fails", async () => {
+    const root = await mkdtemp(join(tmpdir(), "official-history-target-"));
+    const dbPath = join(root, "target.sqlite");
+    const store = await createSqliteSessionStore({ dbPath });
+    const db = new DatabaseSync(dbPath);
+    try {
+      db.exec(
+        "create trigger fail_import_part before insert on part begin select raise(abort,'injected failure'); end",
+      );
+      await expect(
+        store.importOfficialHistory!({
+          bundle: bundle(),
+          projectID: createProjectId("p"),
+          version: "test",
+        }),
+      ).rejects.toThrow("injected failure");
+      for (const table of ["session", "message", "part", "session_entry"])
+        expect(db.prepare(`select count(*) as n from ${table}`).get()?.n).toBe(0);
+      db.exec("drop trigger fail_import_part");
+      await expect(
+        store.importOfficialHistory!({
+          bundle: bundle(),
+          projectID: createProjectId("p"),
+          version: "test",
+        }),
+      ).resolves.toMatchObject({ alreadyImported: false });
+      expect(db.prepare("pragma foreign_key_check").all()).toEqual([]);
+      db.prepare("update part set data = ? where id = ?").run(
+        JSON.stringify({ type: "text", text: "changed" }),
+        `official_import_${bundle().sourceKey}_message_0_text`,
+      );
+      await expect(
+        store.importOfficialHistory!({
+          bundle: bundle(),
+          projectID: createProjectId("p"),
+          version: "test",
+        }),
+      ).rejects.toThrow("no longer matches");
+
+      for (const table of ["session_input", "dwf_run", "todo"])
+        expect(db.prepare(`select count(*) as n from ${table}`).get()?.n).toBe(0);
+    } finally {
+      db.close();
+      await store.close();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});

@@ -4,7 +4,7 @@
  */
 export const personalProfileImportModule = {
   id: "personal-profile-import",
-  requires: ["services"],
+  requires: ["services", "shared", "session"],
   provides: ["personal-profile-import"],
   publicEntrypoints: ["index.ts", "contract.ts"],
 } as const;

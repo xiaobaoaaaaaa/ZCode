@@ -1,3 +1,4 @@
+import { zcodeOfficialHistoryImportResultSchema } from "@zcode/shared";
 import { isAuxiliarySessionKind } from "@zcode/shared";
 import {
   pluginUiToolResultNotificationSchema,
@@ -3933,6 +3934,17 @@ export function createZCodeAgentService(
       // 查询 runtime identity 只能观察现有进程，不能把 dormant workspace 变成活动进程。
       await getReadOnlyClient(params, "existing-only");
       return await processManager.getRuntimeIdentity(params);
+    },
+
+    async importOfficialHistory(params) {
+      if (params.workspacePath !== params.bundle.directory || params.bundle.workspaceId)
+        throw new Error("Official import workspace mismatch");
+      const client = await getReadOnlyClient({ workspacePath: params.workspacePath });
+      return client.request(
+        zcodeProtocolMethods.sessionImportHistory,
+        { bundle: params.bundle },
+        zcodeOfficialHistoryImportResultSchema,
+      );
     },
 
     async createSession(params: ZCodeAgentCreateSessionParams) {

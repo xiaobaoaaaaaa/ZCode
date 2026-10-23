@@ -576,6 +576,14 @@ export interface IZCodeTaskService {
   }): Promise<ZCodeImportableSessionCandidate[]>;
 
   /** 导入选中的 Claude 原生 session，并反向生成最小 task snapshot；不传 workspacePath 时按原始 workspace 导入。 */
+  previewHistoryImport(params: {
+    source: string;
+    sourceClosed: true;
+  }): Promise<import("#src/profile-import/contract.js").HistoryImportPreview>;
+  confirmHistoryImport(params: {
+    token: string;
+  }): Promise<import("#src/profile-import/contract.js").HistoryImportReport>;
+
   importClaudeSessions(params: {
     workspacePath?: string;
     workspaceIdentity?: string;

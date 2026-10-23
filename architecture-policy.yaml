@@ -807,6 +807,8 @@ modules:
     managed: true
     requires:
       - services
+      - shared
+      - session
     publicEntrypoints:
       - packages/services/src/profile-import/index.ts
       - packages/services/src/profile-import/contract.ts
