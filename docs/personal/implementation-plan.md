@@ -1,6 +1,6 @@
 # Personal adaptation implementation and review plan
 
-Status: implementation in progress; no installation or release is authorized by this plan.
+Status: draft PR #1 contains implemented personal features; verification and the documented import subset are tracked in validation.md. No installation or release is authorized by this plan.
 
 ## Baseline and ownership
 
@@ -15,6 +15,10 @@ Status: implementation in progress; no installation or release is authorized by 
 1. Personal application identity, data namespace and update isolation. Existing authentication, quotas and security checks remain in force. This is an unofficial personal derivative, not an official ZCode release.
 2. Profile memory: local Markdown with existing indexing, global versus project scope, bounded recall, automatic stable-preference extraction, explicit source/time provenance, editable/deletable records, automatic-recording pause and session disable. Only user-origin material may establish preferences; memory remains background data. See the feature specification for contracts and race handling.
 3. Compact execution presentation: default-on, independently switchable UI projection, preserving transcript, controls, errors and responses. See `compact-execution.md`.
+
+4. Subagent model selection: optional main-agent choice from a user-authorized live allowlist, manual override precedence, explicit fallback metadata. See `main-agent-model-selection.md`.
+5. Earlier-message editing in the same session with durable restorable versions and no tool/file replay on restore. See `history-editing.md`.
+6. Explicit official-profile import: preview and confirm separately for supported memory/settings categories; source read-only, destination conflicts preserved, synthetic fixtures only. Session archive support remains an incremental subset, not executable-session migration. See `profile-import.md`.
 
 ## Verification requirements
 
