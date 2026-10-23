@@ -35,3 +35,37 @@ export interface AppearanceImportContract {
   previewAppearanceImport(params: { source: string }): Promise<AppearanceImportPreview>;
   confirmAppearanceImport(params: { token: string }): Promise<AppearanceImportReport>;
 }
+
+export interface HistoryImportBundle {
+  sourceKey: string;
+  sourceSessionId: string;
+  sourceProfile: string;
+  sourceDatabaseHash: string;
+  contentHash: string;
+  title: string;
+  directory: string;
+  workspaceId: string | null;
+  createdAt: number;
+  updatedAt: number;
+  messages: Array<{ role: "user" | "assistant"; text: string; createdAt: number }>;
+}
+export interface HistoryImportPreview {
+  token: string;
+  source: string;
+  sessions: Array<{ sourceKey: string; title: string; directory: string; messages: number }>;
+  skipped: Array<{ sourceSessionId: string; reason: string }>;
+  messages: number;
+}
+/** Target owns atomic ID remapping, idempotency and recoverable task/project registration. */
+export interface HistoryImportReport {
+  imported: number;
+  duplicates: number;
+  sessions: Array<{ sourceKey: string; sessionId: string; directory: string }>;
+}
+export interface HistoryImportContract {
+  previewHistoryImport(params: {
+    source: string;
+    sourceClosed: true;
+  }): Promise<HistoryImportPreview>;
+  confirmHistoryImport(params: { token: string }): Promise<HistoryImportReport>;
+}

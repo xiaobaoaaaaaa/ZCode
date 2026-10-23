@@ -407,3 +407,10 @@ export type {
   AppearanceImportReport,
   AppearanceImportContract,
 } from "./profile-import/contract.js";
+
+export type {
+  HistoryImportContract,
+  HistoryImportPreview,
+  HistoryImportReport,
+  HistoryImportBundle,
+} from "./profile-import/contract.js";
