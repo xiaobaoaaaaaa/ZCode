@@ -18,7 +18,7 @@ Status: draft PR #1 contains implemented personal features; verification and the
 
 4. Subagent model selection: optional main-agent choice from a user-authorized live allowlist, manual override precedence, explicit fallback metadata. See `main-agent-model-selection.md`.
 5. Earlier-message editing in the same session with durable restorable versions and no tool/file replay on restore. See `history-editing.md`.
-6. Explicit official-profile import: preview and confirm separately for supported memory/settings categories; source read-only, destination conflicts preserved, synthetic fixtures only. Session archive support remains an incremental subset, not executable-session migration. See `profile-import.md`.
+6. Explicit official-profile import: preview and confirm separately for supported memory/settings categories; source read-only, destination conflicts preserved, synthetic fixtures only. Eligible local safe-text sessions are imported as inert, resumable conversations with project association; tools, execution queues, credentials, remote identities and compacted sessions are excluded. Exact schema compatibility and safe recovery are required. See `profile-import.md`.
 
 ## Verification requirements
 
