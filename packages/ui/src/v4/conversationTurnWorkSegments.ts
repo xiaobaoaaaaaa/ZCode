@@ -1,3 +1,5 @@
+import { isExecuteToolCall, isExploreToolCall } from "@/lib/exploreToolCall.js";
+import { toolCallRowToLegacyNode } from "@/v4/toolCallRowAdapter.js";
 import type {
   AssistantTextRow,
   ConversationRow,
@@ -235,4 +237,38 @@ export function buildConversationTurnWorkSegments(options: {
       ...(segmentWorkStatus ? { workStatus: segmentWorkStatus } : {}),
     };
   });
+}
+
+/** Only known, non-interactive process rows may be collapsed. Unknown rows stay visible. */
+export function compactExecutionRowKind(
+  row: AssistantWorkRow,
+): "reads" | "commands" | "reasoning" | undefined {
+  if (row.kind === "reasoning") return row.state === "interrupted" ? undefined : "reasoning";
+  if (
+    row.kind !== "toolCall" ||
+    (row.status !== "success" && row.status !== "running") ||
+    row.approvalInteractionId ||
+    row.backgrounded ||
+    row.error ||
+    row.display ||
+    isPluginUiPinnedToolRow(row)
+  )
+    return undefined;
+  const toolCall = toolCallRowToLegacyNode(row).toolCall;
+  if (isExploreToolCall(toolCall)) return "reads";
+  if (isExecuteToolCall(toolCall)) return "commands";
+  return undefined;
+}
+
+export function splitCompactExecutionRows(
+  rows: readonly AssistantWorkRow[],
+): { key: number; compact: boolean; rows: AssistantWorkRow[] }[] {
+  const groups: { key: number; compact: boolean; rows: AssistantWorkRow[] }[] = [];
+  for (const row of rows) {
+    const compact = compactExecutionRowKind(row) !== undefined;
+    const last = groups.at(-1);
+    if (compact && last?.compact) last.rows.push(row);
+    else groups.push({ key: row.rowId, compact, rows: [row] });
+  }
+  return groups;
 }

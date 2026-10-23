@@ -1,3 +1,4 @@
+import { useZCodeStoreWithDefault } from "@/store/StoreProvider.js";
 /* oxlint-disable eslint(max-lines) -- settings helper 聚合多个设置分组；终端、网络与自动归档多侧能力暂时超过行数限制。 */
 import type {
   AppToolSearchMode,
@@ -126,6 +127,8 @@ export function TaskAutoArchiveSettings({
     </SettingsGroupCard>
   );
 }
+
+const noopCompactExecutionChange = (_enabled: boolean) => {};
 
 export function GeneralSectionContent({
   localePreference,
@@ -262,6 +265,11 @@ export function GeneralSectionContent({
   onModelIoFullRetentionEnabledChange?: (enabled: boolean) => Promise<void>;
   onOpenOnboardingDialog: () => void;
 }) {
+  const compactExecution = useZCodeStoreWithDefault((state) => state.compactExecution, true);
+  const setCompactExecution = useZCodeStoreWithDefault(
+    (state) => state.setCompactExecution,
+    noopCompactExecutionChange,
+  );
   const { intl } = useZCodeIntl();
   const hasServices = Boolean(useOptionalServices());
   // 部分 SSR 单测会用精简 props 直接渲染本组件，新增终端设置项后旧 helper 未必同步传值。
@@ -436,6 +444,17 @@ export function GeneralSectionContent({
                 </SelectItem>
               </SelectContent>
             </Select>
+          }
+        />
+        <SettingsRow
+          label={intl.formatMessage({ id: "settings.compactExecution" })}
+          description={intl.formatMessage({ id: "settings.compactExecutionDescription" })}
+          control={
+            <Switch
+              aria-label={intl.formatMessage({ id: "settings.compactExecution" })}
+              checked={compactExecution}
+              onCheckedChange={setCompactExecution}
+            />
           }
         />
         {hasServices ? <ProactiveSuggestionsSetting /> : null}

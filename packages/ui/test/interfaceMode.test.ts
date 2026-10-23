@@ -51,4 +51,28 @@ describe("界面模式偏好", () => {
     receive?.({ channel: "state:interfaceMode", payload: "unexpected" });
     expect(store.getState().interfaceMode).toBe("office");
   });
+  it("defaults compact execution on, persists opt-out and applies broadcast without a loop", () => {
+    let receive: Parameters<IBroadcastService["onMessage"]>[0] | undefined;
+    const send = vi.fn(async () => {});
+    const service: IBroadcastService = {
+      send,
+      acquireClaim: async () => ({ status: "unavailable" }),
+      commitClaim: async () => {},
+      releaseClaim: async () => {},
+      tryClaim: async () => false,
+      onMessage: (listener) => {
+        receive = listener;
+        return { dispose: () => {} };
+      },
+    };
+    const store = createZCodeStore(service);
+    expect(store.getState().compactExecution).toBe(true);
+    store.getState().setCompactExecution(false);
+    expect(localStorage.getItem("zcode-personal-compact-execution")).toBe("false");
+    expect(createZCodeStore(service).getState().compactExecution).toBe(false);
+    send.mockClear();
+    receive?.({ channel: "state:compactExecution", payload: true });
+    expect(localStorage.getItem("zcode-personal-compact-execution")).toBe("true");
+    expect(send).not.toHaveBeenCalled();
+  });
 });

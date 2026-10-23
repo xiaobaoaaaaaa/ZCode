@@ -1,3 +1,8 @@
+import { useZCodeStoreWithDefault } from "@/store/StoreProvider.js";
+import {
+  compactExecutionRowKind,
+  splitCompactExecutionRows,
+} from "@/v4/conversationTurnWorkSegments.js";
 import { BotTopicPreparation } from "@/v4/BotTopicPreparation.js";
 import { useBotTopicInterruption } from "@/v4/botGroupDeliveryContext.js";
 import { ConnectedBotGroupDeliveryAction } from "@/v4/BotGroupDeliveryAction.js";
@@ -386,14 +391,85 @@ function ConversationCuaGroupRow({
   );
 }
 
+export function CompactExecutionRun({
+  rows,
+  children,
+}: {
+  rows: readonly AssistantWorkRow[];
+  children: React.ReactNode;
+}) {
+  const { intl, locale } = useZCodeIntl();
+  const [open, setOpen] = useState(false);
+  const running = rows.some((row) =>
+    row.kind === "toolCall"
+      ? row.status === "running"
+      : row.kind === "reasoning" && row.state === "streaming",
+  );
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    if (!running) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [running]);
+  const counts = { reads: 0, commands: 0, reasoning: 0 };
+  for (const row of rows) {
+    const kind = compactExecutionRowKind(row);
+    if (kind) counts[kind]++;
+  }
+  const start = Math.min(
+    ...rows.map((row) =>
+      row.kind === "toolCall" ? (row.startedAt ?? row.createdAt) : row.createdAt,
+    ),
+  );
+  const end = running
+    ? now
+    : Math.max(
+        ...rows.map((row) =>
+          row.kind === "toolCall" ? (row.endedAt ?? row.createdAt) : row.createdAt,
+        ),
+      );
+  const duration = formatConversationWorkDuration(Math.max(0, end - start), intl, locale);
+  const label = [
+    intl.formatMessage({ id: running ? "chat.compact.running" : "chat.compact.completed" }),
+    ...(["reads", "commands", "reasoning"] as const)
+      .filter((kind) => counts[kind] > 0)
+      .map((kind) => intl.formatMessage({ id: `chat.compact.${kind}` }, { count: counts[kind] })),
+    duration,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} data-compact-execution="true">
+      <CollapsibleTrigger asChild>
+        <button
+          type="button"
+          className="flex w-full min-w-0 items-center gap-2 text-left text-ui-base text-foreground-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-input-border-focused"
+          title={label}
+        >
+          <ChevronRightIcon
+            aria-hidden
+            className={cn("size-4 shrink-0 transition-transform", open && "rotate-90")}
+          />
+          <span className="truncate">{label}</span>
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="pt-3">{children}</div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 function ConversationAssistantWorkItems({
   rows,
   context,
   stageTailIsRunning = false,
   assistantCodeCommentProjectionEnabled = false,
   historyContainer,
+  compactChildren = false,
 }: {
   rows: readonly AssistantWorkRow[];
+  compactChildren?: boolean;
   context: ConversationRowRenderContext;
   stageTailIsRunning?: boolean;
   /** running turn 的正文可能暂时落在 history renderer，仍需隐藏特化协议原文。 */
@@ -403,6 +479,7 @@ function ConversationAssistantWorkItems({
     open: boolean;
   };
 }) {
+  const compactEnabled = useZCodeStoreWithDefault((state) => state.compactExecution, true);
   const showReasoning = context.messageStreamShowReasoning === true;
   const firstReasoningRowId = context.messageStreamFirstReasoningRowId;
   const items = useMemo(
@@ -436,6 +513,34 @@ function ConversationAssistantWorkItems({
       showReasoning,
     ],
   );
+
+  if (compactEnabled && !compactChildren) {
+    const visibleRows = rows.filter(
+      (row) => row.kind !== "reasoning" || isConversationReasoningRowVisible(row.rowId, context),
+    );
+    return (
+      <div className="flex flex-col gap-4">
+        {splitCompactExecutionRows(visibleRows).map((group) => {
+          const content = (
+            <ConversationAssistantWorkItems
+              rows={group.rows}
+              context={context}
+              stageTailIsRunning={stageTailIsRunning}
+              assistantCodeCommentProjectionEnabled={assistantCodeCommentProjectionEnabled}
+              compactChildren
+            />
+          );
+          return group.compact ? (
+            <CompactExecutionRun key={group.key} rows={group.rows}>
+              {content}
+            </CompactExecutionRun>
+          ) : (
+            <Fragment key={group.key}>{content}</Fragment>
+          );
+        })}
+      </div>
+    );
+  }
 
   // history 外壳不能在这层投影前创建：当 CUA 消费原 message
   // 或运行中 shell 被延迟分类时，会留下 pt-5 和空的 gap-4 容器。只有确认
@@ -756,17 +861,18 @@ function ConversationWorkSegmentFlow({
   highspeed: boolean;
   highspeedMeta?: HighspeedMessageMeta;
 }) {
+  const compactEnabled = useZCodeStoreWithDefault((state) => state.compactExecution, true);
   const [historyOpen, setHistoryOpen] = useState(segment.assistantHistoryDefaultOpen);
   useEffect(() => {
     setHistoryOpen(segment.assistantHistoryDefaultOpen);
   }, [segment.assistantHistoryDefaultOpen, segment.key]);
 
-  const shouldShowHistoryStatus = segment.workStatus !== undefined;
+  const shouldShowHistoryStatus = !compactEnabled && segment.workStatus !== undefined;
   const firstAssistantFlowItemIndex = segment.flowItems.findIndex(
     (item) => item.kind !== "userInput",
   );
   let historyChunkIndex = 0;
-  const open = segment.assistantHistoryDefaultOpen ? true : historyOpen;
+  const open = compactEnabled || segment.assistantHistoryDefaultOpen ? true : historyOpen;
 
   return (
     <Collapsible
