@@ -211,6 +211,33 @@ describe("tool order through runtime and SQLite", () => {
         });
         await runtime.executeTurn("edited later user query");
         expect(toolHistory(requests.at(-1)!)).toEqual(live);
+        if (scenario === "success") {
+          // 历史恢复只切换同会话的上下文，不重放旧工具，也不丢弃被替换版本。
+          const saved = await runtime.listConversationVersions();
+          expect(saved).toHaveLength(1);
+          const callsBeforeRestore = [...executionOrder];
+          await runtime.restoreConversationVersion({
+            versionId: saved[0]!.id,
+            traceContext: createRootTraceContext({ sessionId }),
+          });
+          expect(executionOrder).toEqual(callsBeforeRestore);
+          expect(await runtime.listConversationVersions()).toHaveLength(2);
+          runtime.beginShutdown();
+          store.close();
+          store = await createSqliteSessionStore({ dbPath });
+          runtime = createRuntime();
+          await runtime.resumeFromStore();
+          expect(await runtime.listConversationVersions()).toHaveLength(2);
+          await runtime.executeTurn("after restored version");
+          const restoredRequest = JSON.stringify(requests.at(-1)!.messages);
+          expect(restoredRequest).toContain("later user query");
+          expect(restoredRequest).not.toContain("edited later user query");
+          expect(executionOrder).toEqual(callsBeforeRestore);
+          await expect(runtime.restoreConversationVersion({
+            versionId: "missing-version",
+            traceContext: createRootTraceContext({ sessionId }),
+          })).rejects.toThrow("Conversation version not found");
+        }
         expect(
           writes.every((part) => part.declarationIndex === (part.callID === "write" ? 0 : 1)),
         ).toBe(true);

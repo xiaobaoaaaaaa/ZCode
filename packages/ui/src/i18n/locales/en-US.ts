@@ -2969,6 +2969,12 @@ const enUS: Record<string, string> = {
   "chat.changeSummary.rewindDialog.reason.fileReadFailed": "current file unreadable",
   "chat.changeSummary.rewindDialog.reason.unsupportedCheckpoint":
     "old checkpoint cannot be safely restored",
+  "chat.versions.open": "Conversation versions",
+  "chat.versions.restore": "Restore selected version",
+  "chat.versions.warning": "Restoring replaces the visible conversation and model context. The current version is saved. Executed commands, external operations and files are not undone or replayed.",
+  "chat.versions.empty": "No earlier versions yet.",
+  "chat.versions.error": "Could not load or restore this version. Stop running work, clear queued inputs, and try again.",
+  "chat.edit.historyWarning": "Editing regenerates the conversation from this message in the same session. The previous version remains recoverable. Executed commands, external operations and file changes are not automatically undone.",
   "chat.edit.resetConversationAndFiles": "Reset chat + files",
   "chat.edit.resetConversationAndFiles.tooltip": "Reset with files",
   "chat.edit.resetConversationAndFiles.available":

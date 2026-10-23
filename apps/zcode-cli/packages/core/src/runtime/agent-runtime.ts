@@ -708,6 +708,8 @@ export interface AgentRuntime {
    * 该入口故意不经过 executeTurn command queue：组合文件 rewind 会在文件事务的
    * commit gate 内调用它；若再排队 `/rewind`，当前 edit command 会等待自己释放队列。
    */
+  listConversationVersions(): Promise<Array<{id: string; createdAt: number; messageCount: number}>>;
+  restoreConversationVersion(options: {versionId: string; traceContext: TraceContext}): Promise<void>;
   rewindConversationToMessage(options: {
     abortSignal?: AbortSignal;
     events: SessionEvent[];

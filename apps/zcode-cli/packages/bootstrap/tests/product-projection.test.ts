@@ -6198,13 +6198,37 @@ describe("fork / modelChange marker", () => {
     const { projection } = runAll(log.events);
     const userRows = projection.getSnapshot().rows.window.filter((row) => row.kind === "userInput");
 
-    expect(userRows.map((row) => row.actions?.canEdit === true)).toEqual([false, true]);
-    expect(projection.resolveEditTargetByEntityId("message-user-1")).toBeNull();
+    expect(userRows.map((row) => row.actions?.canEdit === true)).toEqual([true, true]);
+    expect(projection.resolveEditTargetByEntityId("message-user-1")).toMatchObject({ transcriptMessageId: "message-user-1" });
     expect(projection.resolveEditTargetByEntityId("message-user-2")).toMatchObject({
       entityId: "message-user-2",
       productTurnId: "message-user-2",
       transcriptMessageId: "message-user-2",
     });
+  });
+
+  it("historical editing is blocked during work and inactive entities stay blocked after rewind", () => {
+    const log = new EventLog();
+    log.push(SessionEventType.TurnStarted,
+      { turnNumber: 1, input: "old", messageId: "history-user-1" }, { turnId: "history-turn-1" });
+    log.push(SessionEventType.TurnComplete,
+      { response: "", tokenCount: 0, toolCallCount: 0, duration: 1, resultType: "success" },
+      { turnId: "history-turn-1" });
+    const { projection } = runAll(log.events);
+    projection.applyEvent(log.push(SessionEventType.TurnStarted,
+      { turnNumber: 2, input: "running", messageId: "history-user-2" }, { turnId: "history-turn-2" }));
+    expect(projection.resolveEditTargetByEntityId("history-user-1")).toBeNull();
+    expect(projection.resolveEditTargetByEntityId("history-user-2")).not.toBeNull();
+    projection.applyEvent(log.push(SessionEventType.TurnComplete,
+      { response: "", tokenCount: 0, toolCallCount: 0, duration: 1, resultType: "success" },
+      { turnId: "history-turn-2" }));
+    expect(projection.resolveEditTargetByEntityId("history-user-1")).not.toBeNull();
+    projection.applyEvent(log.push(SessionEventType.RewindTriggered, {
+      targetMessageId: "history-user-1", scope: "conversation", branchCutAfterMessageId: "history-user-2",
+      branchGeneration: 1, strategy: "active_chain",
+    }));
+    expect(projection.resolveEditTargetByEntityId("history-user-1")).toBeNull();
+    expect(projection.resolveEditTargetByEntityId("history-user-2")).toBeNull();
   });
 
   it("Task3：row.actions 与 target resolver 同源并声明 edit disposition", () => {

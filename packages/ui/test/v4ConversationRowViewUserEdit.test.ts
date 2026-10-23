@@ -1767,7 +1767,8 @@ describe("ConversationRowView user query editing", () => {
   it("opens an inline editor and submits edited text with original attachments", async () => {
     const onEdit = vi.fn(async () => true);
     const row = userInputRow();
-    const root: Root = createRoot(installMinimalDom());
+    const container = installMinimalDom();
+    const root: Root = createRoot(container);
 
     await act(async () => {
       root.render(
@@ -1794,6 +1795,7 @@ describe("ConversationRowView user query editing", () => {
 
     expect(chatPromptEditorProps).toHaveLength(1);
     expect(chatPromptEditorProps[0]?.initialValue).toBe(row.text);
+    expect(collectText(container)).toContain("已执行的命令、外部操作和文件变动不会自动撤销");
     const submitEdit = chatPromptEditorProps[0]?.onSubmit;
     expect(typeof submitEdit).toBe("function");
 

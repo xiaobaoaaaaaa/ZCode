@@ -814,6 +814,18 @@ modules:
       adapters: .
     owner: personal-memory
 
+  - id: conversation-versions
+    roots:
+      - packages/ui/src/conversation-versions
+    managed: true
+    requires: [ui]
+    publicEntrypoints:
+      - packages/ui/src/conversation-versions/index.tsx
+      - packages/ui/src/conversation-versions/contract.ts
+    layers:
+      ui: .
+    owner: conversation
+
 global:
   # 临时时间戳（2026-09-10）：unmanaged-new-file 只约束此日期之后首次入库的文件。
   # 基于领先 staging 很多的分支开工时，merge-base 之前的"新增"文件不应被追溯。
@@ -967,3 +979,9 @@ exceptions:
       - packages/ui/src/settings/DynamicWorkflowModeSetting.tsx
       - packages/ui/src/store/dynamicWorkflowAvailabilityStore.ts
     reason: Admitted upstream files edited only to let the user's dynamic workflow mode choice always win and keep the settings row visible; adopting packages/shared/src and packages/ui/src needs a separate module boundary refactor.
+  - id: personal-subagent-model-policy-existing-module-edit
+    rule: unmanaged-new-file
+    paths:
+      - packages/shared/src/subagent-profile.ts
+      - packages/shared/src/subagent-runtime-config.ts
+    reason: Existing files already present in the personal baseline; this change only adds user-authorized subagent model selection to their existing profile and snapshot contracts, without adding a new module. Shared-module adoption is a separate boundary refactor.

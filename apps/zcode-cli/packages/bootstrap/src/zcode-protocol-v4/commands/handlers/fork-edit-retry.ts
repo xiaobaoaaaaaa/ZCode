@@ -65,12 +65,12 @@ export class V4ForkTargetGuardError extends Error {
   }
 }
 
-/** latestQueryEditOnly：旧 row / 非 realUser row / 无投影均直接拒绝，不 stop 当前 turn。 */
+/** 保留旧错误码兼容客户端；失效分支、非用户行及繁忙期间历史编辑均拒绝。 */
 export class V4EditTargetNotLatestError extends Error {
   readonly reasonCode = "guard.latestQueryEditOnly";
 
   constructor(targetRowId: number) {
-    super(`editUserQuery targetRowId ${targetRowId} 不是最后一轮 real user query`);
+    super(`editUserQuery targetRowId ${targetRowId} 不是当前可编辑的 real user query`);
     this.name = "V4EditTargetNotLatestError";
   }
 }
@@ -407,7 +407,39 @@ async function forkAssistant(
   return result;
 }
 
+async function listConversationVersions(
+  host: V4CommandCoreHost,
+  envelope: CommandEnvelope,
+): Promise<CommandResult> {
+  const record = requireRecord(host, envelope.sessionId);
+  return {
+    type: "listConversationVersions",
+    versions: await record.app.runtime.listConversationVersions(),
+  };
+}
+
+async function restoreConversationVersion(
+  host: V4CommandCoreHost,
+  envelope: CommandEnvelope,
+): Promise<CommandResult> {
+  const record = requireRecord(host, envelope.sessionId);
+  if (!host.assertConversationVersionRestoreAvailable || !host.refreshConversationVersion) {
+    throw new Error("Conversation version restoration is unavailable");
+  }
+  host.assertConversationVersionRestoreAvailable(record.app.sessionId);
+  if (record.activeAbortController) throw new Error("Stop running work before restoring a version");
+  const { versionId } = envelope.payload as CommandPayloadMap["restoreConversationVersion"];
+  await record.app.runtime.restoreConversationVersion({
+    versionId,
+    traceContext: record.traceContext,
+  });
+  await host.refreshConversationVersion(record.app.sessionId);
+  return { type: "restoreConversationVersion", versionId, sessionId: record.app.sessionId };
+}
+
 export const forkEditRetryHandlers = {
+  listConversationVersions,
+  restoreConversationVersion,
   forkAssistant,
   editUserQuery,
   retryTurn,

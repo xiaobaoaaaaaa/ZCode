@@ -280,6 +280,8 @@ export interface FileDiff {
 }
 
 export interface SessionRevert {
+  /** Recoverable transcript versions. Message bodies remain in the append-only store. */
+  versions?: Array<{ id: string; createdAt: number; messageIDs: MessageId[] }>;
   messageID: MessageId;
   partID?: PartId;
   snapshot?: string;

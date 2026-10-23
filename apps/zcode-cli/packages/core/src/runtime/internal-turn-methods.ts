@@ -134,6 +134,8 @@ export interface AgentRuntimeTurnMethods {
     targetMessageId: MessageId;
     traceContext: TraceContext;
   }): Promise<ConversationRewindResult | WorkspaceRewindResult>;
+  listConversationVersions(): Promise<Array<{id: string; createdAt: number; messageCount: number}>>;
+  restoreConversationVersion(options: {versionId: string; traceContext: TraceContext}): Promise<void>;
   rewindConversationToMessage(options: {
     abortSignal?: AbortSignal;
     events: SessionEvent[];

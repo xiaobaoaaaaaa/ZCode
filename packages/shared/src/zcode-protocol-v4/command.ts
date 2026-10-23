@@ -166,21 +166,23 @@ export const commandPayloadSchemas = {
   // 因为 admission 与当前 revision 无关，不走 CAS；sourceCommandId 提供幂等边界。
   compact: z.object({}),
   // running 时对稳定 assistant row 可用。
+  listConversationVersions: z.object({}),
+  restoreConversationVersion: z.object({ versionId: z.string().min(1) }),
   forkAssistant: z.object({ target: conversationRowTargetSchema }),
   applyFileRewind: z.object({ target: conversationRowTargetSchema }),
   editUserQuery: z
     .object({
-    target: conversationRowTargetSchema,
-    newText: z.string(),
+      target: conversationRowTargetSchema,
+      newText: z.string(),
       conversationQuotes: conversationQuotesSchema.optional(),
-    attachments: z.array(attachmentRefSchema).optional(),
+      attachments: z.array(attachmentRefSchema).optional(),
       // 编辑重发按新的主动发送处理：只接受本次重新 prepare 得到的卡与执行材料，
       // 不从被 rewind 的历史消息复用旧凭据。
       modelSelection: modelSelectionSchema.optional(),
       modelExecution: modelExecutionSchema.optional(),
       highspeedMeta: highspeedMessageMetaSchema.optional(),
-    // 缺省 preserve：仅切 conversation branch；rewind 会先安全恢复该轮文件。
-    workspaceMode: z.enum(["preserve", "rewind"]).optional(),
+      // 缺省 preserve：仅切 conversation branch；rewind 会先安全恢复该轮文件。
+      workspaceMode: z.enum(["preserve", "rewind"]).optional(),
     })
     .superRefine(requireModelSelectionForExecution),
   retryTurn: z.object({ target: conversationRowTargetSchema }),
@@ -313,6 +315,7 @@ export const BACKGROUND_WORK_CANCEL_REJECTED_FAULT_PREFIX =
 
 // CAS ✓ 的命令：信封必带 baseRevision。
 export const COMMANDS_REQUIRING_BASE_REVISION: ReadonlySet<CommandType> = new Set([
+  "restoreConversationVersion",
   "applyFileRewind",
   "forkAssistant",
   "editUserQuery",
@@ -388,6 +391,21 @@ export function parseCommandEnvelope(
 
 // ── ACK ──
 export const commandResultSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("listConversationVersions"),
+    versions: z.array(
+      z.object({
+        id: z.string(),
+        createdAt: z.number(),
+        messageCount: z.number(),
+      }),
+    ),
+  }),
+  z.object({
+    type: z.literal("restoreConversationVersion"),
+    versionId: z.string(),
+    sessionId: z.string(),
+  }),
   z.object({
     type: z.enum(["createSession", "createSelectionSideSession", "forkAssistant"]),
     sessionId: z.string(),
