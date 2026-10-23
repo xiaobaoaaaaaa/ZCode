@@ -8,8 +8,46 @@ import {
   previewRequiredFiles,
   verifyPreviewFiles,
 } from "../personal-windows-preview.mjs";
-import { smokeEnvironment } from "../personal-windows-smoke.mjs";
+import {
+  smokeEnvironment,
+  parseDevToolsEndpoint,
+  createDevToolsEndpointReader,
+} from "../personal-windows-smoke.mjs";
 import YAML from "yaml";
+
+const recordedEndpoint =
+  "ws://127.0.0.1:57068/devtools/browser/576f1a4c-e4d2-4c2a-be33-7481ab6914b3";
+test("detects the Windows Chromium announcement without assuming a port-file location", () => {
+  assert.equal(
+    parseDevToolsEndpoint(`\r\nDevTools listening on ${recordedEndpoint}\r\n`),
+    recordedEndpoint,
+  );
+  for (const value of [
+    recordedEndpoint.replace("127.0.0.1", "example.com"),
+    recordedEndpoint.replace("57068", "0"),
+    recordedEndpoint.replace("57068", "65536"),
+    recordedEndpoint.replace("127.0.0.1", "user@127.0.0.1"),
+    recordedEndpoint + "?token=x",
+    recordedEndpoint.replace("/browser/", "/page/"),
+  ]) {
+    assert.equal(parseDevToolsEndpoint(`DevTools listening on ${value}\n`), undefined);
+  }
+  assert.equal(
+    parseDevToolsEndpoint(`[main] DevTools listening on ${recordedEndpoint}\n`),
+    undefined,
+  );
+});
+
+test("retains a chunked endpoint after later startup logs exceed the log budget", () => {
+  const read = createDevToolsEndpointReader();
+  const announcement = `DevTools listening on ${recordedEndpoint}\r\n`;
+  for (const char of announcement.slice(0, -1)) assert.equal(read(char), undefined);
+  assert.equal(read("\n"), recordedEndpoint);
+  assert.equal(read("normal startup log\n".repeat(20000)), recordedEndpoint);
+  assert.equal(read(), recordedEndpoint);
+  const sameChunk = createDevToolsEndpointReader();
+  assert.equal(sameChunk(announcement + "normal log\n".repeat(20000)), recordedEndpoint);
+});
 
 test("smoke refuses local computers and non-Windows/arm runners", () => {
   const cloud = { GITHUB_ACTIONS: "true", RUNNER_ENVIRONMENT: "github-hosted" };

@@ -7,6 +7,29 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { assertPreviewHost, verifyPreviewFiles } from "./personal-windows-preview.mjs";
 
+export function parseDevToolsEndpoint(stderr) {
+  const match =
+    /^DevTools listening on (ws:\/\/127\.0\.0\.1:([0-9]+)\/devtools\/browser\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\r?$/m.exec(
+      stderr,
+    );
+  if (!match || Number(match[2]) < 1 || Number(match[2]) > 65535) return undefined;
+  return match[1];
+}
+
+export function createDevToolsEndpointReader() {
+  let tail = "";
+  let endpoint;
+  return (chunk = "") => {
+    if (!endpoint) {
+      const text = tail + chunk;
+      const newline = text.lastIndexOf("\n");
+      if (newline >= 0) endpoint = parseDevToolsEndpoint(text.slice(0, newline + 1));
+      tail = text.slice(newline + 1).slice(-16384);
+    }
+    return endpoint;
+  };
+}
+
 export function smokeEnvironment(env, temporaryHome) {
   // 不把 Actions token/仓库凭据传给预览程序；使用产品已有路径覆盖，不改 HOME。
   const clean = Object.fromEntries(
@@ -70,21 +93,27 @@ export async function smokePreview() {
     child.on("error", (error) => {
       spawnError = error;
     });
+    const readEndpoint = createDevToolsEndpointReader();
+    child.stderr.on("data", (data) => readEndpoint(data.toString()));
     for (const stream of [child.stdout, child.stderr])
       stream.on("data", (data) => {
         logs = (logs + data.toString()).slice(-256 * 1024);
       });
     const deadline = Date.now() + 90000;
-    let port;
+    let endpoint;
     while (Date.now() < deadline) {
       if (spawnError || child.exitCode !== null)
         throw new Error(`Preview exited before renderer: ${spawnError?.message ?? child.exitCode}`);
+      // Windows 诊断显示 Chromium 已监听，但端口文件不在 app 覆盖后的 userData；
+      // 使用本次子进程自己的精确 loopback 公告，后续 renderer 挂载校验保持不变。
+      endpoint = readEndpoint();
+      if (endpoint) break;
       try {
         const value = (
           await readFile(join(temporaryHome, "electron", "DevToolsActivePort"), "utf8")
         ).split(/\r?\n/)[0];
         if (/^\d+$/.test(value) && Number(value) > 0 && Number(value) <= 65535) {
-          port = Number(value);
+          endpoint = `http://127.0.0.1:${Number(value)}`;
           break;
         }
       } catch (error) {
@@ -92,10 +121,11 @@ export async function smokePreview() {
       }
       await delay(500);
     }
-    if (!port) throw new Error("No renderer debugging endpoint within 90 seconds");
+    if (!endpoint) throw new Error("No renderer debugging endpoint within 90 seconds");
+    await writeFile(resolve(evidence, "endpoint.json"), JSON.stringify({ endpoint }));
     const require = createRequire(resolve(root, "packages/desktop/package.json"));
     const { chromium } = require("playwright-core");
-    browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, { timeout: 15000 });
+    browser = await chromium.connectOverCDP(endpoint, { timeout: 15000 });
     let page;
     while (Date.now() < deadline) {
       page = browser
