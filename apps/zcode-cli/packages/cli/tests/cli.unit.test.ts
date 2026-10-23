@@ -4549,6 +4549,8 @@ test("prints slash help for prompt help command without creating an app", async 
   const ctx = createContext(["--prompt", "/help"]);
   let appCreated = false;
   const exitCode = await run(ctx, {
+    // /help 用例只验证展示；真实扫描会初始化用户插件目录，必须使用隔离依赖。
+    listCustomCommands: async () => ({ commands: [], diagnostics: [], totalDiscovered: 0 }) as never,
     createZCodeApp: () => {
       appCreated = true;
       throw new Error("app should not be created");

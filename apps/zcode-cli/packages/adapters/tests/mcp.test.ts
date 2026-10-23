@@ -1,8 +1,13 @@
-import { dirname } from "node:path";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { UnauthorizedError } from "@modelcontextprotocol/client";
 import { ZCODE_TOOL_ENV_PASSTHROUGH_ENV_KEY } from "@zcode/shared";
-import type { SharedZCodeCredentialStore } from "../src/auth/shared-credentials.js";
+import {
+  createSharedZCodeCredentialStore,
+  type SharedZCodeCredentialStore,
+} from "../src/auth/shared-credentials.js";
 
 const {
   capturedClientInfo,
@@ -108,7 +113,7 @@ vi.mock("@modelcontextprotocol/client/stdio", () => ({
   },
 }));
 
-import { createMcpAdapter } from "../src/mcp/index.js";
+import { createMcpAdapter as createBaseMcpAdapter } from "../src/mcp/index.js";
 import { createMcpTelemetryTracker } from "../src/mcp/telemetry.js";
 
 /**
@@ -174,8 +179,26 @@ async function observePromiseWithin<T>(
   }
 }
 
+// OAuth 状态必须落在合成夹具目录，不能因默认 profile 路径变化写入真实用户目录。
+let credentialsRoot: string;
+function createMcpAdapter(options: Parameters<typeof createBaseMcpAdapter>[0] = {}) {
+  return createBaseMcpAdapter({
+    ...options,
+    mcpOAuth: {
+      credentialStore: createSharedZCodeCredentialStore({
+        filePath: join(credentialsRoot, "credentials.json"),
+      }),
+      ...options.mcpOAuth,
+    },
+  });
+}
+
 describe("createMcpAdapter", () => {
-  beforeEach(() => {
+  afterEach(async () => {
+    await rm(credentialsRoot, { recursive: true, force: true });
+  });
+  beforeEach(async () => {
+    credentialsRoot = await mkdtemp(join(tmpdir(), "zcode-mcp-test-"));
     capturedClientInfo.length = 0;
     capturedHttpOptions.length = 0;
     capturedSseOptions.length = 0;
@@ -204,7 +227,10 @@ describe("createMcpAdapter", () => {
     const gate = Promise.withResolvers<void>();
     clientConnectMock.mockImplementationOnce(() => gate.promise);
     const adapter = createMcpAdapter();
-    const connecting = adapter.connectServer("fixture", { type: "stdio", command: "node" });
+    const connecting = adapter.connectServer("fixture", {
+      type: "stdio",
+      command: "node",
+    });
     await vi.waitFor(() => expect(clientConnectMock).toHaveBeenCalledOnce());
     expect(adapter.appConnectionSnapshot?.("fixture")).toBeNull();
     const settled = vi.fn();
@@ -426,7 +452,9 @@ describe("createMcpAdapter", () => {
       expect(options).toMatchObject({
         capabilities: {
           extensions: {
-            "io.modelcontextprotocol/ui": { mimeTypes: ["text/html;profile=mcp-app"] },
+            "io.modelcontextprotocol/ui": {
+              mimeTypes: ["text/html;profile=mcp-app"],
+            },
           },
         },
       });
@@ -731,7 +759,9 @@ describe("createMcpAdapter", () => {
     });
     // SDK 本地错误用字符串 code（REQUEST_TIMEOUT / CONNECTION_CLOSED …）。
     clientPingMock.mockRejectedValue(
-      Object.assign(new Error("Request timed out"), { code: "REQUEST_TIMEOUT" }),
+      Object.assign(new Error("Request timed out"), {
+        code: "REQUEST_TIMEOUT",
+      }),
     );
 
     await expect(adapter.pingServer?.("official_tools")).resolves.toBe(false);
@@ -1266,7 +1296,9 @@ describe("createMcpAdapter", () => {
       });
       release();
       await vi.waitFor(async () => {
-        expect(await adapter.status()).toMatchObject({ notion: { status: "connected" } });
+        expect(await adapter.status()).toMatchObject({
+          notion: { status: "connected" },
+        });
       });
     } finally {
       startAuthorization();

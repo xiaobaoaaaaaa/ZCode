@@ -649,7 +649,8 @@ describe("NodeExecutionAdapter", () => {
   });
 
   it("keeps foreground results foreground when commands finish before timeout", async () => {
-    const adapter = new NodeExecutionAdapter();
+    const root = await mkdtemp(join(tmpdir(), "zcode-exec-foreground-"));
+    const adapter = new NodeExecutionAdapter({ outputRootDir: root });
     const capable = adapter as BashBackgroundLifecycleCapableAdapter;
 
     try {
@@ -670,6 +671,7 @@ describe("NodeExecutionAdapter", () => {
       expect(result.result.stdout.text).toBe("ok");
     } finally {
       await adapter.close();
+      await rm(root, { recursive: true, force: true });
     }
   });
 
@@ -2105,29 +2107,36 @@ describe("NodeExecutionAdapter", () => {
   it.skipIf(!POSIX_BASH_PATH)(
     "runs posix-bash shell profile commands with bash-specific syntax when bash is the user shell",
     async () => {
+      const root = await mkdtemp(join(tmpdir(), "zcode-exec-bash-syntax-"));
       const adapter = new NodeExecutionAdapter({
+        outputRootDir: root,
         processEnv: {
           ...process.env,
           SHELL: POSIX_BASH_PATH ?? "/bin/bash",
         },
       });
-      const result = await adapter.run({
-        command: {
-          mode: "shell",
-          command: [
-            "arr=(a b)",
-            "printf '%s\\n' \"${arr[1]}\"",
-            "false | true",
-            "printf '%s\\n' \"${PIPESTATUS[0]} ${PIPESTATUS[1]}\"",
-            "[[ -n x ]] && printf '%s\\n' ok",
-          ].join("\n"),
-          shellProfile: "posix-bash",
-        },
-      });
+      try {
+        const result = await adapter.run({
+          command: {
+            mode: "shell",
+            command: [
+              "arr=(a b)",
+              "printf '%s\\n' \"${arr[1]}\"",
+              "false | true",
+              "printf '%s\\n' \"${PIPESTATUS[0]} ${PIPESTATUS[1]}\"",
+              "[[ -n x ]] && printf '%s\\n' ok",
+            ].join("\n"),
+            shellProfile: "posix-bash",
+          },
+        });
 
-      expect(result.status).toBe("completed");
-      expect(result.exitCode).toBe(0);
-      expect(result.stdout.text).toBe("b\n1 0\nok\n");
+        expect(result.status).toBe("completed");
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout.text).toBe("b\n1 0\nok\n");
+      } finally {
+        await adapter.close();
+        await rm(root, { recursive: true, force: true });
+      }
     },
   );
 
@@ -3939,7 +3948,9 @@ describe("NodeExecutionAdapter", () => {
             },
           });
           expect(result.result.stdout.artifactPath).toBeUndefined();
-          expect(statfsMock).toHaveBeenCalledWith(outputDirectory, { bigint: true });
+          expect(statfsMock).toHaveBeenCalledWith(outputDirectory, {
+            bigint: true,
+          });
         }
       } finally {
         await adapter.close();
@@ -4210,7 +4221,8 @@ describe("NodeExecutionAdapter", () => {
   it.skipIf(!POSIX_BASH_PATH || process.platform === "win32")(
     "does not kill descendants when the Bash root exits normally",
     async () => {
-      const adapter = new NodeExecutionAdapter();
+      const root = await mkdtemp(join(tmpdir(), "zcode-exec-descendants-"));
+      const adapter = new NodeExecutionAdapter({ outputRootDir: root });
       let descendantPid = Number.NaN;
 
       try {
@@ -4239,6 +4251,7 @@ describe("NodeExecutionAdapter", () => {
           process.kill(descendantPid, "SIGKILL");
         }
         await adapter.close();
+        await rm(root, { recursive: true, force: true });
       }
     },
   );
@@ -5010,6 +5023,8 @@ function quotePosixShellArgument(value: string): string {
 
 function readPosixProcessGroupId(pid: number): number {
   return Number(
-    execFileSync("ps", ["-o", "pgid=", "-p", String(pid)], { encoding: "utf8" }).trim(),
+    execFileSync("ps", ["-o", "pgid=", "-p", String(pid)], {
+      encoding: "utf8",
+    }).trim(),
   );
 }
