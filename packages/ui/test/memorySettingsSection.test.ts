@@ -286,7 +286,11 @@ describe("Global profile memory settings", () => {
       getGlobalMemory: vi.fn(async () => value),
       updateGlobalMemory: vi.fn(async (input: { content: string; expectedGeneration: number }) => {
         if (input.expectedGeneration !== value.generation) throw new Error("stale edit");
-        value = { ...value, content: input.content, generation: value.generation + 1 };
+        value = {
+          ...value,
+          content: input.content,
+          generation: value.generation + 1,
+        };
         return value;
       }),
       setGlobalMemoryPreferences: vi.fn(
@@ -302,7 +306,9 @@ describe("Global profile memory settings", () => {
     renderSection(service, false);
     const editor = await screen.findByRole("textbox");
     await waitFor(() => expect((editor as HTMLTextAreaElement).disabled).toBe(false));
-    fireEvent.change(editor, { target: { value: "Prefer concise responses." } });
+    fireEvent.change(editor, {
+      target: { value: "Prefer concise responses." },
+    });
     fireEvent.click(screen.getByRole("button", { name: "settings.globalMemory.save" }));
     await waitFor(() =>
       expect(service.updateGlobalMemory).toHaveBeenCalledWith({
@@ -313,7 +319,9 @@ describe("Global profile memory settings", () => {
     await waitFor(() => expect((editor as HTMLTextAreaElement).disabled).toBe(false));
     fireEvent.click(screen.getByRole("switch", { name: "settings.globalMemory.record" }));
     await waitFor(() =>
-      expect(service.setGlobalMemoryPreferences).toHaveBeenCalledWith({ extractionEnabled: false }),
+      expect(service.setGlobalMemoryPreferences).toHaveBeenCalledWith({
+        extractionEnabled: false,
+      }),
     );
     await waitFor(() => expect((editor as HTMLTextAreaElement).disabled).toBe(false));
     fireEvent.click(screen.getByRole("button", { name: "settings.globalMemory.delete" }));
@@ -330,5 +338,76 @@ describe("Global profile memory settings", () => {
     fireEvent.click(screen.getByRole("button", { name: "settings.globalMemory.save" }));
     expect((await screen.findByRole("alert")).textContent).toContain("stale edit");
     expect((editor as HTMLTextAreaElement).value).toBe("My unsaved preference");
+  });
+});
+
+describe("Official project memory import", () => {
+  it("previews without copying, requires explicit confirmation and invalidates edited source", async () => {
+    const service = {
+      ...createService(),
+      previewProfileImport: vi.fn(async () => ({
+        token: "preview",
+        source: "/synthetic/official",
+        projects: 1,
+        files: 2,
+        bytes: 80,
+      })),
+      confirmProfileImport: vi.fn(async () => ({
+        imported: 1,
+        duplicates: 0,
+        conflicts: [],
+      })),
+    };
+    renderSection(service, true);
+    const input = screen.getByRole("textbox", {
+      name: "settings.profileImport.source",
+    });
+    fireEvent.change(input, { target: { value: "/synthetic/official" } });
+    fireEvent.click(screen.getByRole("button", { name: "settings.profileImport.preview" }));
+    await screen.findByRole("button", {
+      name: "settings.profileImport.confirm",
+    });
+    expect(service.confirmProfileImport).not.toHaveBeenCalled();
+    fireEvent.change(input, { target: { value: "/synthetic/other" } });
+    expect(screen.queryByRole("button", { name: "settings.profileImport.confirm" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "settings.profileImport.preview" }));
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "settings.profileImport.confirm",
+      }),
+    );
+    await waitFor(() =>
+      expect(service.confirmProfileImport).toHaveBeenCalledWith({
+        token: "preview",
+      }),
+    );
+    await screen.findByText("settings.profileImport.result:imported=1,duplicates=0,conflicts=0");
+  });
+  it("shows failed confirmation and requires fresh preview", async () => {
+    const service = {
+      ...createService(),
+      previewProfileImport: vi.fn(async () => ({
+        token: "preview",
+        source: "/synthetic/official",
+        projects: 1,
+        files: 2,
+        bytes: 80,
+      })),
+      confirmProfileImport: vi.fn(async () => {
+        throw new Error("Source changed");
+      }),
+    };
+    renderSection(service, true);
+    fireEvent.change(screen.getByRole("textbox", { name: "settings.profileImport.source" }), {
+      target: { value: "/synthetic/official" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "settings.profileImport.preview" }));
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "settings.profileImport.confirm",
+      }),
+    );
+    expect((await screen.findByRole("alert")).textContent).toBe("Source changed");
+    expect(screen.queryByRole("button", { name: "settings.profileImport.confirm" })).toBeNull();
   });
 });

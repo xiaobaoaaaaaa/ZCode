@@ -1,3 +1,4 @@
+import type { PersonalProfileImportContract } from "../profile-import/contract.js";
 import type { Memory, MemoryConfig } from "@zcode/shared";
 import { ServiceChannels } from "@zcode/shared";
 import { createServiceDescriptor } from "../descriptors.js";
@@ -30,7 +31,7 @@ export interface GlobalMemorySnapshot {
   disabledSessionIds: string[];
 }
 
-export interface IMemoryService {
+export interface IMemoryService extends PersonalProfileImportContract {
   getGlobalMemory(): Promise<GlobalMemorySnapshot>;
   updateGlobalMemory(params: {
     content: string;

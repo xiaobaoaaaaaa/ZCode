@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type IMemoryService,
   type GlobalMemorySnapshot,
+  type ProfileImportPreview,
+  type ProfileImportReport,
   type ProjectMemoryWorkspaceSummary,
 } from "@zcode/services";
 import { TID_SETTINGS_MEMORY_SWITCH } from "@zcode/shared/test-ids";
@@ -18,8 +20,9 @@ type GlobalMemoryService = Pick<
   IMemoryService,
   "getGlobalMemory" | "updateGlobalMemory" | "setGlobalMemoryPreferences"
 >;
+type ProfileImportService = Pick<IMemoryService, "previewProfileImport" | "confirmProfileImport">;
 type MemoryCatalogService = Pick<IMemoryService, "listProjectMemories"> &
-  Partial<GlobalMemoryService>;
+  Partial<GlobalMemoryService & ProfileImportService>;
 
 function normalizeWorkspaceDisplayName(value: string): string {
   const slug = value
@@ -153,7 +156,11 @@ export function MemorySettingsSection({
 
   const handleRefresh = useCallback(async () => {
     await runUserActionAsync({
-      input: { featureId: "settings.memory", action: "refresh_memory", trigger: "button" },
+      input: {
+        featureId: "settings.memory",
+        action: "refresh_memory",
+        trigger: "button",
+      },
       operation: refreshCatalog,
       completed: { resultSource: "platform_result" },
       failureStage: "catalog_refresh",
@@ -162,6 +169,14 @@ export function MemorySettingsSection({
 
   return (
     <div className="space-y-6">
+      {projectMemoryViewerAvailable &&
+      memoryService.previewProfileImport &&
+      memoryService.confirmProfileImport ? (
+        <ProfileImportSettings
+          service={memoryService as ProfileImportService}
+          onImported={refreshCatalog}
+        />
+      ) : null}
       {projectMemoryViewerAvailable &&
       memoryService.getGlobalMemory &&
       memoryService.updateGlobalMemory &&
@@ -354,6 +369,126 @@ function GlobalMemorySettings({ service }: { service: GlobalMemoryService }) {
             {error}
           </p>
         ) : null}
+      </div>
+    </SettingsGroupCard>
+  );
+}
+
+function ProfileImportSettings({
+  service,
+  onImported,
+}: {
+  service: ProfileImportService;
+  onImported: () => Promise<unknown>;
+}) {
+  const { intl } = useZCodeIntl();
+  const [source, setSource] = useState("");
+  const [preview, setPreview] = useState<ProfileImportPreview | null>(null);
+  const [report, setReport] = useState<ProfileImportReport | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const admitted = useRef(false);
+  const label = (key: string) => intl.formatMessage({ id: `settings.profileImport.${key}` });
+  const run = async (confirm: boolean) => {
+    if (admitted.current) return;
+    admitted.current = true;
+    setBusy(true);
+    setError(null);
+    setReport(null);
+    try {
+      if (confirm && preview) {
+        const result = await service.confirmProfileImport({
+          token: preview.token,
+        });
+        setReport(result);
+        setPreview(null);
+        await onImported();
+      } else {
+        setPreview(null);
+        setPreview(await service.previewProfileImport({ source: source.trim() }));
+      }
+    } catch (reason) {
+      setError(getErrorMessage(reason));
+      setPreview(null);
+    } finally {
+      admitted.current = false;
+      setBusy(false);
+    }
+  };
+  return (
+    <SettingsGroupCard>
+      <SettingsRow label={label("title")} description={label("scope")} control={null} />
+      <div className="space-y-3 px-4 py-3 text-ui-base">
+        <p className="text-ui-caption text-foreground-subtle">{label("warning")}</p>
+        <label className="block" htmlFor="profile-import-source">
+          {label("source")}
+        </label>
+        <input
+          id="profile-import-source"
+          className="w-full rounded-lg border border-border bg-transparent p-3 text-ui-base"
+          value={source}
+          disabled={busy}
+          onChange={(event) => {
+            setSource(event.target.value);
+            setPreview(null);
+            setReport(null);
+            setError(null);
+          }}
+        />
+        <button
+          type="button"
+          disabled={busy || !source.trim()}
+          onClick={() => {
+            void run(false);
+          }}
+        >
+          {label("preview")}
+        </button>
+        {preview && (
+          <div role="status" className="space-y-2">
+            <p>
+              {intl.formatMessage(
+                { id: "settings.profileImport.counts" },
+                {
+                  projects: preview.projects,
+                  files: preview.files,
+                  bytes: preview.bytes,
+                },
+              )}
+            </p>
+            <p className="break-all text-ui-caption">{preview.source}</p>
+            <button
+              type="button"
+              disabled={busy || !preview.files}
+              onClick={() => {
+                void run(true);
+              }}
+            >
+              {label("confirm")}
+            </button>
+          </div>
+        )}
+        {busy && <p role="status">{label("busy")}</p>}
+        {report && (
+          <div role="status">
+            {intl.formatMessage(
+              { id: "settings.profileImport.result" },
+              {
+                imported: report.imported,
+                duplicates: report.duplicates,
+                conflicts: report.conflicts.length,
+              },
+            )}
+            {report.conflicts.length > 0 && (
+              <p className="break-all text-ui-caption">{report.conflicts.join(", ")}</p>
+            )}
+          </div>
+        )}
+        {error && (
+          <p role="alert" className="break-all text-ui-caption text-destructive">
+            {error}
+          </p>
+        )}
       </div>
     </SettingsGroupCard>
   );

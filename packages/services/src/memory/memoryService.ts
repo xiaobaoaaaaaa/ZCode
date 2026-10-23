@@ -1,3 +1,4 @@
+import { createProfileImporter } from "../profile-import/index.js";
 import type { Memory, MemoryConfig } from "@zcode/shared";
 import {
   type IMemoryService,
@@ -263,6 +264,7 @@ async function mutateGlobalMemory(
  * 创建 Memory 服务实例
  */
 export function createMemoryService(): IMemoryService {
+  const importer = createProfileImporter(getZCodeDataRootDir);
   async function loadMemory(params: {
     workspacePath: string;
     agentId: string;
@@ -465,6 +467,7 @@ export function createMemoryService(): IMemoryService {
   }
 
   return {
+    ...importer,
     getGlobalMemory: async () => {
       const root = await globalMemoryRoot();
       const assertUnlocked = async () => {

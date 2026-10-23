@@ -8119,6 +8119,16 @@ const enUS: Record<string, string> = {
   "settings.globalMemory.disableSession": "Disable global memory for this session",
   "settings.globalMemory.enableSession": "Enable global memory for this session",
   "settings.globalMemory.sessionError": "Global memory preference failed; reopen to retry",
+  "settings.profileImport.title": "Import official project memories",
+  "settings.profileImport.scope": "Supported: project Markdown memories only. Sessions, registered projects and settings need schema-aware migration and are not imported. Credentials, encrypted data and global memory are excluded.",
+  "settings.profileImport.warning": "Close the official app first. Inspect source Markdown and remove any passwords or keys before importing. Only copies are created; existing personal projects are skipped. Project identity/path must still match. Links are not followed.",
+  "settings.profileImport.source": "Official profile folder (absolute path on this computer)",
+  "settings.profileImport.preview": "Preview supported memories",
+  "settings.profileImport.counts": "{projects} projects · {files} Markdown files · {bytes} bytes",
+  "settings.profileImport.confirm": "Confirm copy to personal profile",
+  "settings.profileImport.busy": "Checking or copying memories…",
+  "settings.profileImport.result": "Copied {imported} projects · {duplicates} duplicates skipped · {conflicts} conflicts preserved",
+
 };
 
 export default enUS;

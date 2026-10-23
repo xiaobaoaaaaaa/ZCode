@@ -800,6 +800,20 @@ modules:
       adapters: .
     owner: personal-memory
 
+  # personal-profile-import：由 architecture:adopt 登记
+  - id: personal-profile-import
+    roots:
+      - packages/services/src/profile-import
+    managed: true
+    requires:
+      - services
+    publicEntrypoints:
+      - packages/services/src/profile-import/index.ts
+      - packages/services/src/profile-import/contract.ts
+    layers:
+      adapters: .
+    owner: personal-memory
+
 global:
   # 临时时间戳（2026-09-10）：unmanaged-new-file 只约束此日期之后首次入库的文件。
   # 基于领先 staging 很多的分支开工时，merge-base 之前的"新增"文件不应被追溯。

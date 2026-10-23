@@ -1,0 +1,3 @@
+# Personal profile import
+
+Two methods: preview an explicitly selected official profile; confirm that exact expiring preview. Only project Markdown layout verified against upstream 3.16.2 is supported. No SQLite or credentials are opened. One adapter owns the in-memory lease and serial admission; no background work. Destination root is injected by MemoryService, never supplied by RPC/UI. All existing destination workspaces are preserved. Duplicate/conflict results count whole workspaces. Failure rolls back owned files; failed rollback lists recovery paths. See docs/personal/profile-import.md for bounds, state order, limitations and recovery.

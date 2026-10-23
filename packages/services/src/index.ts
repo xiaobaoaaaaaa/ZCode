@@ -399,3 +399,5 @@ export type {
   GroupNode,
   MoveGroupNode,
 } from "#src/task-groups/contract.js";
+
+export type { ProfileImportPreview, ProfileImportReport } from "./profile-import/contract.js";

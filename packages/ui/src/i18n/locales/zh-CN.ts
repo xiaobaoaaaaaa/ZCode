@@ -7705,6 +7705,16 @@ const zhCN: Record<string, string> = {
   "settings.globalMemory.disableSession": "当前会话禁用全局记忆",
   "settings.globalMemory.enableSession": "当前会话启用全局记忆",
   "settings.globalMemory.sessionError": "记忆设置失败，请重新打开后重试",
+  "settings.profileImport.title": "导入官方版项目记忆",
+  "settings.profileImport.scope": "仅支持项目 Markdown 记忆。会话、项目注册和设置需要按数据库版本迁移，尚不导入。凭据、加密数据和全局记忆均排除。",
+  "settings.profileImport.warning": "请先关闭官方应用，检查来源 Markdown 并移除密码或密钥。仅创建副本；个人版已有项目会跳过。项目身份或路径仍需匹配，不跟随文档链接。",
+  "settings.profileImport.source": "官方版数据目录（本机绝对路径）",
+  "settings.profileImport.preview": "预览可导入记忆",
+  "settings.profileImport.counts": "{projects} 个项目 · {files} 个 Markdown 文件 · {bytes} 字节",
+  "settings.profileImport.confirm": "确认复制到个人版",
+  "settings.profileImport.busy": "正在检查或复制记忆…",
+  "settings.profileImport.result": "已复制 {imported} 个项目 · 跳过 {duplicates} 个重复项目 · 保留 {conflicts} 个冲突项目",
+
 };
 
 export default zhCN;
