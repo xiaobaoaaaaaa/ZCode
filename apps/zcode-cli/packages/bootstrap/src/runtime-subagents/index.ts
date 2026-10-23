@@ -34,6 +34,7 @@ export function subagentProfilesFromSnapshot(snapshot: SubagentRuntimeConfig) {
     ? snapshot
     : {
         profiles: [],
+        mainAgentModelPolicy: undefined,
         builtInModelSelectionOverrides: {},
         pluginAgentModelSelectionOverrides: {},
       };

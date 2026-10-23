@@ -283,6 +283,7 @@ export class AgentRuntime {
     const definitions = createTurnAgentDefinitions(
       deps.getAgentDefinitions ??
         createAgentDefinitionsReader(this.config.subagents?.profiles ?? [], {
+          mainAgentModelPolicy: this.config.subagents?.mainAgentModelPolicy,
           builtInModelSelectionOverrides: this.config.subagents?.builtInModelSelectionOverrides,
         }),
       deps.loadAgentDefinitions,

@@ -1191,3 +1191,34 @@ tools:
     expect(state.disabledAgentIds).not.toContain(created.agent.id);
   });
 });
+
+describe("main-agent model policy", () => {
+  it("persists only explicit user policy and clears authorization without removing manual overrides", async () => {
+    const homeDir = await makeTempHome();
+    const service = createSubagentsService({ homeDir, isDesktopRuntime: true });
+    const policy = {
+      enabled: true,
+      allowedModels: [{ providerId: "personal:configured", modelId: "model" }],
+    };
+    await service.setMainAgentModelPolicy(policy);
+    await service.setBuiltInModelOverride({
+      agentName: "Explore",
+      modelSelection: policy.allowedModels[0],
+    });
+    const list = () =>
+      service.list({ workspacePath: "", provider: "glm", mode: "settingsUserOnly" });
+    expect((await list()).mainAgentModelPolicy).toEqual(policy);
+    await service.setMainAgentModelPolicy({ enabled: false, allowedModels: [] });
+    const after = await list();
+    expect(after.mainAgentModelPolicy).toEqual({ enabled: false, allowedModels: [] });
+    expect(after.agents.find((agent) => agent.name === "Explore")?.modelSelection).toEqual(
+      policy.allowedModels[0],
+    );
+    await expect(
+      service.setMainAgentModelPolicy({
+        enabled: true,
+        allowedModels: [{ providerId: "", modelId: "m" }],
+      }),
+    ).rejects.toThrow();
+  });
+});

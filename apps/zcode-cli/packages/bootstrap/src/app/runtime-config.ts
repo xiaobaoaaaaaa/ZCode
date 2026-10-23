@@ -32,6 +32,7 @@ interface ResolvedInitialRegistrySelection extends ResolvedRegistrySelection {
 }
 
 export function resolveAppRuntimeConfig(input: {
+  mainAgentModelPolicy?: import("@zcode/shared").MainAgentModelPolicy;
   cliStorageRoot: string;
   configResult: ConfigResult;
   options: ZCodeAppOptions;
@@ -167,6 +168,7 @@ export function resolveAppRuntimeConfig(input: {
       input.pluginHooks,
     ),
     subagents: {
+      mainAgentModelPolicy: input.mainAgentModelPolicy,
       ...options.runtimeConfig?.subagents,
       enabled: options.runtimeConfig?.subagents?.enabled ?? configResult.config.features.subagent,
       outputRootDir: options.runtimeConfig?.subagents?.outputRootDir ?? subagentOutputRootDir,

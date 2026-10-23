@@ -10,6 +10,8 @@ import {
 } from "@zcode/core";
 import type { Logger, PluginMetadata } from "@zcode/contracts";
 import {
+  mainAgentModelPolicySchema,
+  type MainAgentModelPolicy,
   createPluginAgentStateId,
   parsePluginSubagentModelSelectionOverrides,
   modelSelectionSchema,
@@ -25,6 +27,7 @@ interface LoadZCodeAgentProfilesInput {
 }
 
 interface LoadZCodeAgentProfilesResult {
+  mainAgentModelPolicy?: MainAgentModelPolicy;
   builtInModelSelectionOverrides: BuiltInSubagentModelSelectionOverrides;
   pluginAgentModelSelectionOverrides: PluginSubagentModelSelectionOverrides;
   diagnostics: AgentProfileParseDiagnostic[];
@@ -245,6 +248,7 @@ function countBareProfileNames(
 }
 
 async function readAgentState(storageRoot: string): Promise<{
+  mainAgentModelPolicy?: MainAgentModelPolicy;
   builtInModelSelectionOverrides: BuiltInSubagentModelSelectionOverrides;
   pluginAgentModelSelectionOverrides: PluginSubagentModelSelectionOverrides;
   disabledAgentIds: Set<string>;
@@ -252,11 +256,13 @@ async function readAgentState(storageRoot: string): Promise<{
   try {
     const raw = await readFile(join(storageRoot, "v2", "agents-state.json"), "utf8");
     const parsed = JSON.parse(raw) as {
+      mainAgentModelPolicy?: unknown;
       builtInModelSelectionOverrides?: unknown;
       pluginAgentModelSelectionOverrides?: unknown;
       disabledAgentIds?: unknown;
     };
     return {
+      mainAgentModelPolicy: mainAgentModelPolicySchema.safeParse(parsed.mainAgentModelPolicy).data,
       pluginAgentModelSelectionOverrides: parsePluginSubagentModelSelectionOverrides(
         parsed.pluginAgentModelSelectionOverrides,
       ),

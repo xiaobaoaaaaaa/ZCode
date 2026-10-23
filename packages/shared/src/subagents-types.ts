@@ -86,6 +86,7 @@ export interface AgentsCapability {
 }
 
 export interface AgentsListResult {
+  mainAgentModelPolicy?: import("./subagent-profile.js").MainAgentModelPolicy;
   agents: AgentSummary[];
   userAgents: AgentSummary[];
   pluginAgents: AgentSummary[];

@@ -46,6 +46,7 @@ export function isBuiltInExploreAgentProfile(
 export function normalizeAgentProfiles(
   profiles: readonly AgentProfile[],
   options: {
+    mainAgentModelPolicy?: import("@zcode/shared").MainAgentModelPolicy;
     builtInModelSelectionOverrides?: BuiltInSubagentModelSelectionOverrides;
   } = {},
 ): AgentProfile[] {
@@ -66,7 +67,10 @@ export function normalizeAgentProfiles(
   for (const profile of profiles) {
     active.set(profile.name, profile);
   }
-  return Array.from(active.values());
+  return Array.from(active.values()).map((profile) => ({
+    ...profile,
+    ...(options.mainAgentModelPolicy ? { mainAgentModelPolicy: options.mainAgentModelPolicy } : {}),
+  }));
 }
 
 export function createBuiltInGeneralPurposeAgentProfile(
@@ -109,7 +113,12 @@ export function formatAgentProfileForPrompt(
       ? filterSubagentChildToolNames(profile.tools, profile.disallowedTools)
       : undefined;
   const toolText = typeof tools === "string" ? tools : tools?.join(", ");
-  return `- ${profile.name}: ${profile.description}${toolText ? ` (Tools: ${toolText})` : ""}`;
+  const policy = profile.mainAgentModelPolicy;
+  const modelHint =
+    policy?.enabled && !profile.modelSelection
+      ? ` (Agent model may be chosen only from: ${policy.allowedModels.map((model) => `${model.providerId}/${model.modelId}`).join(", ") || "none; inherit current model"})`
+      : "";
+  return `- ${profile.name}: ${profile.description}${toolText ? ` (Tools: ${toolText})` : ""}${modelHint}`;
 }
 
 export function agentProfileDisplayName(profile: AgentProfile): string {

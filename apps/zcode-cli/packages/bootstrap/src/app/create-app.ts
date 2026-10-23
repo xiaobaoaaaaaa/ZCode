@@ -287,6 +287,7 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
         pluginMcpServers: pluginOutcome.mcpServers,
         builtInMcpServers,
         pluginRuntimeFeatures,
+        mainAgentModelPolicy: zcodeSubagentProfileOutcome.mainAgentModelPolicy,
         builtInSubagentModelSelectionOverrides:
           zcodeSubagentProfileOutcome.builtInModelSelectionOverrides,
         subagentOutputRootDir: join(cliStorageRoot, "agents"),
@@ -828,6 +829,7 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
                     ...pluginProfiles,
                   ],
                   {
+                    mainAgentModelPolicy: parsed.mainAgentModelPolicy,
                     builtInModelSelectionOverrides: {
                       ...parsed.builtInModelSelectionOverrides,
                       ...options.runtimeConfig?.subagents?.builtInModelSelectionOverrides,

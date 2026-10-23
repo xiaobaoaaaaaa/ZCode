@@ -38,6 +38,7 @@ const mockSubagentsService = vi.hoisted(() => ({
   createAgent: vi.fn(),
   updateAgent: vi.fn(),
   deleteAgent: vi.fn(),
+  setMainAgentModelPolicy: vi.fn(async () => {}),
   setEnabled: vi.fn(),
   setBuiltInModelOverride: vi.fn(),
   setPluginAgentModelOverride: vi.fn(),
@@ -377,6 +378,7 @@ vi.mock("@/settings/model-provider-section/useEnterpriseCodingPlanProducts.js", 
 
 vi.mock("@/i18n/IntlProvider.js", () => ({
   useZCodeIntl: () => ({
+    locale: "en-US",
     intl: {
       formatMessage: ({ id }: { id: string }, values?: Record<string, string | number>) => {
         const messages: Record<string, string> = {
@@ -498,6 +500,44 @@ describe("SubagentsSection", () => {
       },
     });
     mockRefreshLoadedSubagentsStoreForWorkspace.mockResolvedValue(undefined);
+  });
+
+  it("allows main-agent selection only after explicit model opt-in and can revoke it", async () => {
+    await renderInteractiveSubagentsSection();
+    await waitFor(() => expect(mockSubagentsService.list).toHaveBeenCalled());
+    const toggle = screen.getByRole("switch", { name: "Main agent model selection" });
+    await waitFor(() => expect((toggle as HTMLInputElement).disabled).toBe(false));
+    fireEvent.click(toggle);
+    await waitFor(() =>
+      expect(mockSubagentsService.setMainAgentModelPolicy).toHaveBeenLastCalledWith({
+        enabled: true,
+        allowedModels: [],
+      }),
+    );
+    const model = await screen.findByRole("checkbox", { name: / · gpt-5\.4$/u });
+    fireEvent.click(model);
+    await waitFor(() =>
+      expect(mockSubagentsService.setMainAgentModelPolicy).toHaveBeenLastCalledWith({
+        enabled: true,
+        allowedModels: [
+          expect.objectContaining({ providerId: "custom-openai", modelId: "gpt-5.4" }),
+        ],
+      }),
+    );
+    fireEvent.click(screen.getByText("Clear allowlist (including removed models)"));
+    await waitFor(() =>
+      expect(mockSubagentsService.setMainAgentModelPolicy).toHaveBeenLastCalledWith({
+        enabled: true,
+        allowedModels: [],
+      }),
+    );
+    fireEvent.click(toggle);
+    await waitFor(() =>
+      expect(mockSubagentsService.setMainAgentModelPolicy).toHaveBeenLastCalledWith({
+        enabled: false,
+        allowedModels: [],
+      }),
+    );
   });
 
   function setupScopeRouting(includeLocalWorkspace = true, connected = true) {

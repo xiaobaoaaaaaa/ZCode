@@ -4443,6 +4443,9 @@ export class ProductProjection {
       const row: SubagentRow = {
         ...existing,
         status: "running",
+        model: this.stringPayload(payload, "model") ?? existing.model,
+        modelSelectionReason:
+          this.stringPayload(payload, "modelSelectionReason") ?? existing.modelSelectionReason,
         summaryText:
           this.stringPayload(payload, "description") ??
           this.stringPayload(payload, "prompt") ??
@@ -4468,6 +4471,8 @@ export class ProductProjection {
         ? { parentToolCallId: this.stringPayload(payload, "parentToolCallId") }
         : {}),
       subagentType: this.stringPayload(payload, "agentType") ?? "subagent",
+      model: this.stringPayload(payload, "model"),
+      modelSelectionReason: this.stringPayload(payload, "modelSelectionReason"),
       status: "running",
       summaryText:
         this.stringPayload(payload, "description") ??

@@ -25,6 +25,8 @@ const AGENT_TOOL_OUTPUT_SCHEMA = {
     {
       type: "object",
       properties: {
+        model: { type: "string" },
+        modelSelectionReason: { type: "string" },
         status: { const: "completed", type: "string" },
         agentId: { type: "string" },
         agentType: { type: "string" },
@@ -52,6 +54,8 @@ const AGENT_TOOL_OUTPUT_SCHEMA = {
     {
       type: "object",
       properties: {
+        model: { type: "string" },
+        modelSelectionReason: { type: "string" },
         status: { const: "async_launched", type: "string" },
         agentId: {
           type: "string",
@@ -105,7 +109,7 @@ function buildAgentProviderDescription(
     "",
     "- The agent's final message is returned to you as the tool result; it is not shown to the user — relay what matters.",
     "- Use SendMessage with the agent's ID to continue a previously spawned agent with its context intact; a new Agent call starts fresh.",
-    "- Each agent type's model, reasoning effort, and tools come from its definition (`.zcode/agents/*.md` frontmatter).",
+    "- Manual agent model settings take precedence. Optional model is a suggestion limited to the user-enabled allowlist shown with each agent; omit it to inherit. Tools and reasoning settings still come from the configured profile.",
     "- `run_in_background: true` runs the agent asynchronously; you'll be notified when it completes.",
     // 只保留「用户点名工作流」这一种情形：工作流一律由用户显式请求触发，与系统提示词其余
     // 部分一致。不能把「结果层层喂给下一步的多代理编排」也划给 CreateWorkflow，
@@ -138,6 +142,7 @@ function formatAgentOutputForModel(output: unknown): string {
     ];
     return [
       ...childContent,
+      ...(data.model ? [`model: ${data.model} (${data.modelSelectionReason ?? ""})`] : []),
       `agentId: ${data.agentId} (use SendMessage with to: '${data.agentId}' to continue this agent)`,
       `<usage>${usageLines.join("\n")}</usage>`,
     ].join("\n");
@@ -145,6 +150,7 @@ function formatAgentOutputForModel(output: unknown): string {
 
   const launchLines = [
     "Async agent launched successfully.",
+    ...(data.model ? [`model: ${data.model} (${data.modelSelectionReason ?? ""})`] : []),
     `agentId: ${data.agentId} (internal ID - do not mention to user. Use SendMessage with to: '${data.agentId}' to continue this agent.)`,
     "The agent is working in the background. You will be notified automatically when it completes.",
   ];
@@ -188,6 +194,7 @@ const agentHandler: ToolHandler = async (input, context) => {
     turnId: context.turnId,
     parentToolCallId: context.toolCallId,
     agentType,
+    proposedModel: parsed.model,
     description: parsed.description,
     prompt: parsed.prompt,
     callerCanReadOutputFile: canReadBackgroundOutputFile(context.providerVisibleToolNames),

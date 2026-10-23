@@ -74,6 +74,7 @@ describe("显式 Subagent 选择使用注入的公共解析", () => {
     expect(resolveSubagentSelection({ profileSelection: original, resolveSelection })).toEqual({
       selection: effective,
       hasConcreteModel: true,
+      modelSelectionReason: "Manual agent model takes precedence / 手动指定优先",
     });
     expect(resolveSelection).toHaveBeenCalledWith(original);
   });
@@ -120,6 +121,76 @@ describe("显式 Subagent 选择使用注入的公共解析", () => {
       expect.objectContaining({
         context: expect.objectContaining({ selectionIssue: "reasoning-level-not-supported" }),
       }),
+    );
+  });
+});
+
+describe("main-agent model suggestions remain user-authorized", () => {
+  const parent = { providerId: "personal:parent", modelId: "parent" };
+  const allowed = {
+    providerId: "personal:allowed",
+    modelId: "chosen",
+    options: { reasoningLevel: "high" },
+  };
+  const policy = { enabled: true, allowedModels: [allowed] };
+  const catalog = [{ ...allowed, reasoningLevels: ["high"], current: false }];
+  const resolveSelection = (selection: typeof parent) => ({ effectiveSelection: selection });
+  const input = {
+    parentSelection: parent,
+    mainAgentModelPolicy: policy,
+    proposedModel: "personal:allowed/chosen",
+    catalog,
+    resolveSelection,
+  };
+
+  it("selects only an explicitly allowed and currently available identity", () => {
+    expect(resolveSubagentSelection(input)).toMatchObject({
+      selection: allowed,
+      hasConcreteModel: true,
+    });
+  });
+  it.each([
+    { mainAgentModelPolicy: { enabled: false, allowedModels: [allowed] } },
+    { mainAgentModelPolicy: { enabled: true, allowedModels: [] } },
+    { proposedModel: "personal:unknown/unknown" },
+    { proposedModel: undefined },
+    { catalog: [] },
+    { catalog: [{ ...catalog[0], disabledReason: "missing credentials" }] },
+    {
+      resolveSelection: () => ({
+        effectiveSelection: null,
+        selectionIssue: "model-not-found" as const,
+      }),
+    },
+    {
+      resolveSelection: () => ({
+        effectiveSelection: { ...allowed, providerId: "personal:unapproved" },
+      }),
+    },
+  ])("falls back only to current parent for %j", (overrides) => {
+    const result = resolveSubagentSelection({ ...input, ...overrides });
+    expect(result.selection).toEqual(parent);
+    expect(result.hasConcreteModel).toBe(false);
+    expect(result.modelSelectionReason).toMatch(/inherit/iu);
+  });
+  it("does not silently rescue a missing parent or invalid manual model", () => {
+    expect(() =>
+      resolveSubagentSelection({ ...input, parentSelection: undefined, catalog: [] }),
+    ).toThrow();
+    expect(() =>
+      resolveSubagentSelection({
+        ...input,
+        profileSelection: allowed,
+        resolveSelection: () => ({ effectiveSelection: null }),
+      }),
+    ).toThrow();
+  });
+  it("manual selection and internal execution bindings have precedence", () => {
+    expect(resolveSubagentSelection({ ...input, profileSelection: parent }).selection).toEqual(
+      parent,
+    );
+    expect(resolveSubagentSelection({ ...input, overrideSelection: parent }).selection).toEqual(
+      parent,
     );
   });
 });

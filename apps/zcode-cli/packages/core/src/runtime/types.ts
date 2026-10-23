@@ -144,6 +144,7 @@ export interface AgentRuntimeConfig {
     mode?: "auto" | "force";
   };
   subagents?: {
+    mainAgentModelPolicy?: import("@zcode/shared").MainAgentModelPolicy;
     enabled?: boolean;
     // foreground subagent 没有任何 child 事件的最大静默时间；默认对齐模型流 idle timeout。
     inactivityTimeoutMs?: number;

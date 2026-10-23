@@ -2898,6 +2898,8 @@ describe("ProductProjection 黄金测试（L1）", () => {
       {
         agentId: "agent-1",
         agentType: "Explore",
+        model: "personal:configured/model",
+        modelSelectionReason: "Model not allowed; inherited parent",
         childSessionId: "sess_child_1",
         description: "探索项目结构",
         parentToolCallId: "call-agent-1",
@@ -2925,6 +2927,8 @@ describe("ProductProjection 黄金测试（L1）", () => {
       parentToolCallId: "call-agent-1",
       status: "success",
       subagentType: "Explore",
+      model: "personal:configured/model",
+      modelSelectionReason: "Model not allowed; inherited parent",
       summaryText: "项目结构已经梳理完成",
     });
     expect(projection.getSnapshot().subagents).toMatchObject({
