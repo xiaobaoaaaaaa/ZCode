@@ -23,7 +23,7 @@ jobs:
         with:
           node-version: 24.14.0
       - name: Install locked dependencies without application startup
-        run: pnpm install --frozen-lockfile --ignore-scripts
+        run: $env:Pnpm_Max_Workers='1'; pnpm install --frozen-lockfile --ignore-scripts
       - name: Typecheck
         run: pnpm typecheck
       - name: Targeted presentation, memory and identity tests
