@@ -391,6 +391,9 @@ describe("NodeExecutionAdapter", () => {
         await rm(outputRootDir, { force: true, recursive: true });
       }
     },
+    // 2 秒启动轮询 + 750ms 终止宽限 + 1 秒管道 drain + 850ms 存活断言，
+    // 原 5 秒总预算几乎没有进程启动余量；保留全部断言，给隔离全套运行留出余量。
+    10_000,
   );
 
   it("cancels an explicit lifecycle task when the adapter closes", async () => {
