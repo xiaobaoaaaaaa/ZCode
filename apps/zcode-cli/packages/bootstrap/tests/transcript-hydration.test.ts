@@ -310,7 +310,8 @@ describe("transcript→event 合成", () => {
     // Bugfix 回归：cold 合成必须保留各 assistant message 的真实创建时间，不能全部
     // 退化成首条 transcript 时间附近的合成序号。
     expect(assistantRows.map((row) => row.createdAt)).toEqual([1001, 2001]);
-    expect(userRows[0]?.actions?.canEdit).not.toBe(true);
+    // 历史消息编辑已允许更早的用户轮次，保留版本而不删除后续历史。
+    expect(userRows[0]?.actions?.canEdit).toBe(true);
     expect(userRows[1]?.actions?.canEdit).toBe(true);
     expect(projection.getMessageIdForRow(userRows[1]!.rowId)).toBe("u2");
     expect(projection.getTurnRewindAnchor(userRows[1]!.rowId)).toBe("u2");

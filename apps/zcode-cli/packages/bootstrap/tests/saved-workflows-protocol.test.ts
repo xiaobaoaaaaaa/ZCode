@@ -2,9 +2,9 @@
 // 真实 tmp 目录 + core 的真实 store / codec；只有 journal 用能力探测式的假实现。
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   zcodeWorkflowsDeleteResultSchema,
   zcodeWorkflowsGetResultSchema,
@@ -34,11 +34,9 @@ const SCRIPT = [
 ].join("\n");
 
 let cwd = "";
-// 每个用例一份隔离的 HOME：全局档落在 `<HOME>/.zcode/workflows/`，core 恒取 `os.homedir()`
+// 每个用例一份隔离的 HOME：全局档落在 `<HOME>/.zcode-personal/workflows/`，core 恒取 `os.homedir()`
 // （posix 上即 `$HOME`）。不隔离的话 list/get/move 的全局变体会读到真实家目录、结果非确定。
 let home = "";
-let prevHome: string | undefined;
-let prevUserProfile: string | undefined;
 
 function workspace() {
   return { workspacePath: cwd, workspaceKey: cwd };
@@ -56,7 +54,7 @@ function projectDir() {
 }
 
 function globalDir() {
-  return join(home, ".zcode", "workflows");
+  return join(home, ".zcode-personal", "workflows");
 }
 
 async function seedWorkflow(name: string, meta: Parameters<typeof serializeSavedWorkflow>[0]) {
@@ -79,17 +77,10 @@ async function seedGlobalWorkflow(
 beforeEach(async () => {
   cwd = await mkdtemp(join(tmpdir(), "zcode-saved-workflows-protocol-"));
   home = await mkdtemp(join(tmpdir(), "zcode-saved-workflows-home-"));
-  prevHome = process.env.HOME;
-  prevUserProfile = process.env.USERPROFILE;
-  process.env.HOME = home;
-  process.env.USERPROFILE = home;
+  vi.mocked(homedir).mockReturnValue(home);
 });
 
 afterEach(async () => {
-  if (prevHome === undefined) delete process.env.HOME;
-  else process.env.HOME = prevHome;
-  if (prevUserProfile === undefined) delete process.env.USERPROFILE;
-  else process.env.USERPROFILE = prevUserProfile;
   await rm(cwd, { recursive: true, force: true });
   await rm(home, { recursive: true, force: true });
 });
@@ -443,7 +434,7 @@ describe("workflows/* protocol methods", () => {
 });
 
 // 全局作用域（docs/dynamic-workflow/launch.md）：五个方法的定向 `scope` 变体 + workflows/move。
-// 全局档落在隔离的 `<HOME>/.zcode/workflows/`（见顶部 beforeEach）；同名的项目档不受牵连。
+// 全局档落在隔离的 `<HOME>/.zcode-personal/workflows/`（见顶部 beforeEach）；同名的项目档不受牵连。
 describe("workflows/* 全局作用域与 workflows/move", () => {
   it("list：项目变体只列项目档 + dir=项目根（即使目录不存在）；全局变体只列全局档 + dir=全局根", async () => {
     // 项目根不存在也回 dir（GUI 靠它 watch）。

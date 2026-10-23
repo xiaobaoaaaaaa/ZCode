@@ -3,9 +3,9 @@
 // 取 journal 里的脚本原文落盘，`workflows/forRun` 回答「这次 run 对应哪个已保存工作流」。
 // 真实 tmp 目录 + core 的真实 store / codec / 类型检查器；只有 journal 用能力探测式的假实现。
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { zcodeWorkflowsForRunResultSchema, zcodeWorkflowsSaveResultSchema } from "@zcode/shared";
 import { parseSavedWorkflow, serializeSavedWorkflow } from "@zcode/core";
 import {
@@ -27,8 +27,6 @@ const OTHER_SCRIPT = ['const a = agent("另一个");', 'return await a.ask<strin
 
 let cwd = "";
 let home = "";
-let prevHome: string | undefined;
-let prevUserProfile: string | undefined;
 
 interface FakeRun {
   runId: string;
@@ -62,7 +60,7 @@ function projectDir() {
 }
 
 function globalDir() {
-  return join(home, ".zcode", "workflows");
+  return join(home, ".zcode-personal", "workflows");
 }
 
 async function seed(dir: string, name: string, script: string, description = "已有") {
@@ -75,17 +73,10 @@ async function seed(dir: string, name: string, script: string, description = "�
 beforeEach(async () => {
   cwd = await mkdtemp(join(tmpdir(), "zcode-saved-workflows-run-"));
   home = await mkdtemp(join(tmpdir(), "zcode-saved-workflows-run-home-"));
-  prevHome = process.env.HOME;
-  prevUserProfile = process.env.USERPROFILE;
-  process.env.HOME = home;
-  process.env.USERPROFILE = home;
+  vi.mocked(homedir).mockReturnValue(home);
 });
 
 afterEach(async () => {
-  if (prevHome === undefined) delete process.env.HOME;
-  else process.env.HOME = prevHome;
-  if (prevUserProfile === undefined) delete process.env.USERPROFILE;
-  else process.env.USERPROFILE = prevUserProfile;
   await rm(cwd, { recursive: true, force: true });
   await rm(home, { recursive: true, force: true });
 });

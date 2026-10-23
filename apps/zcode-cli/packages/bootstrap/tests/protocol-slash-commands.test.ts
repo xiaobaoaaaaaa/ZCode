@@ -13,7 +13,8 @@ describe("protocol slash command surface", () => {
     const workspace = join(tempRoot, "workspace");
     const home = join(tempRoot, "home");
     const projectCommands = join(workspace, ".zcode", "commands");
-    const userCommands = join(home, ".zcode", "commands");
+    // 用户级目录隔离到个人 profile；项目目录仍保留 .zcode。
+    const userCommands = join(home, ".zcode-personal", "commands");
 
     try {
       await mkdir(projectCommands, { recursive: true });
@@ -65,7 +66,7 @@ describe("protocol slash command surface", () => {
     const tempRoot = await mkdtemp(join(tmpdir(), "zcode-custom-command-prompt-"));
     const workspace = join(tempRoot, "workspace");
     const home = join(tempRoot, "home");
-    const userCommands = join(home, ".zcode", "commands");
+    const userCommands = join(home, ".zcode-personal", "commands");
 
     try {
       await mkdir(workspace, { recursive: true });
@@ -109,7 +110,7 @@ describe("protocol slash command surface", () => {
     const tempRoot = await mkdtemp(join(tmpdir(), "zcode-builtin-workflow-"));
     const workspace = join(tempRoot, "workspace");
     const home = join(tempRoot, "home");
-    const userCommands = join(home, ".zcode", "commands");
+    const userCommands = join(home, ".zcode-personal", "commands");
     try {
       await mkdir(workspace, { recursive: true });
       await mkdir(userCommands, { recursive: true });
@@ -257,7 +258,7 @@ describe("protocol slash command surface", () => {
     const tempRoot = await mkdtemp(join(tmpdir(), "zcode-command-shell-missing-context-"));
     const workspace = join(tempRoot, "workspace");
     const home = join(tempRoot, "home");
-    const userCommands = join(home, ".zcode", "commands");
+    const userCommands = join(home, ".zcode-personal", "commands");
     let executionCalled = false;
     const executionPort: ExecutionPort = {
       async run() {

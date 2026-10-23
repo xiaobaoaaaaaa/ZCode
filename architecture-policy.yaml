@@ -998,3 +998,8 @@ exceptions:
       - packages/shared/src/subagent-profile.ts
       - packages/shared/src/subagent-runtime-config.ts
     reason: Existing files already present in the personal baseline; this change only adds user-authorized subagent model selection to their existing profile and snapshot contracts, without adding a new module. Shared-module adoption is a separate boundary refactor.
+  - id: personal-bootstrap-test-config
+    rule: unmanaged-new-file
+    paths:
+      - apps/zcode-cli/packages/bootstrap/vitest.config.ts
+    reason: Test-only Vitest configuration installs the per-file temporary home fixture; it adds no production module or runtime dependency and prevents bootstrap tests from writing real profiles.
