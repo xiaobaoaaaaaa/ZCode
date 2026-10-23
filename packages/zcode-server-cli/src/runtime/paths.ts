@@ -24,7 +24,7 @@ export interface ServerLayout {
 
 export function getDefaultServerDataRoot(): string {
   const configured = process.env.ZCODE_DATA_BASE_DIR?.trim();
-  return join(configured || homedir(), ".zcode", "server");
+  return join(configured || homedir(), ".zcode-personal", "server");
 }
 
 export function resolveServerLayout(serverRoot = getDefaultServerDataRoot()): ServerLayout {
@@ -83,7 +83,7 @@ export async function resolveCanonicalServerLayout(
 
 function inferDataBaseDir(serverRoot: string): string {
   const parent = dirname(serverRoot);
-  if (basename(serverRoot) === "server" && basename(parent) === ".zcode") {
+  if (basename(serverRoot) === "server" && basename(parent) === ".zcode-personal") {
     return dirname(parent);
   }
   // 非标准的显式 server root 仍保持隔离，不向其父目录扩散 Agent/SQLite 数据。
@@ -145,5 +145,5 @@ export function assertServerDataRoot(serverRoot: string): string {
 }
 
 export function serverDataRootFromBase(baseDir: string): string {
-  return join(resolve(baseDir), ".zcode", "server");
+  return join(resolve(baseDir), ".zcode-personal", "server");
 }

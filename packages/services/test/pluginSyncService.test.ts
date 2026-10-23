@@ -9,18 +9,15 @@ function makeHome() {
   return mkdtempSync(join(tmpdir(), "zcode-plugin-sync-home-"));
 }
 
-async function writeZcodeUserConfig(
-  home: string,
-  value: Record<string, unknown>,
-): Promise<string> {
-  const configPath = join(home, ".zcode", "cli", "config.json");
-  await mkdir(join(home, ".zcode", "cli"), { recursive: true });
+async function writeZcodeUserConfig(home: string, value: Record<string, unknown>): Promise<string> {
+  const configPath = join(home, ".zcode-personal", "cli", "config.json");
+  await mkdir(join(home, ".zcode-personal", "cli"), { recursive: true });
   await writeFile(configPath, `${JSON.stringify(value, null, 2)}\n`, "utf-8");
   return configPath;
 }
 
 async function readZcodeUserConfig(home: string): Promise<Record<string, unknown>> {
-  const raw = await readFile(join(home, ".zcode", "cli", "config.json"), "utf-8");
+  const raw = await readFile(join(home, ".zcode-personal", "cli", "config.json"), "utf-8");
   return JSON.parse(raw) as Record<string, unknown>;
 }
 
@@ -33,12 +30,16 @@ async function writeInlinePlugin(
   await mkdir(join(pluginRoot, ".zcode-plugin"), { recursive: true });
   await writeFile(
     join(pluginRoot, ".zcode-plugin", "plugin.json"),
-    `${JSON.stringify({
-      name: directoryName,
-      description: `${directoryName} description`,
-      version: "1.0.0",
-      ...manifest,
-    }, null, 2)}\n`,
+    `${JSON.stringify(
+      {
+        name: directoryName,
+        description: `${directoryName} description`,
+        version: "1.0.0",
+        ...manifest,
+      },
+      null,
+      2,
+    )}\n`,
     "utf-8",
   );
   await mkdir(join(pluginRoot, "skills", "demo"), { recursive: true });
@@ -108,8 +109,8 @@ describe("plugin sync service", () => {
     expect(result).toMatchObject({
       ok: true,
       path: [
-        join(remoteHome, ".zcode", "plugins"),
-        join(remoteHome, ".zcode", "cli"),
+        join(remoteHome, ".zcode-personal", "plugins"),
+        join(remoteHome, ".zcode-personal", "cli"),
       ].join(", "),
     });
   });
@@ -117,14 +118,14 @@ describe("plugin sync service", () => {
   it("reports remote plugin write preflight failure when plugin root is not a directory", async () => {
     const remoteHome = makeHome();
     process.env.HOME = remoteHome;
-    await mkdir(join(remoteHome, ".zcode"), { recursive: true });
-    await writeFile(join(remoteHome, ".zcode", "plugins"), "not a directory");
+    await mkdir(join(remoteHome, ".zcode-personal"), { recursive: true });
+    await writeFile(join(remoteHome, ".zcode-personal", "plugins"), "not a directory");
     const service = createPluginSyncService();
 
     const result = await service.checkRemoteUserPluginWriteAccess();
 
     expect(result.ok).toBe(false);
-    expect(result.path).toBe(join(remoteHome, ".zcode", "plugins"));
+    expect(result.path).toBe(join(remoteHome, ".zcode-personal", "plugins"));
     expect(result.error).toBeTruthy();
   });
 
@@ -132,13 +133,13 @@ describe("plugin sync service", () => {
     const home = makeHome();
     process.env.HOME = home;
     const cachePluginRoot = await writeInlinePlugin(
-      join(home, ".zcode", "cli", "plugins", "cache", "market", "cached", "1.0.0"),
+      join(home, ".zcode-personal", "cli", "plugins", "cache", "market", "cached", "1.0.0"),
       "cached",
       { name: "cached" },
     );
-    await mkdir(join(home, ".zcode", "cli", "plugins"), { recursive: true });
+    await mkdir(join(home, ".zcode-personal", "cli", "plugins"), { recursive: true });
     await writeFile(
-      join(home, ".zcode", "cli", "plugins", "installed_plugins.json"),
+      join(home, ".zcode-personal", "cli", "plugins", "installed_plugins.json"),
       `${JSON.stringify({
         plugins: [
           {
@@ -195,7 +196,7 @@ describe("plugin sync service", () => {
         status: "synced",
       },
     ]);
-    const remotePluginRoot = join(remoteHome, ".zcode", "plugins", "remote-tools");
+    const remotePluginRoot = join(remoteHome, ".zcode-personal", "plugins", "remote-tools");
     expect(existsSync(join(remotePluginRoot, ".zcode-plugin", "plugin.json"))).toBe(true);
     const remoteConfig = await readZcodeUserConfig(remoteHome);
     expect(remoteConfig).toMatchObject({
@@ -239,7 +240,7 @@ describe("plugin sync service", () => {
 
     const remoteCommandPath = join(
       remoteHome,
-      ".zcode",
+      ".zcode-personal",
       "plugins",
       "remote-tools",
       "commands",
@@ -267,8 +268,8 @@ describe("plugin sync service", () => {
     const remoteHome = makeHome();
     process.env.HOME = remoteHome;
     await writeZcodeUserConfig(remoteHome, {});
-    const remoteConfigDir = join(remoteHome, ".zcode", "cli");
-    const remotePluginRoot = join(remoteHome, ".zcode", "plugins", "remote-tools");
+    const remoteConfigDir = join(remoteHome, ".zcode-personal", "cli");
+    const remotePluginRoot = join(remoteHome, ".zcode-personal", "plugins", "remote-tools");
     const remoteService = createPluginSyncService();
 
     await chmod(remoteConfigDir, 0o555);
@@ -350,7 +351,7 @@ describe("plugin sync service", () => {
     const existingRemoteRoot = await writeInlinePlugin(join(remoteHome, "existing"), "known", {
       name: "known",
     });
-    await writeInlinePlugin(join(remoteHome, ".zcode", "plugins"), "known", {
+    await writeInlinePlugin(join(remoteHome, ".zcode-personal", "plugins"), "known", {
       name: "other-known",
     });
     await writeZcodeUserConfig(remoteHome, { plugins: { dirs: [existingRemoteRoot] } });
@@ -400,16 +401,20 @@ describe("plugin sync service", () => {
     await writeInlinePlugin(marketplaceRoot, "formatter", { name: "formatter" });
     await writeFile(
       join(marketplaceRoot, "marketplace.json"),
-      `${JSON.stringify({
-        name: "team-market",
-        plugins: [
-          {
-            name: "formatter",
-            version: "1.0.0",
-            source: "./formatter",
-          },
-        ],
-      }, null, 2)}\n`,
+      `${JSON.stringify(
+        {
+          name: "team-market",
+          plugins: [
+            {
+              name: "formatter",
+              version: "1.0.0",
+              source: "./formatter",
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
       "utf-8",
     );
     const localService = createPluginSyncService();
@@ -432,7 +437,11 @@ describe("plugin sync service", () => {
       marketplaceId: "team-market",
       status: "synced",
     });
-    expect(imported.path.startsWith(join(remoteHome, ".zcode", "plugins", "marketplace-sources"))).toBe(true);
+    expect(
+      imported.path.startsWith(
+        join(remoteHome, ".zcode-personal", "plugins", "marketplace-sources"),
+      ),
+    ).toBe(true);
     const mirroredManifest = await readJsonFile(join(imported.path, "marketplace.json"));
     expect(mirroredManifest).toMatchObject({
       name: "team-market",
@@ -461,15 +470,19 @@ describe("plugin sync service", () => {
     await mkdir(marketplaceRoot, { recursive: true });
     await writeFile(
       join(marketplaceRoot, "marketplace.json"),
-      `${JSON.stringify({
-        name: "team-market",
-        plugins: [
-          {
-            name: "formatter",
-            source: externalPluginRoot,
-          },
-        ],
-      }, null, 2)}\n`,
+      `${JSON.stringify(
+        {
+          name: "team-market",
+          plugins: [
+            {
+              name: "formatter",
+              source: externalPluginRoot,
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
       "utf-8",
     );
 
@@ -490,15 +503,19 @@ describe("plugin sync service", () => {
     await writeFile(join(marketplaceRoot, "formatter", "README.md"), "not a plugin\n", "utf-8");
     await writeFile(
       join(marketplaceRoot, "marketplace.json"),
-      `${JSON.stringify({
-        name: "team-market",
-        plugins: [
-          {
-            name: "formatter",
-            source: "./formatter",
-          },
-        ],
-      }, null, 2)}\n`,
+      `${JSON.stringify(
+        {
+          name: "team-market",
+          plugins: [
+            {
+              name: "formatter",
+              source: "./formatter",
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
       "utf-8",
     );
 
@@ -520,10 +537,14 @@ describe("plugin sync service", () => {
     });
     await writeFile(
       join(marketplaceRoot, "marketplace.json"),
-      `${JSON.stringify({
-        name: "team-market",
-        plugins: [{ name: "formatter", source: "./formatter" }],
-      }, null, 2)}\n`,
+      `${JSON.stringify(
+        {
+          name: "team-market",
+          plugins: [{ name: "formatter", source: "./formatter" }],
+        },
+        null,
+        2,
+      )}\n`,
       "utf-8",
     );
     const service = createPluginSyncService();
@@ -563,13 +584,17 @@ describe("plugin sync service", () => {
     await writeInlinePlugin(marketplaceRoot, "helper", { name: "helper" });
     await writeFile(
       join(marketplaceRoot, "marketplace.json"),
-      `${JSON.stringify({
-        name: "team-market",
-        plugins: [
-          { name: "formatter", dependencies: ["helper"], source: "./formatter" },
-          { name: "helper", source: "./helper" },
-        ],
-      }, null, 2)}\n`,
+      `${JSON.stringify(
+        {
+          name: "team-market",
+          plugins: [
+            { name: "formatter", dependencies: ["helper"], source: "./formatter" },
+            { name: "helper", source: "./helper" },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
       "utf-8",
     );
     const exported = await createPluginSyncService().exportMarketplaceSourceArchive({
@@ -602,10 +627,14 @@ describe("plugin sync service", () => {
     const marketplaceFile = join(marketplaceRoot, "marketplace.json");
     await writeFile(
       marketplaceFile,
-      `${JSON.stringify({
-        name: "team-market",
-        plugins: [{ name: "formatter", source: "./formatter" }],
-      }, null, 2)}\n`,
+      `${JSON.stringify(
+        {
+          name: "team-market",
+          plugins: [{ name: "formatter", source: "./formatter" }],
+        },
+        null,
+        2,
+      )}\n`,
       "utf-8",
     );
 

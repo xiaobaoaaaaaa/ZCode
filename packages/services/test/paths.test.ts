@@ -31,6 +31,21 @@ afterEach(() => {
 });
 
 describe("paths", () => {
+  it("个人配置、数据库和 provider 目录不复用官方 profile", async () => {
+    const home = makeTempHome();
+    process.env.HOME = home;
+    vi.resetModules();
+    const paths = await import("../src/paths.js");
+    paths.setDataBaseDir(home);
+    expect(paths.getZCodeDataRootDir()).toBe(join(home, ".zcode-personal"));
+    expect(paths.getAppConfigDir()).toBe(join(home, ".zcode-personal", "v2"));
+    expect(paths.getProviderWorkspaceConfigDir()).toBe(join(home, ".zcode-personal", "cli"));
+    expect(paths.getTasksIndexDatabasePath()).toBe(
+      join(home, ".zcode-personal", "v2", "tasks-index.sqlite"),
+    );
+    expect(existsSync(join(home, ".zcode"))).toBe(false);
+  });
+
   it("copyDataDirectory 会复制普通文件并跳过 workspace 里的共享目录软链", async () => {
     const oldBase = makeTempHome();
     const newBase = makeTempHome();
@@ -38,7 +53,7 @@ describe("paths", () => {
     vi.resetModules();
 
     const { copyDataDirectory } = await import("../src/paths.js");
-    const oldV2Dir = join(oldBase, ".zcode", "v2");
+    const oldV2Dir = join(oldBase, ".zcode-personal", "v2");
     const oldSharedSkillRoot = join(oldV2Dir, "agent-config", "claude", "skills");
     const oldSharedPluginRoot = join(oldV2Dir, "agent-config", "claude", "plugins");
     const oldWorkspaceRoot = join(oldV2Dir, "agent-config", "claude", "workspace-hash-1");
@@ -54,7 +69,7 @@ describe("paths", () => {
 
     await copyDataDirectory(oldBase, newBase);
 
-    const newV2Dir = join(newBase, ".zcode", "v2");
+    const newV2Dir = join(newBase, ".zcode-personal", "v2");
     const newWorkspaceRoot = join(newV2Dir, "agent-config", "claude", "workspace-hash-1");
     const newSkillLink = join(newWorkspaceRoot, "skills");
     const newPluginLink = join(newWorkspaceRoot, "plugins");
@@ -67,8 +82,8 @@ describe("paths", () => {
   it("copyDataDirectory 会跳过 setting.json 及其原子写入瞬时文件", async () => {
     const oldBase = makeTempHome();
     const newBase = makeTempHome();
-    const oldV2Dir = join(oldBase, ".zcode", "v2");
-    const newV2Dir = join(newBase, ".zcode", "v2");
+    const oldV2Dir = join(oldBase, ".zcode-personal", "v2");
+    const newV2Dir = join(newBase, ".zcode-personal", "v2");
     mkdirSync(oldV2Dir, { recursive: true });
     writeFileSync(join(oldV2Dir, "setting.json"), '{"dataBaseDir":"/old"}', "utf-8");
     writeFileSync(join(oldV2Dir, "setting.json.lock"), "lock", "utf-8");
