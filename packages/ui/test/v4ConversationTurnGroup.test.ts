@@ -1,3 +1,14 @@
+import {
+  compactExecutionRowKind,
+  splitCompactExecutionRows,
+} from "@/v4/conversationTurnWorkSegments.js";
+const compactPreference = vi.hoisted(() => ({ enabled: false }));
+vi.mock("@/store/StoreProvider.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/store/StoreProvider.js")>()),
+  useZCodeStoreWithDefault: (
+    selector: (state: { compactExecution: boolean; interfaceMode: string }) => unknown,
+  ) => selector({ compactExecution: compactPreference.enabled, interfaceMode: "coding" }),
+}));
 import { readFileSync } from "node:fs";
 import { createElement, type ContextType } from "react";
 import { DeliveryContext } from "@/v4/botGroupDeliveryContext.js";
@@ -2951,6 +2962,66 @@ describe("topic preparation flow membership", () => {
       expect(html.indexOf("</section>")).toBeGreaterThan(preparation);
       expect(html).toContain('data-v4-user-input-collapsible-content="true"');
       expect(html).toContain('aria-label="正在准备材料"');
+    }
+  });
+});
+
+describe("personal compact execution", () => {
+  it("groups safe consecutive reads, reasoning and commands while preserving boundaries", () => {
+    const read = toolCallRow(10, "Read", { file_path: "/a.ts" });
+    const command = toolCallRow(11, "Bash", { command: "npm test" });
+    const approval = toolCallRow(
+      12,
+      "Bash",
+      { command: "npm test" },
+      { status: "pendingApproval" },
+    );
+    const failure = toolCallRow(13, "Bash", {}, { status: "error" });
+    const text = assistantTextRow(14, { text: "Answer" });
+    expect(compactExecutionRowKind(read)).toBe("reads");
+    expect(compactExecutionRowKind(command)).toBe("commands");
+    const groups = splitCompactExecutionRows([
+      read,
+      reasoningRow(),
+      command,
+      approval,
+      failure,
+      text,
+      toolCallRow(15, "AskUserQuestion", {}),
+    ]);
+    expect(groups.map((group) => group.compact)).toEqual([true, false, false, false, false]);
+    expect(groups[0]?.rows).toEqual([read, reasoningRow(), command]);
+    expect(splitCompactExecutionRows([read, command])[0]?.key).toBe(
+      splitCompactExecutionRows([read])[0]?.key,
+    );
+  });
+
+  it("renders a collapsed summary while leaving assistant text and failed tools outside", () => {
+    compactPreference.enabled = true;
+    try {
+      const [unit] = buildConversationTurnRenderUnits([
+        turnHeader(),
+        userInputRow(2),
+        toolCallRow(3, "Read", { file_path: "/a.ts" }),
+        toolCallRow(4, "Bash", { command: "npm test" }),
+        toolCallRow(
+          5,
+          "Bash",
+          {},
+          { status: "error", error: { code: "failed", message: "Visible failure" } },
+        ),
+        assistantTextRow(6, { text: "Visible final answer" }),
+      ]);
+      const html = renderUnit(unit!);
+      expect(html).toContain('data-compact-execution="true"');
+      expect(html).toContain("查阅 1 项");
+      expect(html).toContain("命令 1 次");
+      expect(html).toContain('aria-expanded="false"');
+      expect(html).toContain("Visible final answer");
+      expect(html).toContain('data-row-id="5"');
+      expect(html).not.toContain('data-row-id="3"');
+    } finally {
+      compactPreference.enabled = false;
     }
   });
 });

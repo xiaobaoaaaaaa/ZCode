@@ -18,6 +18,12 @@ describe("shared runtime env", () => {
     expect(env.ZCODE_AUTO_UPDATE_ENABLED).toBe(false);
   });
 
+  it("个人版忽略构建开启自动更新的请求", async () => {
+    vi.stubGlobal("__ZCODE_AUTO_UPDATE_ENABLED__", true);
+    const env = await importFreshEnvModule();
+    expect(env.ZCODE_AUTO_UPDATE_ENABLED).toBe(false);
+  });
+
   it("未注入 ZCODE_ENV 时默认 test 并映射为 local", async () => {
     vi.stubGlobal("__ZCODE_ENV__", undefined);
 

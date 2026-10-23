@@ -24,7 +24,7 @@ function makeCwd(): string {
   return dir;
 }
 
-/** 一个隔离的家目录，供全局档用例注入——绝不碰开发机真实的 `~/.zcode/workflows`。 */
+/** 一个隔离的家目录，供全局档用例注入——绝不碰开发机真实的 `~/.zcode-personal/workflows`。 */
 function makeHome(): string {
   const dir = mkdtempSync(join(tmpdir(), "dwf-home-"));
   created.push(dir);
@@ -290,7 +290,7 @@ describe("saved workflow global scope", () => {
     });
 
     expect(written.scope).toBe("global");
-    expect(written.path).toBe(join(home, ".zcode/workflows/research.dwf.ts"));
+    expect(written.path).toBe(join(home, ".zcode-personal/workflows/research.dwf.ts"));
 
     const resolved = resolveSavedWorkflow({ cwd, name: "research", homeDir: home });
     expect(resolved.ok).toBe(true);

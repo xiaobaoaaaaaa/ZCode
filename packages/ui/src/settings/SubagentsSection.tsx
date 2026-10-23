@@ -1294,6 +1294,10 @@ export function SubagentsSection({
   const [operatingAgentId, setOperatingAgentId] = useState<string | null>(null);
   const [loadedAgentTargetKey, setLoadedAgentTargetKey] = useState("");
   const [selectedScopeKey, setSelectedScopeKey] = useState("user");
+  const [mainAgentModelPolicy, setMainAgentModelPolicy] = useState<
+    import("@zcode/shared").MainAgentModelPolicy
+  >({ enabled: false, allowedModels: [] });
+  const [savingModelPolicy, setSavingModelPolicy] = useState(false);
   const selectedWorkspace = workspaceTabs.find(
     (tab) => getPluginWorkspaceKey(tab) === selectedScopeKey,
   );
@@ -1367,6 +1371,19 @@ export function SubagentsSection({
       }),
     });
   }, [intl, modelSelectionView]);
+  const saveMainAgentModelPolicy = async (next: import("@zcode/shared").MainAgentModelPolicy) => {
+    if (savingModelPolicy || !targetServiceResolution.rpcReady || !projectionMatchesTarget) return;
+    const requestId = latestRequestIdRef.current;
+    setSavingModelPolicy(true);
+    try {
+      await subagentsService.setMainAgentModelPolicy(next);
+      if (requestId === latestRequestIdRef.current) setMainAgentModelPolicy(next);
+    } catch (saveError) {
+      setError(String(saveError));
+    } finally {
+      setSavingModelPolicy(false);
+    }
+  };
   const subagentModelSelectGroups = chatModelSelectGroups;
   const loadAgents = useCallback(
     async (showBlockingLoading: boolean) => {
@@ -1387,6 +1404,9 @@ export function SubagentsSection({
           return;
         }
         // 插件 agent 是运行时 profile 的只读投影；设置页展示它们，但仍不展示工作区级编辑入口。
+        setMainAgentModelPolicy(
+          result.mainAgentModelPolicy ?? { enabled: false, allowedModels: [] },
+        );
         setAgents(projectSettingsSubagents(result));
         setCapability(result.capability);
         setLoadedAgentTargetKey(requestTargetKey);
@@ -1804,6 +1824,105 @@ export function SubagentsSection({
             id: "settings.subagents.searchPlaceholder",
           })}
         />
+      </div>
+
+      <div className="space-y-2 rounded-lg border border-border p-3 text-ui-base">
+        <label className="flex items-center justify-between gap-3">
+          <span>
+            {locale.startsWith("zh")
+              ? "由主智能体选择子智能体模型"
+              : "Let the main agent choose subagent models"}
+          </span>
+          <Switch
+            aria-label={locale.startsWith("zh") ? "由主智能体选择" : "Main agent model selection"}
+            checked={mainAgentModelPolicy.enabled}
+            disabled={
+              savingModelPolicy ||
+              loading ||
+              !projectionMatchesTarget ||
+              !targetServiceResolution.rpcReady
+            }
+            onCheckedChange={(enabled) =>
+              void saveMainAgentModelPolicy({ ...mainAgentModelPolicy, enabled })
+            }
+          />
+        </label>
+        <p className="text-ui-caption text-foreground-subtle">
+          {locale.startsWith("zh")
+            ? "仅影响沿用默认的子智能体；手动指定优先。请勾选明确允许使用的模型。无建议、未允许或不可用时沿用当前主模型；不会自动更换其他供应商。"
+            : "Applies to agents using the default; manual selections take precedence. Explicitly allow models below. Missing, disallowed or unavailable suggestions inherit the current parent model; no other provider is chosen automatically."}
+        </p>
+        {mainAgentModelPolicy.enabled && (
+          <div className="max-h-56 space-y-1 overflow-y-auto">
+            {chatModelSelectGroups.flatMap((group) =>
+              group.items.map((item) => {
+                const selection =
+                  modelSelectionView &&
+                  completeNewModelSelection(modelSelectionView, parseModelPickerValue(item.value));
+                if (!selection) return null;
+                const checked = mainAgentModelPolicy.allowedModels.some(
+                  (model) =>
+                    model.providerId === selection.providerId &&
+                    model.modelId === selection.modelId,
+                );
+                return (
+                  <label key={`${group.key}:${item.key}`} className="flex items-center gap-2 py-1">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={
+                        savingModelPolicy ||
+                        loading ||
+                        modelSelectionLoading ||
+                        !projectionMatchesTarget ||
+                        !targetServiceResolution.rpcReady
+                      }
+                      onChange={() =>
+                        void saveMainAgentModelPolicy({
+                          ...mainAgentModelPolicy,
+                          allowedModels: checked
+                            ? mainAgentModelPolicy.allowedModels.filter(
+                                (model) =>
+                                  model.providerId !== selection.providerId ||
+                                  model.modelId !== selection.modelId,
+                              )
+                            : [...mainAgentModelPolicy.allowedModels, selection],
+                        })
+                      }
+                    />
+                    <span>
+                      {group.label} · {item.name}
+                    </span>
+                  </label>
+                );
+              }),
+            )}
+            {mainAgentModelPolicy.allowedModels.length === 0 && (
+              <p className="text-ui-caption text-foreground-subtle">
+                {locale.startsWith("zh")
+                  ? "允许列表为空：只沿用当前主模型。"
+                  : "No models allowed: inherit the current parent model only."}
+              </p>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={
+                savingModelPolicy ||
+                loading ||
+                !projectionMatchesTarget ||
+                !targetServiceResolution.rpcReady
+              }
+              onClick={() =>
+                void saveMainAgentModelPolicy({ ...mainAgentModelPolicy, allowedModels: [] })
+              }
+            >
+              {locale.startsWith("zh")
+                ? "清空允许列表（包括已移除模型）"
+                : "Clear allowlist (including removed models)"}
+            </Button>
+          </div>
+        )}
       </div>
 
       {targetServiceResolution.rpcReady && error ? (

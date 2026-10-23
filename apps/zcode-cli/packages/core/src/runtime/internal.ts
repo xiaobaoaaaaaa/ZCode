@@ -1,3 +1,4 @@
+import type { GlobalMemoryPort } from "@zcode/contracts";
 import { PermissionService, ToolScheduler } from "./deps.js";
 import type {
   Logger,
@@ -134,6 +135,10 @@ export interface AgentRuntimeInternal
   branchGeneration: number;
   artifactStore?: ToolArtifactStorePort;
   executionPort?: ExecutionPort;
+  globalMemoryPort?: GlobalMemoryPort;
+  globalMemoryExtraction?: Promise<void>;
+  globalMemoryLastInput?: string;
+  globalMemoryAbortController?: AbortController;
   fileSystemPort?: FileSystemPort;
   imageProcessorPort?: ImageProcessorPort;
   pdfDocumentPort?: PdfDocumentPort;

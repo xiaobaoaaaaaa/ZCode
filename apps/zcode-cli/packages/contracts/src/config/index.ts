@@ -299,8 +299,8 @@ export const DefaultRuntimeConfig: RuntimeConfig = {
     allowMediumRiskInAuto: false,
   },
   storage: {
-    dir: "~/.zcode",
-    sessionDbPath: "~/.zcode/cli/db/db.sqlite",
+    dir: "~/.zcode-personal",
+    sessionDbPath: "~/.zcode-personal/cli/db/db.sqlite",
   },
   network: {
     timeout: 180000,

@@ -280,6 +280,8 @@ export interface FileDiff {
 }
 
 export interface SessionRevert {
+  /** Recoverable transcript versions. Message bodies remain in the append-only store. */
+  versions?: Array<{ id: string; createdAt: number; messageIDs: MessageId[] }>;
   messageID: MessageId;
   partID?: PartId;
   snapshot?: string;
@@ -1097,6 +1099,11 @@ export interface LocalSettingStorePort {
 }
 
 export interface SessionStorePort {
+  importOfficialHistory?(input: {
+    bundle: import("@zcode/shared").ZCodeOfficialHistoryBundle;
+    projectID: ProjectId;
+    version: string;
+  }): Promise<{ session: SessionInfo; alreadyImported: boolean }>;
   createSession(input: CreateSessionInput): Promise<SessionInfo>;
   /** legacy 兼容原语；V4 stable/compact-edit fork 禁止调用，统一走 commitForkBundle。 */
   createForkedSessionWithMetadata?(

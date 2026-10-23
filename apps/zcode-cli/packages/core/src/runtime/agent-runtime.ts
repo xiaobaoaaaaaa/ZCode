@@ -1,3 +1,4 @@
+import type { GlobalMemoryPort } from "@zcode/contracts";
 import { configureOffPeakRuntime, controlOffPeakRuntime } from "./off-peak/runtime.js";
 import {
   createTurnAgentDefinitions,
@@ -219,6 +220,10 @@ export class AgentRuntime {
   private branchGeneration = 0;
   private artifactStore?: ToolArtifactStorePort;
   private executionPort?: ExecutionPort;
+  private globalMemoryPort?: GlobalMemoryPort;
+  private globalMemoryExtraction?: Promise<void>;
+  private globalMemoryLastInput?: string;
+  private globalMemoryAbortController?: AbortController;
   private fileSystemPort?: FileSystemPort;
   private imageProcessorPort?: ImageProcessorPort;
   private pdfDocumentPort?: PdfDocumentPort;
@@ -278,6 +283,7 @@ export class AgentRuntime {
     const definitions = createTurnAgentDefinitions(
       deps.getAgentDefinitions ??
         createAgentDefinitionsReader(this.config.subagents?.profiles ?? [], {
+          mainAgentModelPolicy: this.config.subagents?.mainAgentModelPolicy,
           builtInModelSelectionOverrides: this.config.subagents?.builtInModelSelectionOverrides,
         }),
       deps.loadAgentDefinitions,
@@ -343,6 +349,7 @@ export class AgentRuntime {
     this.workflowBlockedReminder = createWorkflowBlockedReminder(runtime);
     this.artifactStore = deps.artifactStore;
     this.executionPort = deps.executionPort;
+    this.globalMemoryPort = deps.globalMemoryPort;
     this.fileSystemPort = deps.fileSystemPort;
     this.imageProcessorPort = deps.imageProcessorPort;
     this.pdfDocumentPort = deps.pdfDocumentPort;
@@ -392,6 +399,7 @@ export class AgentRuntime {
     this.workflowBlockedReminder.stop();
     // 关闭单个 session 后进程仍存活，
     // 因此必须先终止该 runtime 的 Extraction，不能只在超时后放弃等待。
+    this.globalMemoryAbortController?.abort();
     this.memoryExtractionScheduler?.shutdown();
   }
 }
@@ -700,6 +708,8 @@ export interface AgentRuntime {
    * 该入口故意不经过 executeTurn command queue：组合文件 rewind 会在文件事务的
    * commit gate 内调用它；若再排队 `/rewind`，当前 edit command 会等待自己释放队列。
    */
+  listConversationVersions(): Promise<Array<{id: string; createdAt: number; messageCount: number}>>;
+  restoreConversationVersion(options: {versionId: string; traceContext: TraceContext}): Promise<void>;
   rewindConversationToMessage(options: {
     abortSignal?: AbortSignal;
     events: SessionEvent[];

@@ -1,3 +1,5 @@
+import { createHistoryImporter, registerImportedHistory } from "#src/profile-import/index.js";
+import { getZCodeDataRootDir } from "#src/paths.js";
 import { isAuxiliarySessionKind } from "@zcode/shared";
 import { createBotTopicAdmission } from "#src/zcode-agent/botTopicAdmission.js";
 import {
@@ -239,7 +241,7 @@ function formatZCodeAgentLogDate(now: Date): string {
 
 function resolveZCodeAgentCurrentLogFilePath(now = new Date()): string {
   const configuredLogDir = process.env.ZCODE_LOG_DIR?.trim();
-  const logDir = configuredLogDir || join(homedir(), ".zcode", "cli", "log");
+  const logDir = configuredLogDir || join(homedir(), ".zcode-personal", "cli", "log");
   return join(logDir, `zcode-${formatZCodeAgentLogDate(now)}.jsonl`);
 }
 
@@ -1722,6 +1724,48 @@ export function createZCodeTaskServiceAdapter(
     agentService.disposeAll();
   }
 
+  const historyImporter = createHistoryImporter({
+    destinationProfile: getZCodeDataRootDir,
+    commit: async (bundles) => {
+      const report = {
+        imported: 0,
+        duplicates: 0,
+        sessions: [] as Array<{ sourceKey: string; sessionId: string; directory: string }>,
+      };
+      for (const bundle of bundles) {
+        const result = await options.zcodeAgentService
+          .importOfficialHistory({ workspacePath: bundle.directory, bundle })
+          .catch(() => {
+            throw new Error(
+              `History import failed after ${report.sessions.length} completed imports. Earlier imports remain saved; retry the same source to recover safely. The current import outcome may require retry verification.`,
+            );
+          });
+        let meta: ZCodeTaskMeta;
+        try {
+          meta = await registerImportedHistory(taskIndexRepo, result);
+        } catch {
+          throw new Error(
+            `Official history ${result.sessionId} is persisted; task/project registration failed after ${report.sessions.length} completed imports. Retry the import to repair registration; history was not rolled back.`,
+          );
+        }
+        rememberIndexedTaskMeta(meta);
+        emitWorkspaceTaskListChanged(
+          { workspacePath: meta.workspacePath, taskId: meta.taskId },
+          meta,
+          "task_meta_changed",
+        );
+        if (result.alreadyImported) report.duplicates++;
+        else report.imported++;
+        report.sessions.push({
+          sourceKey: bundle.sourceKey,
+          sessionId: result.sessionId,
+          directory: result.workspacePath,
+        });
+      }
+      return report;
+    },
+  });
+
   const service: IZCodeTaskService & {
     disposeAll(): void;
     disposeAllAndWait(): Promise<void>;
@@ -2746,6 +2790,9 @@ export function createZCodeTaskServiceAdapter(
         limit: params.limit,
       });
     },
+
+    previewHistoryImport: (params) => historyImporter.previewHistoryImport(params),
+    confirmHistoryImport: (params) => historyImporter.confirmHistoryImport(params),
 
     async importClaudeSessions(params: {
       workspacePath?: string;

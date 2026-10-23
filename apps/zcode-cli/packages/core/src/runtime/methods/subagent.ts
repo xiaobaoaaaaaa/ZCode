@@ -122,7 +122,14 @@ export function createDefaultSubagentPort(
           request.profile.injectAgentsMd !== false
             ? this.contextSourceSnapshot?.userInstructions
             : undefined;
-        const { selection: profileChildSelection, hasConcreteModel } = resolveSubagentSelection({
+        const {
+          selection: profileChildSelection,
+          hasConcreteModel,
+          modelSelectionReason,
+        } = resolveSubagentSelection({
+          mainAgentModelPolicy: request.profile.mainAgentModelPolicy,
+          proposedModel: request.proposedModel,
+          catalog: deps.modelCatalogPort?.listModels(),
           profileSelection: request.profile.modelSelection,
           parentSelection: this.getSessionModelSelection(),
           overrideSelection: options?.modelOverride?.selection,
@@ -262,7 +269,10 @@ export function createDefaultSubagentPort(
         let sessionReadyNotified = false;
         const notifySessionReady = async () => {
           if (sessionReadyNotified) return;
-          await request.onSessionReady?.();
+          await request.onSessionReady?.({
+            model: `${childSelection.providerId}/${childSelection.modelId}`,
+            modelSelectionReason,
+          });
           sessionReadyNotified = true;
         };
         this.logger?.debug("Starting subagent child runtime", {

@@ -2,7 +2,7 @@
 import { createElement, type ReactNode } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { IMemoryService } from "@zcode/services";
+import type { GlobalMemorySnapshot, IMemoryService } from "@zcode/services";
 import {
   TID_SETTINGS_MEMORY_COUNT,
   TID_SETTINGS_MEMORY_FILE,
@@ -270,4 +270,179 @@ describe("MemorySettingsSection", () => {
     expect(screen.getByText("settings.memory.viewer.localOnly")).toBeTruthy();
     expect(memoryService.listProjectMemories).not.toHaveBeenCalled();
   });
+});
+
+describe("Global profile memory settings", () => {
+  function globalService() {
+    let value: GlobalMemorySnapshot = {
+      content: "# Preferences\n\nUse Chinese.",
+      generation: 1,
+      enabled: true,
+      extractionEnabled: true,
+      disabledSessionIds: [],
+    };
+    return {
+      ...createService(),
+      getGlobalMemory: vi.fn(async () => value),
+      updateGlobalMemory: vi.fn(async (input: { content: string; expectedGeneration: number }) => {
+        if (input.expectedGeneration !== value.generation) throw new Error("stale edit");
+        value = {
+          ...value,
+          content: input.content,
+          generation: value.generation + 1,
+        };
+        return value;
+      }),
+      setGlobalMemoryPreferences: vi.fn(
+        async (input: { enabled?: boolean; extractionEnabled?: boolean }) => {
+          value = { ...value, ...input, generation: value.generation + 1 };
+          return value;
+        },
+      ),
+    };
+  }
+  it("edits, pauses and deletes global memory while project memory is off", async () => {
+    const service = globalService();
+    renderSection(service, false);
+    const editor = await screen.findByRole("textbox");
+    await waitFor(() => expect((editor as HTMLTextAreaElement).disabled).toBe(false));
+    fireEvent.change(editor, {
+      target: { value: "Prefer concise responses." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "settings.globalMemory.save" }));
+    await waitFor(() =>
+      expect(service.updateGlobalMemory).toHaveBeenCalledWith({
+        content: "Prefer concise responses.",
+        expectedGeneration: 1,
+      }),
+    );
+    await waitFor(() => expect((editor as HTMLTextAreaElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole("switch", { name: "settings.globalMemory.record" }));
+    await waitFor(() =>
+      expect(service.setGlobalMemoryPreferences).toHaveBeenCalledWith({
+        extractionEnabled: false,
+      }),
+    );
+    await waitFor(() => expect((editor as HTMLTextAreaElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole("button", { name: "settings.globalMemory.delete" }));
+    await waitFor(() => expect((editor as HTMLTextAreaElement).value).toBe(""));
+    expect(service.listProjectMemories).not.toHaveBeenCalled();
+  });
+  it("preserves an unsaved draft and exposes a conflicting edit error", async () => {
+    const service = globalService();
+    service.updateGlobalMemory.mockRejectedValueOnce(new Error("stale edit"));
+    renderSection(service, false);
+    const editor = await screen.findByRole("textbox");
+    await waitFor(() => expect((editor as HTMLTextAreaElement).disabled).toBe(false));
+    fireEvent.change(editor, { target: { value: "My unsaved preference" } });
+    fireEvent.click(screen.getByRole("button", { name: "settings.globalMemory.save" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("stale edit");
+    expect((editor as HTMLTextAreaElement).value).toBe("My unsaved preference");
+  });
+});
+
+describe("Official project memory import", () => {
+  it("previews without copying, requires explicit confirmation and invalidates edited source", async () => {
+    const service = {
+      ...createService(),
+      previewProfileImport: vi.fn(async () => ({
+        token: "preview",
+        source: "/synthetic/official",
+        projects: 1,
+        files: 2,
+        bytes: 80,
+      })),
+      confirmProfileImport: vi.fn(async () => ({
+        imported: 1,
+        duplicates: 0,
+        conflicts: [],
+      })),
+    };
+    renderSection(service, true);
+    const input = screen.getByRole("textbox", {
+      name: "settings.profileImport.source",
+    });
+    fireEvent.change(input, { target: { value: "/synthetic/official" } });
+    fireEvent.click(screen.getByRole("button", { name: "settings.profileImport.preview" }));
+    await screen.findByRole("button", {
+      name: "settings.profileImport.confirm",
+    });
+    expect(service.confirmProfileImport).not.toHaveBeenCalled();
+    fireEvent.change(input, { target: { value: "/synthetic/other" } });
+    expect(screen.queryByRole("button", { name: "settings.profileImport.confirm" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "settings.profileImport.preview" }));
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "settings.profileImport.confirm",
+      }),
+    );
+    await waitFor(() =>
+      expect(service.confirmProfileImport).toHaveBeenCalledWith({
+        token: "preview",
+      }),
+    );
+    await screen.findByText("settings.profileImport.result:imported=1,duplicates=0,conflicts=0");
+  });
+  it("shows failed confirmation and requires fresh preview", async () => {
+    const service = {
+      ...createService(),
+      previewProfileImport: vi.fn(async () => ({
+        token: "preview",
+        source: "/synthetic/official",
+        projects: 1,
+        files: 2,
+        bytes: 80,
+      })),
+      confirmProfileImport: vi.fn(async () => {
+        throw new Error("Source changed");
+      }),
+    };
+    renderSection(service, true);
+    fireEvent.change(screen.getByRole("textbox", { name: "settings.profileImport.source" }), {
+      target: { value: "/synthetic/official" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "settings.profileImport.preview" }));
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "settings.profileImport.confirm",
+      }),
+    );
+    expect((await screen.findByRole("alert")).textContent).toBe("Source changed");
+    expect(screen.queryByRole("button", { name: "settings.profileImport.confirm" })).toBeNull();
+  });
+});
+
+it("requires separate confirmation for safe settings and displays preserved fields", async () => {
+  const settings = {
+    previewAppearanceImport: vi.fn(async () => ({
+      token: "settings-preview",
+      source: "/synthetic/official",
+      settings: { locale: "en-US" as const, desktopZoomLevel: 2 },
+    })),
+    confirmAppearanceImport: vi.fn(async () => ({
+      imported: ["desktopZoomLevel"],
+      preserved: ["locale"],
+    })),
+  };
+  render(
+    createElement(MemorySettingsSection, {
+      memoryEnabled: false,
+      memoryService: createService(),
+      settingService: settings,
+      onMemoryEnabledChange: vi.fn(async () => {}),
+      projectMemoryViewerAvailable: true,
+    }),
+  );
+  fireEvent.change(screen.getByRole("textbox", { name: "settings.appearanceImport.source" }), {
+    target: { value: "/synthetic/official" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "settings.appearanceImport.preview" }));
+  const confirm = await screen.findByRole("button", { name: "settings.appearanceImport.confirm" });
+  expect(settings.confirmAppearanceImport).not.toHaveBeenCalled();
+  expect(screen.getByText("en-US")).toBeTruthy();
+  fireEvent.click(confirm);
+  await waitFor(() =>
+    expect(settings.confirmAppearanceImport).toHaveBeenCalledWith({ token: "settings-preview" }),
+  );
+  await screen.findByText("settings.appearanceImport.restart");
 });

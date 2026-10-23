@@ -16,6 +16,76 @@ import { createTestSessionEventStore } from "./test-event-store.js";
 import { createTestModelFactory } from "./test-runtime-model.js";
 
 describe("subagent tool event projection", () => {
+  it.each([false, true])(
+    "routes user-authorized model suggestions and publishes actual identity (enabled=%s)",
+    async (enabled) => {
+      const sessionId = createSessionId(`main-agent-model-${enabled}`);
+      const eventStore = createTestSessionEventStore();
+      const parent = { providerId: "personal:parent", modelId: "parent" };
+      const selected = { providerId: "personal:approved", modelId: "chosen" };
+      const childModels: string[] = [];
+      let parentCalls = 0;
+      const runtime = createTestAgentRuntime(
+        sessionId,
+        {
+          mode: "build",
+          workingDirectory: "/workspace/model-policy",
+          modelSelection: parent,
+          subagents: { mainAgentModelPolicy: { enabled, allowedModels: [selected] } },
+        },
+        {
+          eventStore,
+          fileSystemPort: new MemoryFileSystem({}),
+          resolveEffectiveModelSelection: (selection) => ({ effectiveSelection: selection }),
+          modelCatalogPort: {
+            listModels: () => [{ ...selected, reasoningLevels: [], current: false }],
+          },
+          modelFactory: createTestModelFactory({
+            async generateText(request, observation) {
+              if (request.tools?.some((tool) => tool.name === "Agent")) {
+                if (++parentCalls === 1)
+                  return {
+                    finishReason: "tool-calls",
+                    text: "",
+                    providerMetadata: undefined,
+                    toolCalls: [
+                      {
+                        id: "model-agent",
+                        name: "Agent",
+                        input: {
+                          description: "Select model",
+                          prompt: "Answer briefly",
+                          model: "personal:approved/chosen",
+                        },
+                      },
+                    ],
+                    usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+                  };
+              } else
+                childModels.push(`${observation.model.providerId}/${observation.model.modelId}`);
+              return {
+                finishReason: "stop",
+                text: "done",
+                providerMetadata: undefined,
+                usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+              };
+            },
+          }),
+        },
+      );
+      await runtime.executeTurn("Delegate one question");
+      const expected = enabled ? "personal:approved/chosen" : "personal:parent/parent";
+      expect(childModels).toEqual([expected]);
+      const spawn = (await eventStore.getEvents(sessionId)).find(
+        (event) => event.type === SessionEventType.SubagentSpawned,
+      );
+      expect(spawn?.payload).toMatchObject({
+        model: expected,
+        modelSelectionReason: expect.stringContaining(enabled ? "allowed" : "disabled"),
+      });
+    },
+  );
+
   it("mirrors child blocking interactions into the parent live projection", async () => {
     const sessionId = createSessionId("runtime-subagent-interaction-events");
     const eventStore = createTestSessionEventStore();

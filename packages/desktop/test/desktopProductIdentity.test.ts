@@ -25,10 +25,10 @@ describe("desktop product identity", () => {
   it("ZCODE_ENV=test 使用可与生产版并排安装的 Preview 身份", () => {
     expect(resolveDesktopProductIdentity({ ZCODE_ENV: "test" })).toEqual({
       flavor: "preview",
-      appId: "dev.zcode.app.preview",
-      productName: "ZCode Preview",
-      linuxExecutableName: "zcode-preview",
-      linuxPackageName: "zcode-preview",
+      appId: "io.github.xiaobaoaaaaaa.zcode.personal.preview",
+      productName: "ZCode Personal Preview",
+      linuxExecutableName: "zcode-personal-preview",
+      linuxPackageName: "zcode-personal-preview",
       cuaHelperInstallVariant: "preview",
     });
   });
@@ -74,16 +74,16 @@ describe("desktop product identity", () => {
     expect(resolveDesktopArtifactSuffix({})).toBe("_TEST");
   });
 
-  it("ZCODE_ENV=production 完整保留正式包身份", () => {
+  it("ZCODE_ENV=production 仍使用个人包身份", () => {
     expect(resolveDesktopProductIdentity({ ZCODE_ENV: "production" })).toBe(
       desktopProductIdentities.production,
     );
     expect(desktopProductIdentities.production).toEqual({
       flavor: "production",
-      appId: "dev.zcode.app",
-      productName: "ZCode",
-      linuxExecutableName: "zcode",
-      linuxPackageName: "zcode",
+      appId: "io.github.xiaobaoaaaaaa.zcode.personal",
+      productName: "ZCode Personal",
+      linuxExecutableName: "zcode-personal",
+      linuxPackageName: "zcode-personal",
       cuaHelperInstallVariant: null,
     });
   });
@@ -113,6 +113,8 @@ describe("desktop product identity", () => {
   });
 
   it("开发态继续使用独立 AUMID，避免污染打包版 Shell 身份", () => {
-    expect(resolveWindowsAppUserModelId({}, { isPackaged: false })).toBe("cn.aminer.zcode");
+    expect(resolveWindowsAppUserModelId({}, { isPackaged: false })).toBe(
+      "io.github.xiaobaoaaaaaa.zcode.personal.dev",
+    );
   });
 });

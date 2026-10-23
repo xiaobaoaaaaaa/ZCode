@@ -539,9 +539,11 @@ describe("ContextBuilder meta user context", () => {
     );
     const contextPrefix = metaAttachment(result, "context_prefix");
     expect(contextPrefix).toContain(expected);
-    expect(contextPrefix.match(/# agentsMd/gu)).toHaveLength(1);
+    expect(contextPrefix.match(/# Project memory background/gu)).toHaveLength(1);
     expect(contextPrefix).not.toContain("# claudeMd");
-    expect(contextPrefix.indexOf("# agentsMd")).toBeLessThan(contextPrefix.indexOf("Contents of "));
+    expect(contextPrefix.indexOf("# Project memory background")).toBeLessThan(
+      contextPrefix.indexOf("Contents of "),
+    );
     expect(contextPrefix.indexOf(expected)).toBeLessThan(contextPrefix.indexOf("# currentDate"));
     expect(contextPrefix.match(/user's auto-memory, persists across conversations/g)).toHaveLength(
       1,

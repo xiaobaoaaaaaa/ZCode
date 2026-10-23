@@ -1,11 +1,11 @@
+import type { PersonalProfileImportContract } from "../profile-import/contract.js";
 import type { Memory, MemoryConfig } from "@zcode/shared";
 import { ServiceChannels } from "@zcode/shared";
 import { createServiceDescriptor } from "../descriptors.js";
 
 export const PROJECT_MEMORY_PREVIEW_LIMIT_EXCEEDED_ERROR_CODE =
   "PROJECT_MEMORY_PREVIEW_LIMIT_EXCEEDED";
-export const PROJECT_MEMORY_FILE_CHANGED_ERROR_CODE =
-  "PROJECT_MEMORY_FILE_CHANGED";
+export const PROJECT_MEMORY_FILE_CHANGED_ERROR_CODE = "PROJECT_MEMORY_FILE_CHANGED";
 
 export interface ProjectMemoryFileSummary {
   name: string;
@@ -23,7 +23,29 @@ export interface ProjectMemoryWorkspaceSummary {
   files: ProjectMemoryFileSummary[];
 }
 
-export interface IMemoryService {
+export interface GlobalMemorySnapshot {
+  content: string;
+  enabled: boolean;
+  extractionEnabled: boolean;
+  generation: number;
+  disabledSessionIds: string[];
+}
+
+export interface IMemoryService extends PersonalProfileImportContract {
+  getGlobalMemory(): Promise<GlobalMemorySnapshot>;
+  updateGlobalMemory(params: {
+    content: string;
+    expectedGeneration: number;
+  }): Promise<GlobalMemorySnapshot>;
+  setGlobalMemoryPreferences(params: {
+    enabled?: boolean;
+    extractionEnabled?: boolean;
+  }): Promise<GlobalMemorySnapshot>;
+  setGlobalMemorySessionEnabled(params: {
+    sessionId: string;
+    enabled: boolean;
+  }): Promise<GlobalMemorySnapshot>;
+
   /**
    * 加载指定 agent 的 memory 文件
    * @param workspacePath workspace 路径
@@ -46,10 +68,7 @@ export interface IMemoryService {
   /**
    * 清除 memory 内容
    */
-  clearMemory(params: {
-    workspacePath: string;
-    agentId: string;
-  }): Promise<void>;
+  clearMemory(params: { workspacePath: string; agentId: string }): Promise<void>;
 
   /**
    * 获取用户级 memory 目录路径，并确保目录存在
@@ -66,6 +85,4 @@ export interface IMemoryService {
   }): Promise<{ content: string; updatedAt: number }>;
 }
 
-export const IMemoryService = createServiceDescriptor<IMemoryService>(
-  ServiceChannels.Memory,
-);
+export const IMemoryService = createServiceDescriptor<IMemoryService>(ServiceChannels.Memory);

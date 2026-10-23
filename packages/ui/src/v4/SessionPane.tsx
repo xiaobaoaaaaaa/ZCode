@@ -1,3 +1,4 @@
+import { ConversationVersions } from "@/conversation-versions/index.js";
 import { remoteHostIdFromWorkspaceIdentity } from "@zcode/shared";
 import { useRemoteConversationAvailable } from "@/v4/RemoteConversationAvailability.js";
 import {
@@ -5704,6 +5705,37 @@ export function SessionPane({
           compactForRemoteControl && "min-w-0",
         )}
       >
+        {sessionId && runtimeReady && !readOnly && (
+          <ConversationVersions
+            key={sessionId}
+            disabled={
+              !snapshot ||
+              snapshot.control.activeWorks.length > 0 ||
+              snapshot.pendingInteractions.length > 0 ||
+              snapshot.queue.items.length > 0 ||
+              snapshot.backgroundWorks.some((work) => work.status === "running")
+            }
+            load={async () => {
+              const ack = await dispatchCommand("listConversationVersions", {}, sessionId);
+              if (ack.result?.type !== "listConversationVersions")
+                throw new Error("Version list unavailable");
+              return ack.result.versions;
+            }}
+            restore={async (versionId) => {
+              const current = snapshotRef.current;
+              if (!current || current.sessionId !== sessionId) throw new Error("Session changed");
+              const ack = await dispatchCommand(
+                "restoreConversationVersion",
+                { versionId },
+                sessionId,
+                current.revision,
+                current.logEpoch,
+              );
+              if (ack.result?.type !== "restoreConversationVersion")
+                throw new Error("Version restore failed");
+            }}
+          />
+        )}
         {effectiveDropTargetController?.active ? (
           <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center bg-accent/55 backdrop-blur-sm">
             <div className="flex items-center gap-2 rounded-full border border-border bg-accent px-4 py-2 text-ui-base text-foreground shadow-sm">

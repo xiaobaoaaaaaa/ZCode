@@ -2777,6 +2777,14 @@ const zhCN: Record<string, string> = {
   "chat.changeSummary.rewindDialog.reason.externalModified": "当前文件已被外部修改",
   "chat.changeSummary.rewindDialog.reason.fileReadFailed": "无法读取当前文件",
   "chat.changeSummary.rewindDialog.reason.unsupportedCheckpoint": "旧 checkpoint 无法安全还原",
+  "chat.versions.open": "对话版本",
+  "chat.versions.restore": "恢复所选版本",
+  "chat.versions.warning":
+    "恢复将替换当前显示的对话及模型上下文，当前版本也会保存。已执行的命令、外部操作和文件变动不会撤销或重放。",
+  "chat.versions.empty": "尚无旧版本。",
+  "chat.versions.error": "无法读取或恢复此版本。请停止运行中的工作、清空待发输入后重试。",
+  "chat.edit.historyWarning":
+    "编辑后将在当前会话中从此消息重新生成后续对话，旧版本仍可恢复。已执行的命令、外部操作和文件变动不会自动撤销。",
   "chat.edit.resetConversationAndFiles": "对话 + 文件重置",
   "chat.edit.resetConversationAndFiles.tooltip": "与文件一起重置",
   "chat.edit.resetConversationAndFiles.available": "恢复本轮文件、重置对话并发送",
@@ -3039,6 +3047,13 @@ const zhCN: Record<string, string> = {
     "在消息流中展示完整的模型思考内容；关闭时每轮仍展示第一次思考。",
   "settings.messageStreamShowTodos": "显示待办",
   "settings.messageStreamShowTodosDescription": "在消息流中展示 Todo 工具卡片。",
+  "settings.compactExecution": "紧凑执行过程",
+  "settings.compactExecutionDescription": "将连续查阅、可见思考和命令折叠为一行，可展开原始记录。",
+  "chat.compact.reads": "查阅 {count} 项",
+  "chat.compact.commands": "命令 {count} 次",
+  "chat.compact.reasoning": "思考 {count} 项",
+  "chat.compact.running": "执行中",
+  "chat.compact.completed": "执行记录",
   "settings.toolGroupingExplore": "分组探索工具",
   "settings.toolGroupingExploreDescription": "将连续的读取和搜索工具聚合为 Explore 分组。",
   "settings.toolGroupingTerminal": "分组终端命令",
@@ -7686,6 +7701,61 @@ const zhCN: Record<string, string> = {
   "globalNotice.highspeed.imageSummary": "{tokens} tokens · 节省 {duration} 秒",
   "globalNotice.highspeed.close": "关闭加速分享卡片",
   ...requestSecurityMessagesZhCN,
+  "settings.globalMemory.title": "全局记忆 · 本机配置",
+  "settings.globalMemory.description":
+    "跨项目共享稳定偏好与反馈，仅作为背景数据。请勿保存密码或密钥。",
+  "settings.globalMemory.enabled": "启用全局记忆",
+  "settings.globalMemory.record": "自动记录稳定偏好",
+  "settings.globalMemory.content": "记忆 Markdown（包含来源、时间及全局作用域）",
+  "settings.globalMemory.save": "保存",
+  "settings.globalMemory.delete": "删除全部全局记忆",
+  "settings.globalMemory.refresh": "刷新",
+  "settings.globalMemory.disableSession": "当前会话禁用全局记忆",
+  "settings.globalMemory.enableSession": "当前会话启用全局记忆",
+  "settings.globalMemory.sessionError": "记忆设置失败，请重新打开后重试",
+  "settings.profileImport.title": "导入官方版项目记忆",
+  "settings.profileImport.scope":
+    "仅支持项目 Markdown 记忆。会话、项目注册和设置需要按数据库版本迁移，尚不导入。凭据、加密数据和全局记忆均排除。",
+  "settings.profileImport.warning":
+    "请先关闭官方应用，检查来源 Markdown 并移除密码或密钥。仅创建副本；个人版已有项目会跳过。项目身份或路径仍需匹配，不跟随文档链接。",
+  "settings.profileImport.source": "官方版数据目录（本机绝对路径）",
+  "settings.profileImport.preview": "预览可导入记忆",
+  "settings.profileImport.counts": "{projects} 个项目 · {files} 个 Markdown 文件 · {bytes} 字节",
+  "settings.profileImport.confirm": "确认复制到个人版",
+  "settings.profileImport.busy": "正在检查或复制记忆…",
+  "settings.profileImport.result":
+    "已复制 {imported} 个项目 · 跳过 {duplicates} 个重复项目 · 保留 {conflicts} 个冲突项目",
+
+  "settings.appearanceImport.title": "导入语言与缩放设置",
+  "settings.appearanceImport.scope":
+    "仅导入 v2/setting.json 中的语言偏好和桌面缩放；已有值保留。请先关闭官方应用。凭据与其他设置排除；主题存于浏览器存储，请在外观中手动选择。",
+  "settings.appearanceImport.source": "官方版数据目录（本机绝对路径）",
+  "settings.appearanceImport.preview": "预览安全设置",
+  "settings.appearanceImport.fields": "个支持的设置字段",
+  "settings.appearanceImport.confirm": "确认导入缺失设置",
+  "settings.appearanceImport.busy": "正在检查或导入设置…",
+  "settings.appearanceImport.imported": "已导入",
+  "settings.appearanceImport.preserved": "已保留已有值",
+  "settings.appearanceImport.restart": "重启个人版后应用导入的偏好。",
+
+  "settings.appearanceImport.field.locale": "显示语言",
+  "settings.appearanceImport.field.localePreference": "语言偏好",
+  "settings.appearanceImport.field.desktopZoomLevel": "桌面缩放级别",
+
+  "settings.historyImport.title": "导入官方版会话历史",
+  "settings.historyImport.scope":
+    "将当前有效分支的用户与助手文本复制为个人版新会话，并关联本地项目路径。不导入工具记录、推理、权限、待执行输入、工作流或凭据。",
+  "settings.historyImport.warning":
+    "请先检查来源历史中的敏感文本。保留已有个人版会话；导入不会执行命令、撤销文件变更或授予权限。",
+  "settings.historyImport.source": "官方版数据目录（本机绝对路径）",
+  "settings.historyImport.closed": "我已关闭官方版，并停止了正在写入此目录的进程。",
+  "settings.historyImport.preview": "预览会话导入",
+  "settings.historyImport.counts": "{sessions} 个会话 · {messages} 条文本消息 · 跳过 {skipped} 项",
+  "settings.historyImport.confirm": "确认复制为个人版会话",
+  "settings.historyImport.busy": "正在检查或导入会话历史…",
+  "settings.historyImport.result": "已导入 {imported} 个会话 · 保留 {duplicates} 个重复项",
+  "settings.historyImport.resume":
+    "可从侧边栏对应项目打开导入的会话。继续对话需要新的用户消息，并使用个人版配置的模型与权限。",
 };
 
 export default zhCN;

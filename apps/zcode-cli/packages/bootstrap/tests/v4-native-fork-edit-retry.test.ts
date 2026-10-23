@@ -1644,3 +1644,46 @@ describe("v4 原生 applyFileRewind", () => {
     expect(app.runtime.applyWorkspaceFileRewind).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("conversation version restore admission", () => {
+  it("requires idle authority and refreshes projection without submitting work", async () => {
+    const restore = vi.fn(async () => {});
+    const app = makeApp({ runtime: { restoreConversationVersion: restore } });
+    const refresh = vi.fn(async () => {});
+    const host = makeHost(makeRecord({ app }), {
+      assertConversationVersionRestoreAvailable: () => {},
+      refreshConversationVersion: refresh,
+    });
+    await expect(
+      new V4CommandExecutor(host).execute(
+        envelope("restoreConversationVersion", { versionId: "old" }),
+      ),
+    ).resolves.toMatchObject({
+      type: "restoreConversationVersion",
+      versionId: "old",
+      sessionId: "s1",
+    });
+    expect(restore).toHaveBeenCalledOnce();
+    expect(refresh).toHaveBeenCalledWith("s1");
+    expect(app.sendInput).not.toHaveBeenCalled();
+    expect(app.submitPrompt).not.toHaveBeenCalled();
+  });
+
+  it("rejects busy or unavailable restoration before mutating history", async () => {
+    const restore = vi.fn(async () => {});
+    const app = makeApp({ runtime: { restoreConversationVersion: restore } });
+    const record = makeRecord({ app });
+    const command = envelope("restoreConversationVersion", { versionId: "old" });
+    await expect(new V4CommandExecutor(makeHost(record)).execute(command)).rejects.toThrow(
+      "unavailable",
+    );
+    const host = makeHost(record, {
+      assertConversationVersionRestoreAvailable: () => {
+        throw new Error("busy");
+      },
+      refreshConversationVersion: async () => {},
+    });
+    await expect(new V4CommandExecutor(host).execute(command)).rejects.toThrow("busy");
+    expect(restore).not.toHaveBeenCalled();
+  });
+});

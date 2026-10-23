@@ -640,6 +640,10 @@ export interface IZCodeAgentService {
   getWorkspaceRuntimeIdentity(
     params: ZCodeAgentWorkspaceTarget,
   ): Promise<ZCodeAgentWorkspaceRuntimeIdentity>;
+  importOfficialHistory(params: {
+    workspacePath: string;
+    bundle: import("@zcode/shared").ZCodeOfficialHistoryBundle;
+  }): Promise<import("@zcode/shared").ZCodeOfficialHistoryImportResult>;
   createSession(params: ZCodeAgentCreateSessionParams): Promise<ZCodeSessionStateSnapshot>;
   resumeSession(params: ZCodeAgentResumeSessionParams): Promise<ZCodeSessionStateSnapshot>;
   listSessions(params: ZCodeAgentListSessionsParams): Promise<ZCodeSessionInfo[]>;

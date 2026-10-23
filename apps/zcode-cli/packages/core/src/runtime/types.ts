@@ -1,3 +1,4 @@
+import type { GlobalMemoryPort } from "@zcode/contracts";
 import type { ToolSearchExecutionContext, ToolSearchMode } from "@zcode/contracts";
 import type { RequestVerificationReason } from "@zcode/shared";
 import type { GetAgentDefinitions, LoadAgentDefinitions } from "../subagent/definitions.js";
@@ -143,6 +144,7 @@ export interface AgentRuntimeConfig {
     mode?: "auto" | "force";
   };
   subagents?: {
+    mainAgentModelPolicy?: import("@zcode/shared").MainAgentModelPolicy;
     enabled?: boolean;
     // foreground subagent 没有任何 child 事件的最大静默时间；默认对齐模型流 idle timeout。
     inactivityTimeoutMs?: number;
@@ -324,6 +326,7 @@ export interface MemoryRuntimeConfig {
 }
 
 export interface AgentRuntimeDeps {
+  globalMemoryPort?: GlobalMemoryPort;
   /** 只读目录入口；必须同步读取内存，不在请求收集阶段进行 I/O。 */
   getAgentDefinitions?: GetAgentDefinitions;
   /** 新父上下文读取一次；子执行不得继承此加载器。 */

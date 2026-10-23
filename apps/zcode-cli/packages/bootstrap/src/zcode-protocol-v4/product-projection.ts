@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- 历史编辑和模型展示复用现有权威投影；保留 reducer 的单一状态所有者，避免为个人版改动拆分整套协议状态机。 */
 import { PERMISSION_FULL_ACCESS_OPTION_ID } from "@zcode/shared/zcode-protocol-v4";
 // ProductProjection —— CLI 权威投影第二 reducer。
 // 输入：CLI 事件日志（SessionEvent，权威事实源）；输出：ConversationDelta[]。
@@ -470,7 +471,7 @@ export class ProductProjection {
   // canonical command target 只按稳定实体身份寻址；rowId 仅是本次 materialization 的
   // transient lookup，刷新/replay 后变化也不会改变 target identity。
   private editTargetByEntityId = new Map<string, ConversationEditTarget>();
-  private currentEditableEntityId: string | null = null;
+  private currentEditableEntityIds = new Set<string>();
   private stableCompactCoverageBoundaryRowId: number | null = null;
   private turnHeaderRowIdByTurnId = new Map<string, number>();
   private compactMarkerRowIdByOperationId = new Map<string, number>();
@@ -789,7 +790,7 @@ export class ProductProjection {
   }
 
   resolveEditTargetByEntityId(entityId: string): ConversationEditTarget | null {
-    if (entityId !== this.currentEditableEntityId) return null;
+    if (!this.currentEditableEntityIds.has(entityId)) return null;
     const target = this.editTargetByEntityId.get(entityId);
     return target ? { ...target, intent: { ...target.intent } } : null;
   }
@@ -992,7 +993,7 @@ export class ProductProjection {
     );
   }
 
-  /** latestQueryEditOnly：只有当前投影里的最后一条 realUser userInput row 可 edit。 */
+  /** 兼容既有调用名；实际 authority 来自当前 active projection 的 canEdit。 */
   isLatestEditableUserRow(rowId: number): boolean {
     const row = this.findRow(rowId);
     return Boolean(
@@ -1163,7 +1164,7 @@ export class ProductProjection {
     clone.outputContinuationRowIdByMessageId = new Map(this.outputContinuationRowIdByMessageId);
     clone.entityIdByRowId = new Map(this.entityIdByRowId);
     clone.editTargetByEntityId = new Map(this.editTargetByEntityId);
-    clone.currentEditableEntityId = this.currentEditableEntityId;
+    clone.currentEditableEntityIds = new Set(this.currentEditableEntityIds);
     clone.stableCompactCoverageBoundaryRowId = this.stableCompactCoverageBoundaryRowId;
     clone.turnHeaderRowIdByTurnId = new Map(this.turnHeaderRowIdByTurnId);
     clone.compactMarkerRowIdByOperationId = new Map(this.compactMarkerRowIdByOperationId);
@@ -1215,7 +1216,7 @@ export class ProductProjection {
     this.outputContinuationRowIdByMessageId = candidate.outputContinuationRowIdByMessageId;
     this.entityIdByRowId = candidate.entityIdByRowId;
     this.editTargetByEntityId = candidate.editTargetByEntityId;
-    this.currentEditableEntityId = candidate.currentEditableEntityId;
+    this.currentEditableEntityIds = new Set(candidate.currentEditableEntityIds);
     this.stableCompactCoverageBoundaryRowId = candidate.stableCompactCoverageBoundaryRowId;
     this.turnHeaderRowIdByTurnId = candidate.turnHeaderRowIdByTurnId;
     this.compactMarkerRowIdByOperationId = candidate.compactMarkerRowIdByOperationId;
@@ -1318,9 +1319,20 @@ export class ProductProjection {
         ? latestEditable.rowId
         : null;
     // entity target 历史表会保留旧记录；仅撤销 row action 不足以阻止
-    // entityId 直查绕过 latest-only 语义。当前可编辑 authority 与 actions 在同一次
+    // entityId 直查绕过 active-branch 语义。当前可编辑 authority 与 actions 在同一次
     // materialization 中更新，resolver 不再遍历 rows，也不把 rowId 当 canonical key。
-    this.currentEditableEntityId = latestEditableRowId === null ? null : latestEditableEntityId;
+    // 可编辑 authority 来自当前 active projection；历史实体表不能让失效分支复活。
+    const historicalEditAvailable = !completionBlockingActive && prospective.pendingInteractions.length === 0;
+    const editableRowIds = new Set<number>();
+    this.currentEditableEntityIds = new Set();
+    for (const candidate of rows) {
+      if (compactActive || candidate.kind !== "userInput" || candidate.origin !== "realUser") continue;
+      if (!historicalEditAvailable && candidate.rowId !== latestEditableRowId) continue;
+      const entityId = this.entityIdByRowId.get(candidate.rowId);
+      if (!entityId || !this.messageIdByRowId.has(candidate.rowId) || !this.editTargetByEntityId.has(entityId)) continue;
+      editableRowIds.add(candidate.rowId);
+      this.currentEditableEntityIds.add(entityId);
+    }
     const latestRetryableRowId = latestRetryable?.rowId ?? null;
     const deltas: ConversationDelta[] = [];
 
@@ -1337,7 +1349,7 @@ export class ProductProjection {
         if (canRewindFiles) nextActions.canRewindFiles = true;
         else delete nextActions.canRewindFiles;
       } else if (row.kind === "userInput") {
-        if (row.rowId === latestEditableRowId) {
+        if (editableRowIds.has(row.rowId)) {
           nextActions.canEdit = true;
           nextActions.editDisposition = "rewind";
         } else {
@@ -4443,6 +4455,9 @@ export class ProductProjection {
       const row: SubagentRow = {
         ...existing,
         status: "running",
+        model: this.stringPayload(payload, "model") ?? existing.model,
+        modelSelectionReason:
+          this.stringPayload(payload, "modelSelectionReason") ?? existing.modelSelectionReason,
         summaryText:
           this.stringPayload(payload, "description") ??
           this.stringPayload(payload, "prompt") ??
@@ -4468,6 +4483,8 @@ export class ProductProjection {
         ? { parentToolCallId: this.stringPayload(payload, "parentToolCallId") }
         : {}),
       subagentType: this.stringPayload(payload, "agentType") ?? "subagent",
+      model: this.stringPayload(payload, "model"),
+      modelSelectionReason: this.stringPayload(payload, "modelSelectionReason"),
       status: "running",
       summaryText:
         this.stringPayload(payload, "description") ??

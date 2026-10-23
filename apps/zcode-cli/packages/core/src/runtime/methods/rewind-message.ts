@@ -563,9 +563,24 @@ async function applyConversationRewindPlan(
     removedTurnIds,
     traceContext: options.traceContext,
   });
+  const previous = await this.sessionStore!.getSession(this.sessionId);
+  const previousActive = selectActiveConversationBranch(persistedMessages, {
+    branchCutAfterMessageId: previous?.revert?.branchCutAfterMessageID,
+    rewindCreatedMessageId: previous?.revert?.createdMessageID,
+    rewindKeptMessageIds: previous?.revert?.keptMessageIDs,
+    rewindTargetMessageId: previous?.revert?.targetMessageID,
+  });
   await this.sessionStore!.setRevert({
     sessionID: this.sessionId,
     revert: {
+      versions: [
+        ...(previous?.revert?.versions ?? []),
+        {
+          id: rewindId,
+          createdAt: Date.now(),
+          messageIDs: previousActive.map((message) => message.info.id),
+        },
+      ],
       // 只保存 target/created 无法在连续编辑或重启后还原旧 rewind 前缀。
       // keptMessageIDs 保存的是本次 rewind 前 active branch 的保留前缀，避免旧分支重新浮出。
       keptMessageIDs: keptMessages.map((message) => message.info.id as MessageId),
@@ -737,4 +752,73 @@ async function rebuildConversationDerivedState(
 
 function isRewindableUserPrompt(message: MessageWithParts): boolean {
   return message.info.role === "user" && !message.info.summary;
+}
+
+export async function listConversationVersions(
+  this: AgentRuntimeInternal,
+): Promise<Array<{ id: string; createdAt: number; messageCount: number }>> {
+  const session = await this.sessionStore?.getSession(this.sessionId);
+  return (session?.revert?.versions ?? []).map((version) => ({
+    id: version.id,
+    createdAt: version.createdAt,
+    messageCount: version.messageIDs.length,
+  }));
+}
+
+/** Restore transcript/context only. Never re-execute tools or restore workspace files. */
+export async function restoreConversationVersion(
+  this: AgentRuntimeInternal,
+  options: { versionId: string; traceContext: TraceContext },
+): Promise<void> {
+  if (!this.sessionStore) throw new Error("Conversation versions require a session store");
+  if (this.getActiveTurnInfo() || this.getActiveForegroundExecutionId()) {
+    throw new Error("Stop running work before restoring a conversation version");
+  }
+  const session = await this.sessionStore.getSession(this.sessionId);
+  const version = session?.revert?.versions?.find((item) => item.id === options.versionId);
+  if (!version) throw new Error("Conversation version not found");
+  const persistedMessages = await this.sessionStore.messages({ sessionID: this.sessionId });
+  const knownIds = new Set(persistedMessages.map((message) => message.info.id));
+  if (version.messageIDs.length === 0 || version.messageIDs.some((id) => !knownIds.has(id))) {
+    throw new Error("Conversation version has missing messages");
+  }
+  const active = selectActiveConversationBranch(persistedMessages, {
+    branchCutAfterMessageId: session?.revert?.branchCutAfterMessageID,
+    rewindCreatedMessageId: session?.revert?.createdMessageID,
+    rewindKeptMessageIds: session?.revert?.keptMessageIDs,
+    rewindTargetMessageId: session?.revert?.targetMessageID,
+  });
+  const branchCutAfterMessageId = persistedMessages.at(-1)!.info.id;
+  const targetMessageId = version.messageIDs[0]!;
+  const branchGeneration =
+    Math.max(this.branchGeneration, session?.revert?.branchGeneration ?? 0) + 1;
+  await this.sessionStore.setRevert({
+    sessionID: this.sessionId,
+    revert: {
+      messageID: version.messageIDs.at(-1)!,
+      kind: "conversation_rewind",
+      scope: "conversation",
+      targetMessageID: targetMessageId,
+      keptMessageIDs: [...version.messageIDs],
+      branchCutAfterMessageID: branchCutAfterMessageId,
+      branchGeneration,
+      versions: [
+        ...(session?.revert?.versions ?? []),
+        {
+          id: `version_${crypto.randomUUID()}`,
+          createdAt: Date.now(),
+          messageIDs: active.map((message) => message.info.id),
+        },
+      ],
+    },
+  });
+  this.branchGeneration = branchGeneration;
+  this.runtimeTaskRegistry.setActiveBranchGeneration?.(branchGeneration);
+  await rebuildConversationDerivedState.call(this, {
+    branchCutAfterMessageId,
+    keptMessageIds: version.messageIDs,
+    persistedMessages,
+    targetMessageId,
+    traceContext: options.traceContext,
+  });
 }

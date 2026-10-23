@@ -1,3 +1,4 @@
+// Personal fork: backend/flavor selection never restores official OS identity.
 /**
  * 构建期开关：为真时安装包使用 Preview 身份，而后端环境仍由 `ZCODE_ENV` 单独决定。
  * 典型用法是 `ZCODE_ENV=production ZCODE_PREVIEW_IDENTITY=1`，得到一个连接生产后端、
@@ -7,19 +8,19 @@ export const ZCODE_PREVIEW_IDENTITY_ENV = "ZCODE_PREVIEW_IDENTITY";
 
 const PRODUCTION_IDENTITY = Object.freeze({
   flavor: "production",
-  appId: "dev.zcode.app",
-  productName: "ZCode",
-  linuxExecutableName: "zcode",
-  linuxPackageName: "zcode",
+  appId: "io.github.xiaobaoaaaaaa.zcode.personal",
+  productName: "ZCode Personal",
+  linuxExecutableName: "zcode-personal",
+  linuxPackageName: "zcode-personal",
   cuaHelperInstallVariant: null,
 });
 
 const PREVIEW_IDENTITY = Object.freeze({
   flavor: "preview",
-  appId: "dev.zcode.app.preview",
-  productName: "ZCode Preview",
-  linuxExecutableName: "zcode-preview",
-  linuxPackageName: "zcode-preview",
+  appId: "io.github.xiaobaoaaaaaa.zcode.personal.preview",
+  productName: "ZCode Personal Preview",
+  linuxExecutableName: "zcode-personal-preview",
+  linuxPackageName: "zcode-personal-preview",
   cuaHelperInstallVariant: "preview",
 });
 
@@ -84,7 +85,7 @@ export function resolveDesktopArtifactSuffix(env = process.env) {
  */
 export function resolveWindowsAppUserModelIdForFlavor(flavor, runtime = { isPackaged: true }) {
   if (runtime.isPackaged === false) {
-    return "cn.aminer.zcode";
+    return "io.github.xiaobaoaaaaaa.zcode.personal.dev";
   }
   return desktopProductIdentities[flavor === "preview" ? "preview" : "production"].appId;
 }

@@ -2,6 +2,8 @@
 import { access, lstat, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import {
+  mainAgentModelPolicySchema,
+  type MainAgentModelPolicy,
   createAgentStateId,
   createPluginAgentStateId,
   parsePluginSubagentModelSelectionOverrides,
@@ -49,6 +51,7 @@ import { createSubagentRuntimeConfigCache } from "./subagentRuntimeConfig.js";
 const subagentLogger = createServiceLogger("subagents");
 
 interface AgentsStateFile {
+  mainAgentModelPolicy?: MainAgentModelPolicy;
   builtInModelSelectionOverrides: BuiltInSubagentModelSelectionOverrides;
   pluginAgentModelSelectionOverrides: PluginSubagentModelSelectionOverrides;
   disabledAgentIds: string[];
@@ -167,6 +170,7 @@ async function readAgentStateAtPath(stateFile: string): Promise<AgentsStateFile>
   try {
     const raw = await readFile(stateFile, "utf-8");
     const parsed = JSON.parse(raw) as {
+      mainAgentModelPolicy?: unknown;
       builtInModelSelectionOverrides?: unknown;
       pluginAgentModelSelectionOverrides?: unknown;
       builtInModelOverrides?: unknown;
@@ -176,6 +180,7 @@ async function readAgentStateAtPath(stateFile: string): Promise<AgentsStateFile>
     const selections = normalizeBuiltInSelectionOverrides(parsed.builtInModelSelectionOverrides);
     return {
       ...parsed,
+      mainAgentModelPolicy: mainAgentModelPolicySchema.safeParse(parsed.mainAgentModelPolicy).data,
       builtInModelSelectionOverrides: selections,
       pluginAgentModelSelectionOverrides: parsePluginSubagentModelSelectionOverrides(
         parsed.pluginAgentModelSelectionOverrides,
@@ -407,7 +412,7 @@ async function discoverPluginAgents(params: {
 
 async function readPluginConfig(options?: SubagentStorageOptions): Promise<PluginConfigSummary> {
   try {
-    const configPath = join(resolveUserHomeDir(options), ".zcode", "cli", "config.json");
+    const configPath = join(resolveUserHomeDir(options), ".zcode-personal", "cli", "config.json");
     const raw = await readFile(configPath, "utf-8");
     const parsed = JSON.parse(raw) as unknown;
     if (!isRecord(parsed)) return { enabledPlugins: {}, suppressedBuiltins: [] };
@@ -664,6 +669,7 @@ export function createSubagentsService(options?: SubagentsServiceOptions): ISuba
       const agents = attachEnabledState(discoveredAgents, state);
 
       return {
+        mainAgentModelPolicy: state.mainAgentModelPolicy,
         agents,
         userAgents: agents.filter((agent) => agent.source === "user"),
         pluginAgents: attachEnabledState(pluginAgentDiscovery.profiles, state),
@@ -686,6 +692,14 @@ export function createSubagentsService(options?: SubagentsServiceOptions): ISuba
       };
 
       await mutate(runUpdate);
+    },
+
+    async setMainAgentModelPolicy(policy: MainAgentModelPolicy) {
+      const parsed = mainAgentModelPolicySchema.parse(policy);
+      await mutate(async () => {
+        const state = await readAgentStateFile(storageOptions);
+        await writeAgentStateFile({ ...state, mainAgentModelPolicy: parsed }, storageOptions);
+      });
     },
 
     async setBuiltInModelOverride(params: BuiltInSubagentModelOverrideParams): Promise<void> {

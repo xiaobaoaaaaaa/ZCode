@@ -971,6 +971,25 @@ export class ConversationV4Gateway {
     });
   }
 
+  assertConversationVersionRestoreAvailable(sessionId: string): void {
+    const snapshot = this.publishers.get(sessionId)?.getSnapshot();
+    if (
+      !snapshot ||
+      snapshot.control.activeWorks.length ||
+      snapshot.pendingInteractions.length ||
+      snapshot.backgroundWorks.some((work) => work.status === "running") ||
+      snapshot.queue.items.length
+    ) {
+      throw new Error("Stop running work and clear queued inputs before restoring a version");
+    }
+  }
+
+  async refreshConversationVersion(sessionId: string): Promise<void> {
+    await this.hydrationInFlight.get(sessionId);
+    this.hydratedSessions.delete(sessionId);
+    await this.hydratePublisher(sessionId, undefined, true);
+  }
+
   /** 授权已经提交到任务事务，失败重试必须重放权威日志，不能再次提权或丢弃提交事实。 */
   async waitForPermissionGrantCommit(sessionId: string, eventId: string): Promise<void> {
     const state = this.getOrCreateRawSequenceState(sessionId);

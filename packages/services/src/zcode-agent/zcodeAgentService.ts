@@ -1,3 +1,4 @@
+import { zcodeOfficialHistoryImportResultSchema } from "@zcode/shared";
 import { isAuxiliarySessionKind } from "@zcode/shared";
 import {
   pluginUiToolResultNotificationSchema,
@@ -547,7 +548,11 @@ function savedWorkflowScopeParam(params: ZCodeAgentSavedWorkflowTarget): {
 }
 
 function ensurePluginManagementWorkspacePath(): string {
-  const workspacePath = join(getDataBaseDir(), ".zcode", PLUGIN_MANAGEMENT_WORKSPACE_DIR_NAME);
+  const workspacePath = join(
+    getDataBaseDir(),
+    ".zcode-personal",
+    PLUGIN_MANAGEMENT_WORKSPACE_DIR_NAME,
+  );
   // 插件管理是控制面能力，不能复用可能因真实 workspace 被删而 EPIPE 的会话进程。
   // 这里给它固定一个内部 cwd；真实 workspace 仍通过协议参数传给 CLI 做 workspace-scope 判定。
   mkdirSync(workspacePath, { recursive: true });
@@ -3929,6 +3934,17 @@ export function createZCodeAgentService(
       // 查询 runtime identity 只能观察现有进程，不能把 dormant workspace 变成活动进程。
       await getReadOnlyClient(params, "existing-only");
       return await processManager.getRuntimeIdentity(params);
+    },
+
+    async importOfficialHistory(params) {
+      if (params.workspacePath !== params.bundle.directory || params.bundle.workspaceId)
+        throw new Error("Official import workspace mismatch");
+      const client = await getReadOnlyClient({ workspacePath: params.workspacePath });
+      return client.request(
+        zcodeProtocolMethods.sessionImportHistory,
+        { bundle: params.bundle },
+        zcodeOfficialHistoryImportResultSchema,
+      );
     },
 
     async createSession(params: ZCodeAgentCreateSessionParams) {

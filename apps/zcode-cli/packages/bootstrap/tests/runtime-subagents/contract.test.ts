@@ -14,3 +14,14 @@ it("保留注入命名空间，Host fallback 不混入磁盘配置", () => {
     pluginAgentModelSelectionOverrides: {},
   });
 });
+
+it("passes user-state model authorization without accepting Markdown authorization", () => {
+  const policy = { enabled: true, allowedModels: [{ providerId: "personal:allowed", modelId: "m" }] };
+  const result = parseRuntimeSubagentConfig({
+    ...exampleSubagentConfiguration,
+    state: { ...exampleSubagentConfiguration.state, mainAgentModelPolicy: policy },
+  });
+  expect(result.mainAgentModelPolicy).toEqual(policy);
+  expect(result.profiles[0]).not.toHaveProperty("mainAgentModelPolicy");
+  expect(subagentProfilesFromSnapshot({ kind: "built-in-fallback" }).mainAgentModelPolicy).toBeUndefined();
+});

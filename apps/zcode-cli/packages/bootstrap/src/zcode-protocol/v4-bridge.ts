@@ -1209,6 +1209,14 @@ export function createConversationV4Gateway(
       }
       return { available: true };
     },
+    assertConversationVersionRestoreAvailable: (sessionId) => {
+      if (!context.v4Gateway) throw new Error("V4 gateway unavailable");
+      context.v4Gateway.assertConversationVersionRestoreAvailable(sessionId);
+    },
+    refreshConversationVersion: async (sessionId) => {
+      if (!context.v4Gateway) throw new Error("V4 gateway unavailable");
+      await context.v4Gateway.refreshConversationVersion(sessionId);
+    },
     afterLegacyStateMutation: async (record, reason) => {
       await afterStateMutation(context, record as ZCodeProtocolSessionRecord, reason);
       await autoDrainV4QueueIfReady(record as ZCodeProtocolSessionRecord);

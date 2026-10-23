@@ -1,10 +1,15 @@
 import { z } from "zod";
 import { modelSelectionSchema } from "./model-selection.js";
-import { agentProfileSchema, type AgentProfile } from "./subagent-profile.js";
+import {
+  agentProfileSchema,
+  mainAgentModelPolicySchema,
+  type AgentProfile,
+} from "./subagent-profile.js";
 import { createAgentStateId } from "./subagents-types.js";
 
 export const subagentRuntimeStateSchema = z
   .object({
+    mainAgentModelPolicy: mainAgentModelPolicySchema.optional(),
     disabledAgentIds: z.array(z.string()),
     builtInModelSelectionOverrides: z
       .object({
@@ -22,6 +27,7 @@ export const subagentRuntimeConfigSchema = z.discriminatedUnion("kind", [
   z
     .object({
       kind: z.literal("ready"),
+      mainAgentModelPolicy: mainAgentModelPolicySchema.optional(),
       profiles: z.array(agentProfileSchema.refine((profile) => profile.source !== "built-in")),
       builtInModelSelectionOverrides:
         subagentRuntimeStateSchema.shape.builtInModelSelectionOverrides,
@@ -40,6 +46,7 @@ export function resolveSubagentRuntimeProfiles(
 ) {
   const disabled = new Set(state.disabledAgentIds);
   return {
+    mainAgentModelPolicy: state.mainAgentModelPolicy,
     profiles: profiles.filter(
       (profile) =>
         profile.source !== "user" ||

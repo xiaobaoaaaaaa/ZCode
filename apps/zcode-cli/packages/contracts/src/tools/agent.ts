@@ -22,8 +22,14 @@ export const AgentInputSchema = z.object({
     .string()
     .optional()
     .describe("The type of specialized agent to use for this task"),
-  // subagent 模型由 Settings / Markdown profile 统一决定；若把调用级
-  // model 暴露给父模型，历史 tool call 会持续生成旧 override 并覆盖当前配置。
+  model: z
+    .string()
+    .min(1)
+    .max(300)
+    .optional()
+    .describe(
+      "Optional providerId/modelId suggestion. Only used when the user enabled main-agent selection and explicitly allowed this model. Manual agent settings take precedence; unavailable suggestions inherit the current parent model.",
+    ),
   run_in_background: z
     .boolean()
     .optional()
@@ -45,6 +51,8 @@ export interface AgentCompletedOutput {
   status: "completed";
   agentId: string;
   agentType: AgentType;
+  model?: string;
+  modelSelectionReason?: string;
   description: string;
   prompt: string;
   content: AgentTextContentBlock[];
@@ -59,6 +67,8 @@ export interface AgentBackgroundedOutput {
   isAsync: true;
   agentId: string;
   agentType: AgentType;
+  model?: string;
+  modelSelectionReason?: string;
   description: string;
   prompt: string;
   childSessionId: string;
@@ -81,6 +91,8 @@ export const AgentCompletedOutputSchema = z
     status: z.literal("completed"),
     agentId: z.string(),
     agentType: z.string(),
+    model: z.string().optional(),
+    modelSelectionReason: z.string().optional(),
     description: z.string(),
     prompt: z.string(),
     content: z.array(AgentTextContentBlockSchema),
@@ -97,6 +109,8 @@ export const AgentBackgroundedOutputSchema = z
     isAsync: z.literal(true),
     agentId: z.string(),
     agentType: z.string(),
+    model: z.string().optional(),
+    modelSelectionReason: z.string().optional(),
     description: z.string(),
     prompt: z.string(),
     childSessionId: z.string(),

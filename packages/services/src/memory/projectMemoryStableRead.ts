@@ -10,8 +10,10 @@ const PROJECT_MEMORY_PREVIEW_MAX_BYTES = 5 * 1024 * 1024;
 export async function readProjectMemoryFileFromStableHandle(params: {
   fileName: string;
   filePath: string;
+  maxBytes?: number;
   validatePath: () => Promise<void>;
 }): Promise<{ content: string; updatedAt: number }> {
+  const maxBytes = params.maxBytes ?? PROJECT_MEMORY_PREVIEW_MAX_BYTES;
   const preOpenStat = await lstat(params.filePath, { bigint: true });
   if (!preOpenStat.isFile() || preOpenStat.isSymbolicLink()) {
     throw new Error(`Project Memory file is not a regular file: ${params.filePath}`);
@@ -35,21 +37,18 @@ export async function readProjectMemoryFileFromStableHandle(params: {
       throwFileChangedError(params.fileName);
     }
 
-    if (openedStat.size > BigInt(PROJECT_MEMORY_PREVIEW_MAX_BYTES)) {
-      throwPreviewLimitError(params.fileName);
+    if (openedStat.size > BigInt(maxBytes)) {
+      throwPreviewLimitError(params.fileName, maxBytes);
     }
 
-    const content = await readBoundedFile(handle, PROJECT_MEMORY_PREVIEW_MAX_BYTES + 1);
+    const content = await readBoundedFile(handle, maxBytes + 1);
     const finalStat = await handle.stat({ bigint: true });
     // 原子 rename 失败时写入会退化为同 inode 的原地覆盖，仅读取文件身份无法识别内容变化。
     if (!isSameFileSnapshot(openedStat, finalStat)) {
       throwFileChangedError(params.fileName);
     }
-    if (
-      content.length > PROJECT_MEMORY_PREVIEW_MAX_BYTES ||
-      finalStat.size > BigInt(PROJECT_MEMORY_PREVIEW_MAX_BYTES)
-    ) {
-      throwPreviewLimitError(params.fileName);
+    if (content.length > maxBytes || finalStat.size > BigInt(maxBytes)) {
+      throwPreviewLimitError(params.fileName, maxBytes);
     }
     return {
       content: content.toString("utf-8"),
@@ -83,9 +82,11 @@ async function readBoundedFile(handle: FileHandle, maxBytes: number): Promise<Bu
   return buffer.subarray(0, offset);
 }
 
-function throwPreviewLimitError(fileName: string): never {
+function throwPreviewLimitError(fileName: string, maxBytes: number): never {
   throw Object.assign(
-    new Error(`Project Memory file exceeds the 5 MiB preview limit: ${fileName}`),
+    new Error(
+      `Project Memory file exceeds the ${maxBytes === PROJECT_MEMORY_PREVIEW_MAX_BYTES ? "5 MiB" : `${maxBytes} byte`} preview limit: ${fileName}`,
+    ),
     { code: PROJECT_MEMORY_PREVIEW_LIMIT_EXCEEDED_ERROR_CODE },
   );
 }

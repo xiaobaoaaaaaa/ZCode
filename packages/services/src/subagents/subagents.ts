@@ -20,6 +20,8 @@ export interface ISubagentsService {
     mode?: SubagentsListMode;
   }): Promise<AgentsListResult>;
 
+  setMainAgentModelPolicy(policy: import("@zcode/shared").MainAgentModelPolicy): Promise<void>;
+
   setEnabled(params: { agentId: string; enabled: boolean }): Promise<void>;
 
   setBuiltInModelOverride(params: BuiltInSubagentModelOverrideParams): Promise<void>;

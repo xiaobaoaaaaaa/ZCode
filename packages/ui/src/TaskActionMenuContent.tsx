@@ -1,3 +1,5 @@
+import { useGlobalMemorySession } from "@/hooks/useZCodeSessionService.js";
+
 interface TaskActionMenuItemProps {
   children: React.ReactNode;
   "data-testid"?: string;
@@ -73,10 +75,30 @@ export function TaskActionMenuContent({
   onViewModelTrajectory?: () => void;
   onOpenProviderConfig: () => void;
 }) {
+  const globalMemory = useGlobalMemorySession(activeSessionId);
   const taskTargetActionsDisabled = disableTaskActions || disableTaskTargetActions;
 
   return (
     <>
+      {activeSessionId && globalMemory.enabled !== null ? (
+        <Item
+          disabled={globalMemory.busy || taskTargetActionsDisabled}
+          onSelect={() => {
+            void globalMemory.toggle();
+          }}
+        >
+          {intl.formatMessage({
+            id: globalMemory.enabled
+              ? "settings.globalMemory.disableSession"
+              : "settings.globalMemory.enableSession",
+          })}
+        </Item>
+      ) : null}
+      {globalMemory.error ? (
+        <Item disabled title={globalMemory.error}>
+          {intl.formatMessage({ id: "settings.globalMemory.sessionError" })}
+        </Item>
+      ) : null}
       <Item
         disabled={taskTargetActionsDisabled || disablePinTaskAction}
         title={taskTargetActionsDisabled ? disabledReason : undefined}

@@ -120,6 +120,8 @@ function loadPerformanceMode(): boolean {
 // ============================================================================
 
 export interface ZCodeState {
+  compactExecution: boolean;
+  setCompactExecution: (enabled: boolean) => void;
   /** 展示详情偏好，不改变 Agent 权限或执行能力。 */
   interfaceMode: InterfaceMode;
   setInterfaceMode: (mode: InterfaceMode) => void;
@@ -241,9 +243,11 @@ const BROADCAST_FIELDS = new Set([
   "uiFontSizePx",
   "interfaceMode",
   "notificationEnabled",
+  "compactExecution",
 ]);
 
 type BroadcastField =
+  | "compactExecution"
   | "theme"
   | "locale"
   | "uiFontSizePx"
@@ -277,6 +281,11 @@ export function createZCodeStore(
   let syncSystemThemeListener = (_theme: Theme) => {};
 
   const useStore = create<ZCodeState>()((set, get) => ({
+    compactExecution: readSafeLocalStorage("zcode-personal-compact-execution") !== "false",
+    setCompactExecution: (compactExecution) => {
+      writeSafeLocalStorage("zcode-personal-compact-execution", String(compactExecution));
+      set({ compactExecution });
+    },
     interfaceMode: normalizeInterfaceMode(readSafeLocalStorage(INTERFACE_MODE_STORAGE_KEY)),
     setInterfaceMode: (mode) => {
       const interfaceMode = normalizeInterfaceMode(mode);
@@ -525,7 +534,9 @@ export function createZCodeStore(
     try {
       // 调用对应的 setter，确保副作用（localStorage、DOM）也执行
       const state = useStore.getState();
-      if (field === "theme" && typeof msg.payload === "string") {
+      if (field === "compactExecution" && typeof msg.payload === "boolean") {
+        state.setCompactExecution(msg.payload);
+      } else if (field === "theme" && typeof msg.payload === "string") {
         state.setTheme(msg.payload as Theme);
       } else if (field === "locale" && typeof msg.payload === "string") {
         state.setLocale(msg.payload);

@@ -222,7 +222,11 @@ export {
   PROJECT_MEMORY_FILE_CHANGED_ERROR_CODE,
   PROJECT_MEMORY_PREVIEW_LIMIT_EXCEEDED_ERROR_CODE,
 } from "./memory/memory.js";
-export type { ProjectMemoryFileSummary, ProjectMemoryWorkspaceSummary } from "./memory/memory.js";
+export type {
+  GlobalMemorySnapshot,
+  ProjectMemoryFileSummary,
+  ProjectMemoryWorkspaceSummary,
+} from "./memory/memory.js";
 
 // OutputStyle service — IOutputStyleService is both a type (interface) and value (descriptor).
 export { IOutputStyleService } from "./output-style/outputStyle.js";
@@ -395,3 +399,18 @@ export type {
   GroupNode,
   MoveGroupNode,
 } from "#src/task-groups/contract.js";
+
+export type { ProfileImportPreview, ProfileImportReport } from "./profile-import/contract.js";
+
+export type {
+  AppearanceImportPreview,
+  AppearanceImportReport,
+  AppearanceImportContract,
+} from "./profile-import/contract.js";
+
+export type {
+  HistoryImportContract,
+  HistoryImportPreview,
+  HistoryImportReport,
+  HistoryImportBundle,
+} from "./profile-import/contract.js";

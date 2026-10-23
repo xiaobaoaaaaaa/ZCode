@@ -79,6 +79,11 @@ export function ConversationAgentToolCallRow({
       data-conversation-selectable="true"
       data-testid={testId(TID_V4_ROW, String(item.row.rowId))}
     >
+      {item.subagentRow.model && (
+        <p className="px-2 text-ui-caption text-foreground-subtle">
+          {item.subagentRow.model} · {item.subagentRow.modelSelectionReason}
+        </p>
+      )}
       <ToolCallBlock
         toolCallNode={toolCallNode}
         workspacePath={context.workspacePath}

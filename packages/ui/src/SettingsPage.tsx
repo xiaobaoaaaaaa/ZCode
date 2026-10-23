@@ -1,3 +1,4 @@
+import { OfficialHistoryImportSettings } from "@/history-import/index.js";
 import { SettingsMachinesProvider } from "@/settings/SettingsMachine.js";
 import { getWorkspaceSourceServerId } from "@/conversation-workspace-target/sourceIdentity.js";
 import { RemoteConnectionNavigationDot } from "@/remote-connection/RemoteConnectionNavigationDot.js";
@@ -2102,10 +2103,12 @@ export function SettingsPage({
                               <MemorySettingsSection
                                 memoryEnabled={memoryEnabled}
                                 memoryService={localHostServices.memoryService}
+                                settingService={localHostServices.settingService}
                                 onMemoryEnabledChange={handleMemoryEnabledChange}
                                 projectMemoryViewerAvailable={Boolean(isDesktop)}
                                 workspaceDisplayNames={memoryWorkspaceDisplayNames}
                               />
+                              {isDesktop && <OfficialHistoryImportSettings />}
                             </ServiceProvider>
                           ) : activeSection === "plugin" ? (
                             <PluginsSection

@@ -258,6 +258,8 @@ export interface V4CommandCoreHost {
    * 在侧栏迁移完成前仍靠它感知状态变更。v4 自身投影走 gateway 事件 ingest，
    * 不依赖本钩子；旧广播机制收口时本钩子随之收口。
    */
+  assertConversationVersionRestoreAvailable?(sessionId: string): void;
+  refreshConversationVersion?(sessionId: string): Promise<void>;
   afterLegacyStateMutation?(record: V4SessionRecordView, reason: string): Promise<void>;
   /**
    * 会话删除（deleteSession 的执行面：软删除持久化 → 退订事件 → app.close → 注册表摘除 →

@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { type IMemoryService, type ProjectMemoryWorkspaceSummary } from "@zcode/services";
+import {
+  type IMemoryService,
+  type AppearanceImportContract,
+  type AppearanceImportPreview,
+  type AppearanceImportReport,
+  type GlobalMemorySnapshot,
+  type ProfileImportPreview,
+  type ProfileImportReport,
+  type ProjectMemoryWorkspaceSummary,
+} from "@zcode/services";
 import { TID_SETTINGS_MEMORY_SWITCH } from "@zcode/shared/test-ids";
 import { runUserAction, runUserActionAsync } from "@/lib/userActionTelemetry.js";
 import { Switch } from "@/components/ui/switch.js";
@@ -10,7 +19,13 @@ import {
 } from "@/settings/MemorySettingsViewer.js";
 import { SettingsGroupCard, SettingsRow } from "@/settings/SettingsPageParts.js";
 
-type MemoryCatalogService = Pick<IMemoryService, "listProjectMemories">;
+type GlobalMemoryService = Pick<
+  IMemoryService,
+  "getGlobalMemory" | "updateGlobalMemory" | "setGlobalMemoryPreferences"
+>;
+type ProfileImportService = Pick<IMemoryService, "previewProfileImport" | "confirmProfileImport">;
+type MemoryCatalogService = Pick<IMemoryService, "listProjectMemories"> &
+  Partial<GlobalMemoryService & ProfileImportService>;
 
 function normalizeWorkspaceDisplayName(value: string): string {
   const slug = value
@@ -46,12 +61,14 @@ function getErrorMessage(error: unknown): string {
 export function MemorySettingsSection({
   memoryEnabled,
   memoryService,
+  settingService,
   onMemoryEnabledChange,
   projectMemoryViewerAvailable,
   workspaceDisplayNames = [],
 }: {
   memoryEnabled: boolean;
   memoryService: MemoryCatalogService;
+  settingService?: Partial<AppearanceImportContract>;
   onMemoryEnabledChange: (enabled: boolean) => Promise<void>;
   projectMemoryViewerAvailable: boolean;
   workspaceDisplayNames?: readonly string[];
@@ -144,7 +161,11 @@ export function MemorySettingsSection({
 
   const handleRefresh = useCallback(async () => {
     await runUserActionAsync({
-      input: { featureId: "settings.memory", action: "refresh_memory", trigger: "button" },
+      input: {
+        featureId: "settings.memory",
+        action: "refresh_memory",
+        trigger: "button",
+      },
       operation: refreshCatalog,
       completed: { resultSource: "platform_result" },
       failureStage: "catalog_refresh",
@@ -153,6 +174,25 @@ export function MemorySettingsSection({
 
   return (
     <div className="space-y-6">
+      {projectMemoryViewerAvailable &&
+      settingService?.previewAppearanceImport &&
+      settingService.confirmAppearanceImport ? (
+        <AppearanceImportSettings service={settingService as AppearanceImportContract} />
+      ) : null}
+      {projectMemoryViewerAvailable &&
+      memoryService.previewProfileImport &&
+      memoryService.confirmProfileImport ? (
+        <ProfileImportSettings
+          service={memoryService as ProfileImportService}
+          onImported={refreshCatalog}
+        />
+      ) : null}
+      {projectMemoryViewerAvailable &&
+      memoryService.getGlobalMemory &&
+      memoryService.updateGlobalMemory &&
+      memoryService.setGlobalMemoryPreferences ? (
+        <GlobalMemorySettings service={memoryService as GlobalMemoryService} />
+      ) : null}
       <SettingsGroupCard>
         <SettingsRow
           label={intl.formatMessage({
@@ -202,5 +242,369 @@ export function MemorySettingsSection({
         />
       )}
     </div>
+  );
+}
+
+function GlobalMemorySettings({ service }: { service: GlobalMemoryService }) {
+  const { intl } = useZCodeIntl();
+  const [snapshot, setSnapshot] = useState<GlobalMemorySnapshot | null>(null);
+  const [draft, setDraft] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const label = (id: string, _fallback: string) => intl.formatMessage({ id });
+  const accept = useCallback((value: GlobalMemorySnapshot) => {
+    setSnapshot(value);
+    setDraft(value.content);
+  }, []);
+  useEffect(() => {
+    let active = true;
+    service
+      .getGlobalMemory()
+      .then((value) => {
+        if (active) accept(value);
+      })
+      .catch((reason) => {
+        if (active) setError(getErrorMessage(reason));
+      });
+    return () => {
+      active = false;
+    };
+  }, [service, accept]);
+  const run = async (operation: () => Promise<GlobalMemorySnapshot>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      accept(await operation());
+    } catch (reason) {
+      setError(getErrorMessage(reason));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <SettingsGroupCard>
+      <SettingsRow
+        label={label("settings.globalMemory.title", "Global memory · this profile")}
+        description={label(
+          "settings.globalMemory.description",
+          "Stable preferences and feedback shared across projects. Background context only; never save passwords or keys.",
+        )}
+        control={
+          <Switch
+            disabled={busy || !snapshot}
+            checked={snapshot?.enabled ?? true}
+            aria-label={label("settings.globalMemory.enabled", "Enable global memory")}
+            onCheckedChange={(enabled) => {
+              void run(() => service.setGlobalMemoryPreferences({ enabled }));
+            }}
+          />
+        }
+      />
+      <SettingsRow
+        label={label("settings.globalMemory.record", "Automatically record stable preferences")}
+        control={
+          <Switch
+            disabled={busy || !snapshot}
+            checked={snapshot?.extractionEnabled ?? true}
+            aria-label={label(
+              "settings.globalMemory.record",
+              "Automatically record stable preferences",
+            )}
+            onCheckedChange={(extractionEnabled) => {
+              void run(() => service.setGlobalMemoryPreferences({ extractionEnabled }));
+            }}
+          />
+        }
+      />
+      <div className="space-y-3 px-4 py-3">
+        <label
+          className="block text-ui-caption text-foreground-subtle"
+          htmlFor="global-memory-content"
+        >
+          {label(
+            "settings.globalMemory.content",
+            "Memory Markdown, including source, timestamp and global scope",
+          )}
+        </label>
+        <textarea
+          id="global-memory-content"
+          className="min-h-40 w-full rounded-lg border border-border bg-transparent p-3 text-ui-base"
+          value={draft}
+          disabled={busy || !snapshot}
+          onChange={(event) => setDraft(event.target.value)}
+        />
+        <div className="flex flex-wrap gap-3 text-ui-base">
+          <button
+            type="button"
+            disabled={busy || !snapshot}
+            onClick={() => {
+              if (snapshot)
+                void run(() =>
+                  service.updateGlobalMemory({
+                    content: draft,
+                    expectedGeneration: snapshot.generation,
+                  }),
+                );
+            }}
+          >
+            {label("settings.globalMemory.save", "Save")}
+          </button>
+          <button
+            type="button"
+            disabled={busy || !snapshot}
+            onClick={() => {
+              if (snapshot)
+                void run(() =>
+                  service.updateGlobalMemory({
+                    content: "",
+                    expectedGeneration: snapshot.generation,
+                  }),
+                );
+            }}
+          >
+            {label("settings.globalMemory.delete", "Delete all global memory")}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              void run(() => service.getGlobalMemory());
+            }}
+          >
+            {label("settings.globalMemory.refresh", "Refresh")}
+          </button>
+        </div>
+        {error ? (
+          <p role="alert" className="text-ui-caption text-destructive">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    </SettingsGroupCard>
+  );
+}
+
+function ProfileImportSettings({
+  service,
+  onImported,
+}: {
+  service: ProfileImportService;
+  onImported: () => Promise<unknown>;
+}) {
+  const { intl } = useZCodeIntl();
+  const [source, setSource] = useState("");
+  const [preview, setPreview] = useState<ProfileImportPreview | null>(null);
+  const [report, setReport] = useState<ProfileImportReport | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const admitted = useRef(false);
+  const label = (key: string) => intl.formatMessage({ id: `settings.profileImport.${key}` });
+  const run = async (confirm: boolean) => {
+    if (admitted.current) return;
+    admitted.current = true;
+    setBusy(true);
+    setError(null);
+    setReport(null);
+    try {
+      if (confirm && preview) {
+        const result = await service.confirmProfileImport({
+          token: preview.token,
+        });
+        setReport(result);
+        setPreview(null);
+        await onImported();
+      } else {
+        setPreview(null);
+        setPreview(await service.previewProfileImport({ source: source.trim() }));
+      }
+    } catch (reason) {
+      setError(getErrorMessage(reason));
+      setPreview(null);
+    } finally {
+      admitted.current = false;
+      setBusy(false);
+    }
+  };
+  return (
+    <SettingsGroupCard>
+      <SettingsRow label={label("title")} description={label("scope")} control={null} />
+      <div className="space-y-3 px-4 py-3 text-ui-base">
+        <p className="text-ui-caption text-foreground-subtle">{label("warning")}</p>
+        <label className="block" htmlFor="profile-import-source">
+          {label("source")}
+        </label>
+        <input
+          id="profile-import-source"
+          className="w-full rounded-lg border border-border bg-transparent p-3 text-ui-base"
+          value={source}
+          disabled={busy}
+          onChange={(event) => {
+            setSource(event.target.value);
+            setPreview(null);
+            setReport(null);
+            setError(null);
+          }}
+        />
+        <button
+          type="button"
+          disabled={busy || !source.trim()}
+          onClick={() => {
+            void run(false);
+          }}
+        >
+          {label("preview")}
+        </button>
+        {preview && (
+          <div role="status" className="space-y-2">
+            <p>
+              {intl.formatMessage(
+                { id: "settings.profileImport.counts" },
+                {
+                  projects: preview.projects,
+                  files: preview.files,
+                  bytes: preview.bytes,
+                },
+              )}
+            </p>
+            <p className="break-all text-ui-caption">{preview.source}</p>
+            <button
+              type="button"
+              disabled={busy || !preview.files}
+              onClick={() => {
+                void run(true);
+              }}
+            >
+              {label("confirm")}
+            </button>
+          </div>
+        )}
+        {busy && <p role="status">{label("busy")}</p>}
+        {report && (
+          <div role="status">
+            {intl.formatMessage(
+              { id: "settings.profileImport.result" },
+              {
+                imported: report.imported,
+                duplicates: report.duplicates,
+                conflicts: report.conflicts.length,
+              },
+            )}
+            {report.conflicts.length > 0 && (
+              <p className="break-all text-ui-caption">{report.conflicts.join(", ")}</p>
+            )}
+          </div>
+        )}
+        {error && (
+          <p role="alert" className="break-all text-ui-caption text-destructive">
+            {error}
+          </p>
+        )}
+      </div>
+    </SettingsGroupCard>
+  );
+}
+
+function AppearanceImportSettings({ service }: { service: AppearanceImportContract }) {
+  const { intl } = useZCodeIntl();
+  const [source, setSource] = useState("");
+  const [preview, setPreview] = useState<AppearanceImportPreview | null>(null);
+  const [report, setReport] = useState<AppearanceImportReport | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const admitted = useRef(false);
+  const label = (key: string) => intl.formatMessage({ id: `settings.appearanceImport.${key}` });
+  const run = async (confirm: boolean) => {
+    if (admitted.current) return;
+    admitted.current = true;
+    setBusy(true);
+    setError(null);
+    setReport(null);
+    try {
+      if (confirm && preview) {
+        setReport(await service.confirmAppearanceImport({ token: preview.token }));
+        setPreview(null);
+      } else {
+        setPreview(null);
+        setPreview(await service.previewAppearanceImport({ source: source.trim() }));
+      }
+    } catch (reason) {
+      setError(getErrorMessage(reason));
+      setPreview(null);
+    } finally {
+      admitted.current = false;
+      setBusy(false);
+    }
+  };
+  return (
+    <SettingsGroupCard>
+      <SettingsRow label={label("title")} description={label("scope")} control={null} />
+      <div className="space-y-3 px-4 py-3 text-ui-base">
+        <label htmlFor="appearance-import-source">{label("source")}</label>
+        <input
+          id="appearance-import-source"
+          className="w-full rounded-lg border border-border bg-transparent p-3 text-ui-base"
+          value={source}
+          disabled={busy}
+          onChange={(event) => {
+            setSource(event.target.value);
+            setPreview(null);
+            setReport(null);
+            setError(null);
+          }}
+        />
+        <button
+          type="button"
+          disabled={busy || !source.trim()}
+          onClick={() => {
+            void run(false);
+          }}
+        >
+          {label("preview")}
+        </button>
+        {preview && (
+          <div className="space-y-2" role="status">
+            <p>
+              {Object.keys(preview.settings).length} {label("fields")}
+            </p>
+            <dl className="space-y-1 text-ui-caption">
+              {Object.entries(preview.settings).map(([key, value]) => (
+                <div key={key}>
+                  <dt className="inline">{label(`field.${key}`)}: </dt>
+                  <dd className="inline">{String(value)}</dd>
+                </div>
+              ))}
+            </dl>
+            <button
+              type="button"
+              disabled={busy || !Object.keys(preview.settings).length}
+              onClick={() => {
+                void run(true);
+              }}
+            >
+              {label("confirm")}
+            </button>
+          </div>
+        )}
+        {busy && <p role="status">{label("busy")}</p>}
+        {report && (
+          <div role="status">
+            <p>
+              {label("imported")}:{" "}
+              {report.imported.map((key) => label(`field.${key}`)).join(", ") || "0"}
+            </p>
+            <p>
+              {label("preserved")}:{" "}
+              {report.preserved.map((key) => label(`field.${key}`)).join(", ") || "0"}
+            </p>
+            <p>{label("restart")}</p>
+          </div>
+        )}
+        {error && (
+          <p role="alert" className="break-all text-ui-caption text-destructive">
+            {error}
+          </p>
+        )}
+      </div>
+    </SettingsGroupCard>
   );
 }

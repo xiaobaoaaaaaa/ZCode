@@ -9,6 +9,7 @@ import type { SessionId, ToolCallId, TurnId } from "./shared.js";
 import type { TraceContext } from "../tracing/tracer.js";
 
 export interface SubagentRunRequest {
+  proposedModel?: string;
   sessionId: SessionId;
   turnId?: TurnId;
   parentToolCallId: ToolCallId | string;

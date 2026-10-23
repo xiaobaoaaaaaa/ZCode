@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { zcodeOfficialHistoryBundleSchema } from "@zcode/shared";
 import type { MigrationResult } from "@zcode/shared/sqlite-migrations";
 import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
@@ -453,6 +455,160 @@ export class SqliteSessionStore
       this.maybeThrowForkCommitFault("beforeCommit");
       this.db.exec("commit");
       return persistedChild;
+    } catch (error) {
+      this.db.exec("rollback");
+      throw error;
+    }
+  }
+
+  async importOfficialHistory(
+    input: Parameters<NonNullable<SessionStorePort["importOfficialHistory"]>>[0],
+  ) {
+    this.throwBeforeWrite();
+    const bundle = zcodeOfficialHistoryBundleSchema.parse(input.bundle);
+    if (
+      bundle.workspaceId ||
+      bundle.messages[0]?.role !== "user" ||
+      bundle.messages.reduce((size, message) => size + Buffer.byteLength(message.text), 0) >
+        16 * 1024 * 1024
+    )
+      throw new Error("Official import requires local user-first bounded history");
+    const computedHash = createHash("sha256")
+      .update(
+        JSON.stringify({
+          title: bundle.title,
+          directory: bundle.directory,
+          messages: bundle.messages,
+        }),
+      )
+      .digest("hex");
+    if (computedHash !== bundle.contentHash)
+      throw new Error("Official history content hash mismatch");
+    const sessionID = `official_import_${bundle.sourceKey}` as SessionId;
+    const provenanceId = `official_history:${bundle.sourceKey}`;
+    this.db.exec("begin immediate");
+    try {
+      const provenance = this.db
+        .prepare("select session_id,data from session_entry where id = ?")
+        .get(provenanceId) as { session_id: string; data: string } | undefined;
+      if (provenance) {
+        const session = sessionRepository.getSession(this.db, provenance.session_id as SessionId);
+        if (JSON.parse(provenance.data).contentHash !== bundle.contentHash)
+          throw new Error("Imported source key collision");
+        if (!session || session.directory !== bundle.directory)
+          throw new Error("Imported source belongs to another directory or is incomplete");
+        if (session.id !== sessionID || session.time.deleted)
+          throw new Error("Imported session was deleted or has conflicting provenance");
+        for (const [index, message] of bundle.messages.entries()) {
+          const stored = this.db
+            .prepare(
+              "select m.data as message,p.data as part from message m join part p on p.message_id=m.id where m.id=? and m.session_id=? and p.id=? and p.session_id=?",
+            )
+            .get(
+              `${sessionID}_message_${index}`,
+              sessionID,
+              `${sessionID}_message_${index}_text`,
+              sessionID,
+            ) as { message: string; part: string } | undefined;
+          if (
+            !stored ||
+            JSON.parse(stored.message).role !== message.role ||
+            JSON.parse(stored.part).text !== message.text
+          )
+            throw new Error(
+              "Imported history no longer matches its provenance; refusing overwrite",
+            );
+        }
+        this.db.exec("commit");
+        return { session, alreadyImported: true };
+      }
+      if (sessionRepository.getSession(this.db, sessionID))
+        throw new Error("Import identity collision");
+      const session = sessionRepository.createSession(this.db, {
+        id: sessionID,
+        projectID: input.projectID,
+        slug: sessionID,
+        directory: bundle.directory,
+        path: bundle.directory,
+        title: bundle.title || "Imported official conversation",
+        titleSource: "custom",
+        version: input.version,
+        taskType: "interactive",
+        time: { created: bundle.createdAt, updated: Math.max(bundle.createdAt, bundle.updatedAt) },
+      });
+      let parentID: string | undefined;
+      let previousTime = -1;
+      for (const [index, message] of bundle.messages.entries()) {
+        const id = `${sessionID}_message_${index}`;
+        const time = Math.max(message.createdAt, previousTime + 1);
+        previousTime = time;
+        if (message.role === "user") parentID = id;
+        const data =
+          message.role === "user"
+            ? {
+                role: "user",
+                time: { created: time },
+                agent: "zcode-agent",
+                metadata: { migrationSource: "officialZCode" },
+              }
+            : {
+                role: "assistant",
+                parentID,
+                time: { created: time, completed: time },
+                agent: "zcode-agent",
+                mode: "build",
+                path: { cwd: bundle.directory, root: bundle.directory },
+                cost: 0,
+                tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+                finish: "stop",
+              };
+        this.db
+          .prepare(
+            "insert into message(id,session_id,time_created,time_updated,data,sequence) values(?,?,?,?,?,?)",
+          )
+          .run(id, sessionID, time, time, JSON.stringify(data), index);
+        this.db
+          .prepare(
+            "insert into part(id,message_id,session_id,time_created,time_updated,data,sequence) values(?,?,?,?,?,?,?)",
+          )
+          .run(
+            `${id}_text`,
+            id,
+            sessionID,
+            time,
+            time,
+            JSON.stringify({ type: "text", text: message.text, time: { start: time, end: time } }),
+            0,
+          );
+      }
+      this.db
+        .prepare(
+          "update session set last_outcome = ?, time_updated = max(time_updated, ?) where id = ?",
+        )
+        .run("completed", previousTime, sessionID);
+      sessionEntryRepository.saveSessionEntry(this.db, {
+        id: provenanceId,
+        sessionID,
+        type: "personal/official_history_import",
+        time: { created: Date.now(), updated: Date.now() },
+        data: {
+          sourceKey: bundle.sourceKey,
+          sourceProfile: bundle.sourceProfile,
+          sourceSessionId: bundle.sourceSessionId,
+          sourceDatabaseHash: bundle.sourceDatabaseHash,
+          contentHash: bundle.contentHash,
+          format: "safe-text-v1",
+        },
+      });
+      this.db.exec("commit");
+      return {
+        session: {
+          ...session,
+          time: { ...session.time, updated: Math.max(session.time.updated, previousTime) },
+          lastOutcome: "completed" as const,
+        },
+        alreadyImported: false,
+      };
     } catch (error) {
       this.db.exec("rollback");
       throw error;

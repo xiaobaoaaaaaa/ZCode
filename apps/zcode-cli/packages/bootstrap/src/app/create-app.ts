@@ -13,6 +13,7 @@ import {
   resolveEffectiveBashShellSelection,
 } from "@zcode/adapters/exec";
 import { createNodeFileSystemAdapter } from "@zcode/adapters/fs";
+import { createNodeGlobalMemoryStore } from "@zcode/adapters/global-memory";
 import { createNodeWebFetchHttpClientAdapter } from "@zcode/adapters/http";
 import { createJimpImageProcessorAdapter } from "@zcode/adapters/image";
 import { createPopplerPdfDocumentAdapter } from "@zcode/adapters/pdf";
@@ -286,6 +287,7 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
         pluginMcpServers: pluginOutcome.mcpServers,
         builtInMcpServers,
         pluginRuntimeFeatures,
+        mainAgentModelPolicy: zcodeSubagentProfileOutcome.mainAgentModelPolicy,
         builtInSubagentModelSelectionOverrides:
           zcodeSubagentProfileOutcome.builtInModelSelectionOverrides,
         subagentOutputRootDir: join(cliStorageRoot, "agents"),
@@ -400,7 +402,7 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
       (messageEnabled
         ? createNodeSessionMailboxAdapter({
             rootDir: resolvePath(
-              (options.env ?? process.env).ZCODE_MAILBOX_ROOT ?? "~/.zcode/mailbox",
+              (options.env ?? process.env).ZCODE_MAILBOX_ROOT ?? "~/.zcode-personal/mailbox",
             ),
           })
         : undefined);
@@ -827,6 +829,7 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
                     ...pluginProfiles,
                   ],
                   {
+                    mainAgentModelPolicy: parsed.mainAgentModelPolicy,
                     builtInModelSelectionOverrides: {
                       ...parsed.builtInModelSelectionOverrides,
                       ...options.runtimeConfig?.subagents?.builtInModelSelectionOverrides,
@@ -849,6 +852,7 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
       workspaceHookSnapshot: workspaceHookRuntimeSecurity?.snapshot,
       browserControlPort,
       fileSystemPort,
+      globalMemoryPort: createNodeGlobalMemoryStore({ cliStorageRoot }),
       httpClientPort,
       imageProcessorPort,
       pdfDocumentPort,

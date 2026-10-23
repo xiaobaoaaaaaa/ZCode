@@ -340,7 +340,7 @@ describe("tool contract declarations", () => {
 
     expect(byName.get("Agent")?.outputSchema).toBeDefined();
     expect(byName.get("Agent")?.inputSchema).not.toHaveProperty("properties.subagent_type.enum");
-    expect(byName.get("Agent")?.inputSchema).not.toHaveProperty("properties.model");
+    expect(byName.get("Agent")?.inputSchema).toHaveProperty("properties.model.type", "string");
     expect(byName.get("Agent")?.inputSchema).toHaveProperty("properties.run_in_background.type");
     expect(byName.get("Agent")?.permission?.sideEffectScope).toBe("session");
 
@@ -350,7 +350,7 @@ describe("tool contract declarations", () => {
       "Use SendMessage with the agent's ID to continue a previously spawned agent with its context intact; a new Agent call starts fresh.",
     );
     expect(agentDescription).toContain(
-      "Each agent type's model, reasoning effort, and tools come from its definition (`.zcode/agents/*.md` frontmatter).",
+      "Manual agent model settings take precedence. Optional model is a suggestion limited to the user-enabled allowlist",
     );
     expect(agentDescription).not.toContain("ID or name");
     expect(agentDescription).not.toContain(".claude/agents");
@@ -1119,7 +1119,7 @@ describe("tool contract declarations", () => {
       "Set to true to run this agent in the background. You will be notified when it completes.",
     );
     expect(agentInput.properties.subagent_type.enum).toBeUndefined();
-    expect(agentInput.properties).not.toHaveProperty("model");
+    expect(agentInput.properties.model.description).toContain("explicitly allowed");
 
     expect(bashInput.properties.command.description).toBe("The command to execute");
     expect(bashInput.properties.timeout.description).toBe(
@@ -1148,18 +1148,18 @@ describe("tool contract declarations", () => {
     );
   });
 
-  it("drops the legacy Agent model field at the runtime input boundary", () => {
+  it("preserves an Agent model suggestion for the runtime authorization gate", () => {
     const parsed = AgentInputSchema.parse({
       description: "Inspect runtime",
-      model: "haiku",
+      model: "test/model",
       prompt: "Find the model selection path.",
       subagent_type: "Explore",
     });
 
-    // 修复原因：历史会话可能诱导模型继续生成旧字段；字段可以留在 transcript，
-    // 但进入本次工具执行时必须被丢弃，不能覆盖当前 Agent profile。
+    // 个人版允许传递建议；实际选择仍由 runtime allowlist 和手动 profile 优先级裁决。
     expect(parsed).toEqual({
       description: "Inspect runtime",
+      model: "test/model",
       prompt: "Find the model selection path.",
       subagent_type: "Explore",
     });

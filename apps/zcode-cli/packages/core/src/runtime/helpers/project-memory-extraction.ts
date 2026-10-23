@@ -1,3 +1,4 @@
+import { scheduleGlobalMemoryExtraction } from "../global-memory/index.js";
 import { selectActiveConversationBranch, type TraceContext } from "../deps.js";
 import {
   buildMemoryExtractionPrompt,
@@ -33,6 +34,7 @@ export function scheduleProjectMemoryExtraction(
   runtime: AgentRuntimeInternal,
   input: { model: ProjectMemoryAgentContext["model"]; traceContext: TraceContext },
 ): void {
+  scheduleGlobalMemoryExtraction(runtime, input);
   if (runtime.shuttingDown) return;
   // 原因：headless 只关闭自动 Extraction，必须在读取快照或访问文件前返回，避免后台副作用。
   if (runtime.config.memory?.extractionEnabled === false) return;
@@ -85,17 +87,17 @@ export async function drainMemoryExtractions(
   timeoutMs: number | null = EXTRACTION_DRAIN_TIMEOUT_MS,
 ): Promise<void> {
   const scheduler = this.memoryExtractionScheduler;
-  if (!scheduler) return;
+  if (!scheduler && !this.globalMemoryExtraction) return;
   // benchmark 显式等待自然结束；普通 session close 仍保留原有有界取消清理。
   if (timeoutMs === null) {
-    await scheduler.drain();
+    await Promise.all([scheduler?.drain(), this.globalMemoryExtraction]);
     return;
   }
 
   let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
     await Promise.race([
-      scheduler.drain(),
+      Promise.all([scheduler?.drain(), this.globalMemoryExtraction]),
       new Promise<void>((resolve) => {
         timeout = setTimeout(resolve, timeoutMs);
         timeout.unref?.();

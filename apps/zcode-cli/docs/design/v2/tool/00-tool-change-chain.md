@@ -1824,3 +1824,7 @@ MCP isError 和历史 hydration 不触发创建。工具执行、权限、原始
 ### 文档插件多窗口视图修复（2026-10-16）
 
 MCP app-only report_view 增加可选 viewId，release_view 释放指定窗口；模型 get_view 可选 viewId，缺省且存在多个上报窗口时返回歧义与清单。状态唯一归属 DocumentOwner，不由页面决定其他窗口的视图；旧客户端缺省 viewId 仍走 legacy 槽。show_in_viewer 保持专用 surface 路由并明确工具描述。导入仍为 app-only workspace 副作用；串行 admission、10 分钟未活动过期与部分文件清扫归 importer，完成副本不清理。覆盖 schema 到真实 MCP/AppBridge 的多窗口回归。
+
+## 2026-10-23 个人版 Agent 模型建议
+
+Agent 新增可选 `model` 规范串，属于建议而非授权；唯一授权来自本机 Subagents 设置的 `mainAgentModelPolicy`。明确 profile 手动选择优先，动态工作流和权限策略保持既有路径。运行时按实时目录及用户允许列表解析，失败只继承用户当前父模型或明确报错；实际模型和原因通过原 spawn/结果投影展示。完整规格见 [个人版模型策略](../../../../../../../docs/personal/main-agent-model-selection.md)。本变更覆盖 contracts schema → handler → runner request → runtime selection → spawn/output → UI；旧调用无 model 保持兼容。

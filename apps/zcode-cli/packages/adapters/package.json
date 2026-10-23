@@ -89,6 +89,10 @@
     "./tools": {
       "types": "./dist/tools/index.d.ts",
       "import": "./dist/tools/index.js"
+    },
+    "./global-memory": {
+      "types": "./dist/global-memory/contract.d.ts",
+      "import": "./dist/global-memory/contract.js"
     }
   },
   "scripts": {

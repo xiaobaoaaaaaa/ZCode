@@ -52,6 +52,8 @@ export function createRegistryBackedTestApp(
     ...appOptions,
     runtimeConfig: {
       ...appOptions.runtimeConfig,
+      // 普通会话测试不消费后台记忆模型请求；专门测试可显式启用。
+      memory: { extractionEnabled: false, ...appOptions.runtimeConfig?.memory },
       // 测试基座默认关闭标题生成，避免无关 Session 测试产生额外模型调用与事件。
       titleGeneration: appOptions.runtimeConfig?.titleGeneration ?? { enabled: false },
     },

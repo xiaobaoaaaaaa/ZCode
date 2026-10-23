@@ -1149,6 +1149,9 @@ const SingleUserInputRowView = memo(function SingleUserInputRowView({
   if (editing) {
     return (
       <RowShell rowId={row.rowId} className="flex flex-col items-end">
+        <p role="note" className="mb-3 w-full max-w-xl text-ui-caption text-foreground-subtle">
+          {intl.formatMessage({ id: "chat.edit.historyWarning" })}
+        </p>
         <ChatPromptEditor
           workspacePath={context.workspacePath}
           taskId={context.sessionId ?? null}
