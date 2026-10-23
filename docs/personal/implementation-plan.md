@@ -25,3 +25,12 @@ Windows compilation or runtime validation must be separately identified; Linux t
 ## Following upstream
 
 Keep `upstream` pointed at zai-org/ZCode and `origin` at the personal fork. Fetch upstream, review changes and fast-forward fork main only when explicitly continuing maintenance. Merge upstream main into the personal branch, resolve each feature separately, rerun the verification matrix, and keep updates as draft review work until approved. Do not push personal modifications to upstream or silently overwrite divergent fork branches.
+
+## Windows review workflow
+
+`windows-validation.workflow.txt` is a proposed workflow, not installed or running. GitHub rejected adding `.github/workflows/personal-validation.yml` because the existing OAuth token lacks `workflow` scope. No permission expansion was attempted. The original local commit is retained on `personal/windows-validation-pending`. If explicitly enabled later, it runs only on this personal fork for a draft PR/manual invocation.
+It installs locked dependencies without lifecycle scripts, typechecks, exercises targeted
+regressions and compiles desktop source bundles. It has read-only repository permissions,
+uses no repository secrets, and does not install, sign, package or publish an application.
+The artifact is source-build evidence, not a runnable distribution or Windows acceptance.
+Native installer, OAuth, helper and desktop/mobile visual checks remain separate.
