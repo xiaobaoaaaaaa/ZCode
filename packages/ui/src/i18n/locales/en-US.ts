@@ -2971,10 +2971,13 @@ const enUS: Record<string, string> = {
     "old checkpoint cannot be safely restored",
   "chat.versions.open": "Conversation versions",
   "chat.versions.restore": "Restore selected version",
-  "chat.versions.warning": "Restoring replaces the visible conversation and model context. The current version is saved. Executed commands, external operations and files are not undone or replayed.",
+  "chat.versions.warning":
+    "Restoring replaces the visible conversation and model context. The current version is saved. Executed commands, external operations and files are not undone or replayed.",
   "chat.versions.empty": "No earlier versions yet.",
-  "chat.versions.error": "Could not load or restore this version. Stop running work, clear queued inputs, and try again.",
-  "chat.edit.historyWarning": "Editing regenerates the conversation from this message in the same session. The previous version remains recoverable. Executed commands, external operations and file changes are not automatically undone.",
+  "chat.versions.error":
+    "Could not load or restore this version. Stop running work, clear queued inputs, and try again.",
+  "chat.edit.historyWarning":
+    "Editing regenerates the conversation from this message in the same session. The previous version remains recoverable. Executed commands, external operations and file changes are not automatically undone.",
   "chat.edit.resetConversationAndFiles": "Reset chat + files",
   "chat.edit.resetConversationAndFiles.tooltip": "Reset with files",
   "chat.edit.resetConversationAndFiles.available":
@@ -8126,17 +8129,21 @@ const enUS: Record<string, string> = {
   "settings.globalMemory.enableSession": "Enable global memory for this session",
   "settings.globalMemory.sessionError": "Global memory preference failed; reopen to retry",
   "settings.profileImport.title": "Import official project memories",
-  "settings.profileImport.scope": "Supported: project Markdown memories only. Sessions, registered projects and settings need schema-aware migration and are not imported. Credentials, encrypted data and global memory are excluded.",
-  "settings.profileImport.warning": "Close the official app first. Inspect source Markdown and remove any passwords or keys before importing. Only copies are created; existing personal projects are skipped. Project identity/path must still match. Links are not followed.",
+  "settings.profileImport.scope":
+    "Supported: project Markdown memories only. Sessions, registered projects and settings need schema-aware migration and are not imported. Credentials, encrypted data and global memory are excluded.",
+  "settings.profileImport.warning":
+    "Close the official app first. Inspect source Markdown and remove any passwords or keys before importing. Only copies are created; existing personal projects are skipped. Project identity/path must still match. Links are not followed.",
   "settings.profileImport.source": "Official profile folder (absolute path on this computer)",
   "settings.profileImport.preview": "Preview supported memories",
   "settings.profileImport.counts": "{projects} projects · {files} Markdown files · {bytes} bytes",
   "settings.profileImport.confirm": "Confirm copy to personal profile",
   "settings.profileImport.busy": "Checking or copying memories…",
-  "settings.profileImport.result": "Copied {imported} projects · {duplicates} duplicates skipped · {conflicts} conflicts preserved",
+  "settings.profileImport.result":
+    "Copied {imported} projects · {duplicates} duplicates skipped · {conflicts} conflicts preserved",
 
   "settings.appearanceImport.title": "Import language and zoom settings",
-  "settings.appearanceImport.scope": "Only language preference and desktop zoom from v2/setting.json. Existing values are preserved. Close the official app first. Credentials and all other settings are excluded. Theme uses browser storage; select it manually in Appearance.",
+  "settings.appearanceImport.scope":
+    "Only language preference and desktop zoom from v2/setting.json. Existing values are preserved. Close the official app first. Credentials and all other settings are excluded. Theme uses browser storage; select it manually in Appearance.",
   "settings.appearanceImport.source": "Official profile folder (absolute path on this computer)",
   "settings.appearanceImport.preview": "Preview safe settings",
   "settings.appearanceImport.fields": "supported fields",
@@ -8150,6 +8157,23 @@ const enUS: Record<string, string> = {
   "settings.appearanceImport.field.localePreference": "Language preference",
   "settings.appearanceImport.field.desktopZoomLevel": "Desktop zoom level",
 
+  "settings.historyImport.title": "Import official conversation history",
+  "settings.historyImport.scope":
+    "Import active user and assistant text into new personal sessions associated with local project paths. Tools, reasoning, permissions, queued inputs, workflows and credentials are excluded.",
+  "settings.historyImport.warning":
+    "Review the source history for sensitive text before import. Existing personal sessions are preserved. Import does not execute commands, undo files, or grant permissions.",
+  "settings.historyImport.source": "Official profile folder (absolute path on this computer)",
+  "settings.historyImport.closed":
+    "I have closed the official app and stopped processes writing this profile.",
+  "settings.historyImport.preview": "Preview conversation import",
+  "settings.historyImport.counts":
+    "{sessions} sessions · {messages} text messages · {skipped} skipped",
+  "settings.historyImport.confirm": "Confirm copy into personal sessions",
+  "settings.historyImport.busy": "Checking or importing conversation history…",
+  "settings.historyImport.result":
+    "Imported {imported} sessions · {duplicates} duplicates preserved",
+  "settings.historyImport.resume":
+    "Open imported sessions from their project in the sidebar. Continuing requires a new user message and the personal app’s configured model and permissions.",
 };
 
 export default enUS;
