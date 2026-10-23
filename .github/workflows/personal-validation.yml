@@ -9,7 +9,7 @@ jobs:
   windows-source-build:
     if: github.repository == 'xiaobaoaaaaaa/ZCode'
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     env:
       ZCODE_DATA_BASE_DIR: ${{ github.workspace }}/.personal-validation-home
       ZCODE_ENV: production
@@ -37,3 +37,36 @@ jobs:
           path: packages/desktop/out
           retention-days: 7
           if-no-files-found: error
+      - name: Verify preview orchestration contracts
+        run: node --test scripts/test/personal-windows-preview.test.mjs
+      - name: Prepare unsigned Windows x64 unpacked preview
+        run: node scripts/personal-windows-preview.mjs
+      - name: Smoke packaged runtime and renderer in a temporary profile
+        run: node scripts/personal-windows-smoke.mjs
+      - name: Archive unpacked candidate and checksum
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $output = Join-Path $env:GITHUB_WORKSPACE 'packages/desktop/dist-personal-preview'
+          $zip = Join-Path $output 'ZCode-Personal-windows-x64-preview.zip'
+          [System.IO.Compression.ZipFile]::CreateFromDirectory((Join-Path $output 'win-unpacked'), $zip)
+          $digest = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLowerInvariant()
+          "$digest  ZCode-Personal-windows-x64-preview.zip" | Set-Content (Join-Path $output 'SHA256SUMS.txt')
+      - name: Upload unsigned preview candidate only after successful smoke
+        uses: actions/upload-artifact@v4
+        with:
+          name: personal-windows-x64-preview
+          path: |
+            packages/desktop/dist-personal-preview/*.zip
+            packages/desktop/dist-personal-preview/SHA256SUMS.txt
+            packages/desktop/dist-personal-preview/preview-manifest.json
+          retention-days: 7
+          if-no-files-found: error
+      - name: Preserve preview smoke evidence including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: personal-windows-preview-diagnostics
+          path: packages/desktop/dist-personal-preview/smoke-evidence
+          retention-days: 7
+          if-no-files-found: warn
