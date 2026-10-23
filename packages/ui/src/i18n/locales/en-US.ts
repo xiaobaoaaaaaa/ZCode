@@ -8107,6 +8107,18 @@ const enUS: Record<string, string> = {
   "globalNotice.highspeed.imageSummary": "{tokens} tokens · {duration}s saved",
   "globalNotice.highspeed.close": "Close Highspeed share card",
   ...requestSecurityMessagesEnUS,
+  "settings.globalMemory.title": "Global memory · this profile",
+  "settings.globalMemory.description":
+    "Stable preferences and feedback shared across projects. Background context only; never save passwords or keys.",
+  "settings.globalMemory.enabled": "Enable global memory",
+  "settings.globalMemory.record": "Automatically record stable preferences",
+  "settings.globalMemory.content": "Memory Markdown, including source, timestamp and global scope",
+  "settings.globalMemory.save": "Save",
+  "settings.globalMemory.delete": "Delete all global memory",
+  "settings.globalMemory.refresh": "Refresh",
+  "settings.globalMemory.disableSession": "Disable global memory for this session",
+  "settings.globalMemory.enableSession": "Enable global memory for this session",
+  "settings.globalMemory.sessionError": "Global memory preference failed; reopen to retry",
 };
 
 export default enUS;

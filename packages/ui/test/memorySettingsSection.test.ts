@@ -2,7 +2,7 @@
 import { createElement, type ReactNode } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { IMemoryService } from "@zcode/services";
+import type { GlobalMemorySnapshot, IMemoryService } from "@zcode/services";
 import {
   TID_SETTINGS_MEMORY_COUNT,
   TID_SETTINGS_MEMORY_FILE,
@@ -269,5 +269,66 @@ describe("MemorySettingsSection", () => {
     );
     expect(screen.getByText("settings.memory.viewer.localOnly")).toBeTruthy();
     expect(memoryService.listProjectMemories).not.toHaveBeenCalled();
+  });
+});
+
+describe("Global profile memory settings", () => {
+  function globalService() {
+    let value: GlobalMemorySnapshot = {
+      content: "# Preferences\n\nUse Chinese.",
+      generation: 1,
+      enabled: true,
+      extractionEnabled: true,
+      disabledSessionIds: [],
+    };
+    return {
+      ...createService(),
+      getGlobalMemory: vi.fn(async () => value),
+      updateGlobalMemory: vi.fn(async (input: { content: string; expectedGeneration: number }) => {
+        if (input.expectedGeneration !== value.generation) throw new Error("stale edit");
+        value = { ...value, content: input.content, generation: value.generation + 1 };
+        return value;
+      }),
+      setGlobalMemoryPreferences: vi.fn(
+        async (input: { enabled?: boolean; extractionEnabled?: boolean }) => {
+          value = { ...value, ...input, generation: value.generation + 1 };
+          return value;
+        },
+      ),
+    };
+  }
+  it("edits, pauses and deletes global memory while project memory is off", async () => {
+    const service = globalService();
+    renderSection(service, false);
+    const editor = await screen.findByRole("textbox");
+    await waitFor(() => expect((editor as HTMLTextAreaElement).disabled).toBe(false));
+    fireEvent.change(editor, { target: { value: "Prefer concise responses." } });
+    fireEvent.click(screen.getByRole("button", { name: "settings.globalMemory.save" }));
+    await waitFor(() =>
+      expect(service.updateGlobalMemory).toHaveBeenCalledWith({
+        content: "Prefer concise responses.",
+        expectedGeneration: 1,
+      }),
+    );
+    await waitFor(() => expect((editor as HTMLTextAreaElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole("switch", { name: "settings.globalMemory.record" }));
+    await waitFor(() =>
+      expect(service.setGlobalMemoryPreferences).toHaveBeenCalledWith({ extractionEnabled: false }),
+    );
+    await waitFor(() => expect((editor as HTMLTextAreaElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole("button", { name: "settings.globalMemory.delete" }));
+    await waitFor(() => expect((editor as HTMLTextAreaElement).value).toBe(""));
+    expect(service.listProjectMemories).not.toHaveBeenCalled();
+  });
+  it("preserves an unsaved draft and exposes a conflicting edit error", async () => {
+    const service = globalService();
+    service.updateGlobalMemory.mockRejectedValueOnce(new Error("stale edit"));
+    renderSection(service, false);
+    const editor = await screen.findByRole("textbox");
+    await waitFor(() => expect((editor as HTMLTextAreaElement).disabled).toBe(false));
+    fireEvent.change(editor, { target: { value: "My unsaved preference" } });
+    fireEvent.click(screen.getByRole("button", { name: "settings.globalMemory.save" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("stale edit");
+    expect((editor as HTMLTextAreaElement).value).toBe("My unsaved preference");
   });
 });

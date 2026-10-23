@@ -1,3 +1,4 @@
+import { globalMemoryBackground } from "../global-memory/index.js";
 import { getTurnTools } from "./turn-tool-visibility.js";
 import { refreshOffPeakTurnAfterTakeover } from "../off-peak/turn.js";
 import { appendRuntimeAgentListing } from "../helpers/agent-listing.js";
@@ -216,7 +217,7 @@ export async function runRegularTurnLoop(
       model: state.model,
       tools,
       registry: this.getToolRegistry(),
-      entries: requestEntries,
+      entries: [...requestEntries, ...(await globalMemoryBackground(this, requestEntries))],
       applyCacheControl: true,
     });
     this.logger?.debug("ToolSearch request exposure", {

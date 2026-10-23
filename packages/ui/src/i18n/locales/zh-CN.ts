@@ -7693,6 +7693,18 @@ const zhCN: Record<string, string> = {
   "globalNotice.highspeed.imageSummary": "{tokens} tokens · 节省 {duration} 秒",
   "globalNotice.highspeed.close": "关闭加速分享卡片",
   ...requestSecurityMessagesZhCN,
+  "settings.globalMemory.title": "全局记忆 · 本机配置",
+  "settings.globalMemory.description":
+    "跨项目共享稳定偏好与反馈，仅作为背景数据。请勿保存密码或密钥。",
+  "settings.globalMemory.enabled": "启用全局记忆",
+  "settings.globalMemory.record": "自动记录稳定偏好",
+  "settings.globalMemory.content": "记忆 Markdown（包含来源、时间及全局作用域）",
+  "settings.globalMemory.save": "保存",
+  "settings.globalMemory.delete": "删除全部全局记忆",
+  "settings.globalMemory.refresh": "刷新",
+  "settings.globalMemory.disableSession": "当前会话禁用全局记忆",
+  "settings.globalMemory.enableSession": "当前会话启用全局记忆",
+  "settings.globalMemory.sessionError": "记忆设置失败，请重新打开后重试",
 };
 
 export default zhCN;

@@ -1,3 +1,4 @@
+import type { GlobalMemoryPort } from "@zcode/contracts";
 import { configureOffPeakRuntime, controlOffPeakRuntime } from "./off-peak/runtime.js";
 import {
   createTurnAgentDefinitions,
@@ -219,6 +220,10 @@ export class AgentRuntime {
   private branchGeneration = 0;
   private artifactStore?: ToolArtifactStorePort;
   private executionPort?: ExecutionPort;
+  private globalMemoryPort?: GlobalMemoryPort;
+  private globalMemoryExtraction?: Promise<void>;
+  private globalMemoryLastInput?: string;
+  private globalMemoryAbortController?: AbortController;
   private fileSystemPort?: FileSystemPort;
   private imageProcessorPort?: ImageProcessorPort;
   private pdfDocumentPort?: PdfDocumentPort;
@@ -343,6 +348,7 @@ export class AgentRuntime {
     this.workflowBlockedReminder = createWorkflowBlockedReminder(runtime);
     this.artifactStore = deps.artifactStore;
     this.executionPort = deps.executionPort;
+    this.globalMemoryPort = deps.globalMemoryPort;
     this.fileSystemPort = deps.fileSystemPort;
     this.imageProcessorPort = deps.imageProcessorPort;
     this.pdfDocumentPort = deps.pdfDocumentPort;
@@ -392,6 +398,7 @@ export class AgentRuntime {
     this.workflowBlockedReminder.stop();
     // 关闭单个 session 后进程仍存活，
     // 因此必须先终止该 runtime 的 Extraction，不能只在超时后放弃等待。
+    this.globalMemoryAbortController?.abort();
     this.memoryExtractionScheduler?.shutdown();
   }
 }

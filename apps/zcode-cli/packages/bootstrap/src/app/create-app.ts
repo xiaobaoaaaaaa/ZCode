@@ -13,6 +13,7 @@ import {
   resolveEffectiveBashShellSelection,
 } from "@zcode/adapters/exec";
 import { createNodeFileSystemAdapter } from "@zcode/adapters/fs";
+import { createNodeGlobalMemoryStore } from "@zcode/adapters/global-memory";
 import { createNodeWebFetchHttpClientAdapter } from "@zcode/adapters/http";
 import { createJimpImageProcessorAdapter } from "@zcode/adapters/image";
 import { createPopplerPdfDocumentAdapter } from "@zcode/adapters/pdf";
@@ -849,6 +850,7 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
       workspaceHookSnapshot: workspaceHookRuntimeSecurity?.snapshot,
       browserControlPort,
       fileSystemPort,
+      globalMemoryPort: createNodeGlobalMemoryStore({ cliStorageRoot }),
       httpClientPort,
       imageProcessorPort,
       pdfDocumentPort,

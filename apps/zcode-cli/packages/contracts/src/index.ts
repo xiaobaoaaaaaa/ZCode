@@ -7,6 +7,7 @@ export * from "./interfaces/shared.js";
 export * from "./interfaces/execution.port.js";
 export * from "./interfaces/browser-control.port.js";
 export * from "./interfaces/file-system.port.js";
+export * from "./global-memory/contract.js";
 export * from "./interfaces/context-source.port.js";
 export * from "./interfaces/provider-endpoint-routing.port.js";
 export * from "./interfaces/http-client.port.js";
