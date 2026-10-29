@@ -328,6 +328,11 @@ contextBridge.exposeInMainWorld("zcode", {
   /** 打开系统目录选择框，返回选中路径或 null */
   selectDirectory: (): Promise<string | null> =>
     ipcRenderer.invoke(PlatformChannels.SelectDirectory),
+  isImportedDataProfile: Boolean(process.env.ZCODE_PROFILE_BASE_DIR),
+  importZCodeDirectory: (
+    request: import("@zcode/shared").ZCodeDataImportRequest,
+  ): Promise<import("@zcode/shared").ZCodeDataImportResult> =>
+    ipcRenderer.invoke(PlatformChannels.ImportZCodeDirectory, request),
   /** 打开系统多目录选择框；取消时返回空数组 */
   selectDirectories: (): Promise<string[]> =>
     ipcRenderer.invoke(PlatformChannels.SelectDirectories),

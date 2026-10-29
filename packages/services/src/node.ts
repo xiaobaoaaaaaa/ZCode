@@ -1132,7 +1132,7 @@ export function resolveBundledCuaHelperAppPath(
 export { isOfficialCuaPluginEnabledForWorkspace };
 
 export function hasGlobalCliZCodeCuaServer(env: NodeJS.ProcessEnv = process.env): boolean {
-  const home = env.HOME?.trim() || homedir();
+  const home = env.ZCODE_PROFILE_BASE_DIR?.trim() || env.HOME?.trim() || homedir();
   const configPath = join(home, ".zcode", "cli", "config.json");
   let parsed: unknown;
   try {

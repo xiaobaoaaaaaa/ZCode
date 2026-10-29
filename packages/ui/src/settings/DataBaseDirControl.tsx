@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button.js";
 import { Input } from "@/components/ui/input.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { useOptionalPlatform } from "@/hooks/usePlatform.js";
 
 export function DataBaseDirControl({
   dataBaseDir,
@@ -23,6 +24,7 @@ export function DataBaseDirControl({
   onSelectDataBaseDir: () => Promise<string | null>;
 }) {
   const { intl } = useZCodeIntl();
+  const platform = useOptionalPlatform();
   const effectiveDir = dataBaseDir || defaultHomeDir;
   const [localDataBaseDir, setLocalDataBaseDir] = useState(effectiveDir);
   const [isPickingDataBaseDir, setIsPickingDataBaseDir] = useState(false);
@@ -84,7 +86,7 @@ export function DataBaseDirControl({
           data-testid={TID_SETTINGS_DATA_BASE_DIR_INPUT}
           value={localDataBaseDir}
           readOnly
-          disabled={isSaving || isPickingDataBaseDir}
+          disabled={isSaving || isPickingDataBaseDir || platform?.isImportedDataProfile}
           placeholder={intl.formatMessage({ id: "settings.dataBaseDirPlaceholder" })}
           className="flex-1 font-mono"
         />
@@ -95,7 +97,7 @@ export function DataBaseDirControl({
           variant="outline"
           size="sm"
           data-testid={TID_SETTINGS_DATA_BASE_DIR_BROWSE}
-          disabled={isSaving || isPickingDataBaseDir}
+          disabled={isSaving || isPickingDataBaseDir || platform?.isImportedDataProfile}
           onClick={() => void handleBrowseDataBaseDir()}
         >
           {intl.formatMessage({ id: "settings.dataBaseDirBrowse" })}
@@ -104,7 +106,7 @@ export function DataBaseDirControl({
           type="button"
           size="sm"
           data-testid={TID_SETTINGS_DATA_BASE_DIR_SAVE}
-          disabled={!isDirty || isSaving || isPickingDataBaseDir}
+          disabled={!isDirty || isSaving || isPickingDataBaseDir || platform?.isImportedDataProfile}
           onClick={() => void handleSave()}
         >
           {isSaving ? (
@@ -114,6 +116,11 @@ export function DataBaseDirControl({
           )}
         </Button>
       </div>
+      {platform?.isImportedDataProfile ? (
+        <p className="text-ui-sm text-foreground-subtle">
+          {intl.formatMessage({ id: "settings.importData.profileHint" })}
+        </p>
+      ) : null}
       {saveState === "saving" ? (
         <p
           data-testid={TID_SETTINGS_DATA_BASE_DIR_STATUS}

@@ -3086,6 +3086,37 @@ const zhCN: Record<string, string> = {
   "settings.dataBaseDirDescription":
     "应用数据的根目录（默认为用户主目录），修改后会将现有数据复制到新位置。路径后缀 .zcode/v2 不可更改。",
   "settings.dataBaseDirPlaceholder": "默认：用户主目录",
+  "settings.importData.title": "从 ZCode 目录导入",
+  "settings.importData.description": "完整复制数据并在重启后切换使用，保留来源和当前数据。",
+  "settings.importData.open": "导入数据…",
+  "settings.importData.scope":
+    "包含聊天记录、设置、技能、插件和默认工作区。请选择 .zcode 目录或其上级目录；副本将在目标位置的新子目录中创建。",
+  "settings.importData.notice":
+    "请先关闭使用来源目录的 ZCode。项目原路径会保留；跨机器凭据可能需要重新登录。副本中的定时任务和机器人会先暂停。",
+  "settings.importData.source": "来源目录",
+  "settings.importData.destination": "副本保存位置",
+  "settings.importData.browse": "选择",
+  "settings.importData.working": "正在复制并校验，请勿关闭应用…",
+  "settings.importData.ready": "导入完成，重启后将使用独立副本。",
+  "settings.importData.restartNotice": "请先结束当前会话，再重启应用。来源目录和当前数据仍保留。",
+  "settings.importData.restart": "重启并切换",
+  "settings.importData.restartFailed":
+    "自动重启未完成。请退出应用后重新打开，已保存的副本会在下次启动时启用。",
+  "settings.importData.later": "稍后重启",
+  "settings.importData.cancel": "取消",
+  "settings.importData.submit": "导入到独立副本",
+  "settings.importData.profileHint": "当前使用完整导入的副本。如需更换，请重新导入以保留完整数据。",
+  "settings.importData.error.busy": "另一项导入正在进行，请稍后重试。",
+  "settings.importData.error.invalid-source":
+    "未找到完整的 ZCode 数据。请选择含 v2/setting.json 的 .zcode 目录；来源不能引用其他数据存储目录。",
+  "settings.importData.error.unsafe-path":
+    "目录不适合导入。来源不能是正在使用的数据，目标不能位于来源或当前数据中；请移除来源中的软链接后重试。",
+  "settings.importData.error.source-changed":
+    "复制期间来源数据发生变化。请关闭使用来源目录的应用后重试。",
+  "settings.importData.error.invalid-database":
+    "来源中有无法读取的数据库，本次导入已取消，原数据不受影响。",
+  "settings.importData.error.copy-failed":
+    "未能完成导入。请检查目录权限、可用空间及文件是否被占用后重试。",
   "settings.dataBaseDirBrowse": "选择文件夹",
   "settings.dataBaseDirSave": "保存",
   "settings.dataBaseDirCopying": "正在复制数据，请勿关闭应用…",

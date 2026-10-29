@@ -680,7 +680,28 @@ export type CuaOsSupport =
  * 比如 native dialog、窗口生命周期控制等。
  * 业务服务（文件、终端、凭据等）走 IServiceAccessor 的 RPC 通道。
  */
+export interface ZCodeDataImportRequest {
+  sourceDirectory: string;
+  destinationParent: string;
+}
+
+export type ZCodeDataImportResult =
+  | { ok: true; dataBaseDir: string; fileCount: number; bytes: number }
+  | {
+      ok: false;
+      error:
+        | "busy"
+        | "invalid-source"
+        | "unsafe-path"
+        | "source-changed"
+        | "invalid-database"
+        | "copy-failed";
+    };
+
 export interface IPlatformService {
+  /** 本机数据副本，仅下次冷启动切换，来源和当前数据保持原样。 */
+  importZCodeDirectory?(request: ZCodeDataImportRequest): Promise<ZCodeDataImportResult>;
+  isImportedDataProfile?: boolean;
   /** 是否支持当前客户端本机文件的默认应用与目录操作；Web 不具备此能力。 */
   canOpenLocalFiles?: boolean;
 

@@ -206,6 +206,7 @@ export const PlatformChannels = {
   PluginSandboxOwnerWebContentsId: "zcode:plugin-sandbox-owner-web-contents-id",
   /** 打开系统目录选择框 */
   SelectDirectory: "zcode:select-directory",
+  ImportZCodeDirectory: "zcode:import-directory",
   /** 打开系统多目录选择框 */
   SelectDirectories: "zcode:select-directories",
   /** 打开系统文件选择框 */
@@ -771,6 +772,10 @@ export const HostResponseTypes = {
 
 /** 平台频道的请求/响应类型映射 */
 export interface PlatformChannelMap {
+  [PlatformChannels.ImportZCodeDirectory]: {
+    request: import("./platform.js").ZCodeDataImportRequest;
+    response: import("./platform.js").ZCodeDataImportResult;
+  };
   [PlatformChannels.SelectDirectory]: {
     request: void;
     response: string | null;

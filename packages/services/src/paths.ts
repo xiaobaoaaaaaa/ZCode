@@ -47,6 +47,24 @@ export function getZCodeDataRootDir(): string {
   return join(getDataBaseDir(), ".zcode");
 }
 
+/** 用户级 CLI/技能路径；完整导入切换此根，普通 dataBaseDir 迁移仍保持原语义。 */
+export function getZCodeUserRootDir(): string {
+  return join(
+    process.env.ZCODE_PROFILE_BASE_DIR?.trim() ||
+      process.env.HOME?.trim() ||
+      process.env.USERPROFILE?.trim() ||
+      homedir(),
+    ".zcode",
+  );
+}
+
+export function resolveImportedZCodePath(path: string): string {
+  if (process.env.ZCODE_PROFILE_BASE_DIR && (path === "~/.zcode" || path.startsWith("~/.zcode/"))) {
+    return join(getZCodeUserRootDir(), path.slice("~/.zcode".length));
+  }
+  return path;
+}
+
 /** 非项目对话共享的真实工作目录；默认 ~/.zcode/workspace/default。 */
 export function getConversationWorkspaceDir(): string {
   return join(getZCodeDataRootDir(), "workspace", "default");

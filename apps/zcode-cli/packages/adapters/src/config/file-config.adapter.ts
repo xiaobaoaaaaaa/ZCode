@@ -65,6 +65,9 @@ const DEFAULT_BASE_DIR = "~/.zcode/cli";
  * Resolve path with ~ expansion
  */
 export function resolvePath(path: string): string {
+  if (process.env.ZCODE_PROFILE_BASE_DIR && (path === "~/.zcode" || path.startsWith("~/.zcode/"))) {
+    return join(process.env.ZCODE_PROFILE_BASE_DIR, ".zcode", path.slice("~/.zcode".length));
+  }
   if (path.startsWith("~/")) {
     return join(homedir(), path.slice(2));
   }

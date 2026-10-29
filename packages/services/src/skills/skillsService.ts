@@ -1,3 +1,4 @@
+import { getZCodeUserRootDir, resolveImportedZCodePath } from "../paths.js";
 /* eslint-disable max-lines -- skill 发现 + 校验 + 状态 + 通用目录管理在同一服务里聚合，分层后跳转成本更高 */
 import {
   access,
@@ -47,8 +48,8 @@ interface ParsedFrontmatter {
 }
 
 const SKILL_META_FILE_NAME = "_meta.json";
-const SKILL_SETTINGS_DIR = join(resolveUserHomeDir(), ".zcode", "v2");
-const SKILL_CLI_SETTINGS_DIR = join(resolveUserHomeDir(), ".zcode", "cli");
+const SKILL_SETTINGS_DIR = join(getZCodeUserRootDir(), "v2");
+const SKILL_CLI_SETTINGS_DIR = join(getZCodeUserRootDir(), "cli");
 const SKILL_CLI_CONFIG_FILE = join(SKILL_CLI_SETTINGS_DIR, "config.json");
 const GIT_MARKER = ".git";
 const HOME_PREFIX = "~/";
@@ -81,7 +82,7 @@ function getWorkspaceAgentsSkillRoot(workspacePath: string): string {
 
 /** ZCode Agent 用户级技能目录。 */
 function getUserZcodeSkillRoot(): string {
-  return join(resolveUserHomeDir(), ".zcode", "skills");
+  return join(getZCodeUserRootDir(), "skills");
 }
 
 /** 兼容目录: 用户级 `~/.agents/skills`。 */
@@ -647,6 +648,7 @@ function readStorageDirFromConfig(config: Record<string, unknown>): string {
 }
 
 function resolveConfigPath(path: string): string {
+  path = resolveImportedZCodePath(path);
   const expanded = path.startsWith(HOME_PREFIX)
     ? join(resolveUserHomeDir(), path.slice(HOME_PREFIX.length))
     : path;

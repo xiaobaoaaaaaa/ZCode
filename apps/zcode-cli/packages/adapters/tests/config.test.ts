@@ -1,19 +1,59 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createConfig, updateUiLocaleInFileConfig } from "../src/config/index.js";
 import { parseEnvConfig } from "../src/config/env-config.adapter.js";
 import {
   addSuppressedBuiltinInFileConfig,
   loadFileConfig,
+  resolvePath,
+  getDefaultConfigPath,
   removePluginFromFileConfig,
   removeSuppressedBuiltinInFileConfig,
   updatePluginEnabledInFileConfig,
   updatePluginOptionsInFileConfig,
 } from "../src/config/file-config.adapter.js";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { resolveDefaultSkillRoots } from "../src/skills/roots.js";
+import { resolveDefaultCustomCommandRoots } from "../src/commands/roots.js";
 
 describe("config adapters", () => {
+  it("locates imported ZCode configuration without changing ordinary home expansion", async () => {
+    const profile = await mkdtemp(join(tmpdir(), "zcode-import-profile-"));
+    try {
+      await mkdir(join(profile, ".zcode", "cli"), { recursive: true });
+      await writeFile(
+        join(profile, ".zcode", "cli", "config.json"),
+        JSON.stringify({ ui: { locale: "zh-CN" } }),
+      );
+      vi.stubEnv("ZCODE_PROFILE_BASE_DIR", profile);
+      expect(getDefaultConfigPath()).toBe(join(profile, ".zcode", "cli", "config.json"));
+      expect(loadFileConfig().config.ui?.locale).toBe("zh-CN");
+      expect(resolvePath("~/.zcode/cli/db/db.sqlite")).toBe(
+        join(profile, ".zcode", "cli", "db", "db.sqlite"),
+      );
+      expect(resolvePath("~/.ssh/config")).toBe(join(homedir(), ".ssh", "config"));
+      const project = join(profile, "project");
+      for (const [kind, roots] of [
+        ["skills", await resolveDefaultSkillRoots(project)],
+        ["commands", await resolveDefaultCustomCommandRoots(project)],
+      ] as const) {
+        expect(roots.map((root) => root.path)).toEqual(
+          expect.arrayContaining([
+            join(profile, ".zcode", kind),
+            join(homedir(), ".agents", kind),
+            join(project, ".zcode", kind),
+          ]),
+        );
+        expect(
+          roots.filter((root) => root.source === "zcode" && root.scope === "user"),
+        ).toHaveLength(1);
+      }
+    } finally {
+      vi.unstubAllEnvs();
+      await rm(profile, { recursive: true, force: true });
+    }
+  });
   it("migrates the legacy official CUA plugin id to the canonical id", async () => {
     const dir = await mkdtemp(join(tmpdir(), "zcode-config-cua-identity-"));
     const configPath = join(dir, "config.json");

@@ -3296,6 +3296,40 @@ const enUS: Record<string, string> = {
   "settings.dataBaseDirDescription":
     "Root directory for app data (defaults to user home directory). Existing data will be copied to the new location. The .zcode/v2 suffix cannot be changed.",
   "settings.dataBaseDirPlaceholder": "Default: user home directory",
+  "settings.importData.title": "Import from a ZCode directory",
+  "settings.importData.description":
+    "Copy all data and switch after restart, keeping the source and current data.",
+  "settings.importData.open": "Import data…",
+  "settings.importData.scope":
+    "Includes conversations, settings, skills, plugins and the default workspace. Select .zcode or its parent. A new subfolder will hold the independent copy.",
+  "settings.importData.notice":
+    "Close ZCode instances using the source first. Project paths stay unchanged; credentials from another machine may require signing in again. Scheduled tasks and bots in the copy start paused.",
+  "settings.importData.source": "Source directory",
+  "settings.importData.destination": "Save the copy in",
+  "settings.importData.browse": "Choose",
+  "settings.importData.working": "Copying and verifying. Keep the app open…",
+  "settings.importData.ready": "Import complete. Restart to use the independent copy.",
+  "settings.importData.restartNotice":
+    "Finish your current conversations before restarting. The source and current data are retained.",
+  "settings.importData.restart": "Restart and switch",
+  "settings.importData.restartFailed":
+    "Automatic restart did not finish. Quit and reopen the app to use the saved copy.",
+  "settings.importData.later": "Restart later",
+  "settings.importData.cancel": "Cancel",
+  "settings.importData.submit": "Import independent copy",
+  "settings.importData.profileHint":
+    "Using an imported profile. Import again to move the complete data set.",
+  "settings.importData.error.busy": "Another import is running. Try again later.",
+  "settings.importData.error.invalid-source":
+    "Complete ZCode data was not found. Select a .zcode directory containing v2/setting.json without an external data directory redirect.",
+  "settings.importData.error.unsafe-path":
+    "Choose different directories. The source cannot be active data, and the destination cannot be inside source or active data. Remove symbolic links from the source before retrying.",
+  "settings.importData.error.source-changed":
+    "The source changed during copying. Close apps using it and try again.",
+  "settings.importData.error.invalid-database":
+    "A database could not be read. Import was cancelled and the original data is unchanged.",
+  "settings.importData.error.copy-failed":
+    "Import could not finish. Check permissions, available space and whether files are in use, then try again.",
   "settings.dataBaseDirBrowse": "Choose folder",
   "settings.dataBaseDirSave": "Save",
   "settings.dataBaseDirCopying": "Copying data, please do not close the app...",
