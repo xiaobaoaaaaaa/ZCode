@@ -36,6 +36,7 @@ async function fixture(t) {
       smokeFile,
       JSON.stringify({
         ok: true,
+        welcomeReady: true,
         version,
         platform: config.platform,
         arch: config.arch,
@@ -72,6 +73,18 @@ test("incomplete matrix cannot be published", async (t) => {
   await assert.rejects(
     collectRelease(join(root, "input"), join(root, "ready"), { version, commit }),
     /ENOENT/u,
+  );
+});
+
+test("initialization-only screenshot cannot satisfy the startup gate", async (t) => {
+  const root = await fixture(t);
+  const file = join(root, "input", "packages-linux-arm64", "build.json");
+  const build = JSON.parse(await readFile(file, "utf8"));
+  build.smoke.welcomeReady = false;
+  await writeFile(file, JSON.stringify(build));
+  await assert.rejects(
+    collectRelease(join(root, "input"), join(root, "ready"), { version, commit }),
+    /welcome/u,
   );
 });
 

@@ -87,6 +87,7 @@ async function inspectPackage(path, name) {
 
 function validateSmoke(smoke, version, target) {
   assert.equal(smoke.ok, true, "missing successful startup check");
+  assert.equal(smoke.welcomeReady, true, "welcome screen did not finish initializing");
   assert.equal(smoke.version, version, "startup version mismatch");
   assert.equal(smoke.platform, targets[target].platform, "startup platform mismatch");
   assert.equal(smoke.arch, targets[target].arch, "startup architecture mismatch");

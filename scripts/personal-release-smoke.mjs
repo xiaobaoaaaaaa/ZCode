@@ -39,8 +39,8 @@ let stderr = "";
 let app;
 let browser;
 let child;
+let page;
 try {
-  let page;
   if (config.platform === "win32") {
     // Windows 正式包关闭 Node Inspector，Playwright Electron.launch 无法接管；保留 fuse，改用 Chromium CDP。
     child = spawn(executablePath, ["--remote-debugging-port=0"], { env, stdio: "pipe" });
@@ -85,11 +85,10 @@ try {
     });
     page = await app.firstWindow({ timeout: 90_000 });
   }
-  await page.waitForFunction(
-    () => document.body.innerText.includes("ZCode") && document.body.innerText.trim().length > 80,
-    undefined,
-    { timeout: 90_000 },
-  );
+  // 初始化遮罩也含 ZCode 文本，必须等待真实登录入口，避免在数据库启动中途误判成功并退出。
+  const loginButton = page.getByTestId("login-use-api-key-button");
+  await loginButton.waitFor({ state: "visible", timeout: 90_000 });
+  assert.ok(await loginButton.isEnabled(), "login entry must be enabled");
   await page.screenshot({ path: join(output, "welcome.png"), timeout: 30_000 });
   let runtime;
   if (config.platform === "win32") {
@@ -130,9 +129,13 @@ try {
   assert.ok(runtime.homeIsolated && runtime.userDataIsolated);
   await writeFile(
     join(output, "smoke.json"),
-    `${JSON.stringify({ ok: true, ...runtime, title: await page.title() }, null, 2)}\n`,
+    `${JSON.stringify({ ok: true, welcomeReady: true, ...runtime, title: await page.title() }, null, 2)}\n`,
   );
   console.log(`Packaged application startup passed: ${target} ${version}`);
+} catch (error) {
+  await page?.screenshot({ path: join(output, "failure.png"), timeout: 10_000 }).catch(() => {});
+  await writeFile(join(output, "failure.txt"), String(error));
+  throw error;
 } finally {
   if (app) await app.close();
   if (browser) await browser.close();
