@@ -5299,6 +5299,8 @@ const zhCN: Record<string, string> = {
   "chat.attachments.dragHint": "松开以添加附件",
   "chat.composer.workspaceFileDragHint": "松开以引用此文件或目录",
   "chat.send": "发送",
+  "chat.continue": "继续",
+  "chat.continuePrompt": "继续刚才中断的任务，从当前进度接着完成。",
   "chat.scrollToBottom": "滚动到底部",
   "chat.message.edit": "编辑",
   "chat.message.sentByScheduledTask": "由定时任务发送",

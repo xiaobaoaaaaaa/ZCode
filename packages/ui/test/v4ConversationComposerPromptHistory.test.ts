@@ -1,4 +1,11 @@
-import { act, createElement, type ReactNode } from "react";
+import {
+  act,
+  createElement,
+  Children,
+  isValidElement,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -17,6 +24,7 @@ import {
   V4_DRAFT_SCOPE_ROOT,
   type V4ComposerDraft,
 } from "@/v4/composer/composerDraftStore.js";
+import { ContinueButton } from "@/conversation-continuation/index.js";
 import { getComposerDraftRevision } from "@/v4/composer/composerDraftRevision.js";
 import { pendingCommandRegistry } from "@/v4/pendingCommandRegistry.js";
 import type {
@@ -307,6 +315,7 @@ function renderComposerElement(
     content: Pick<V4ComposerDraft, "text" | "editorStateJson" | "mention">,
   ) => void,
   submissionReady = true,
+  overrides: Partial<ComponentProps<typeof ConversationComposer>> = {},
 ) {
   const scopeId = sessionId ?? V4_DRAFT_SCOPE_ROOT;
   let ownedDraft = composerDraft ??
@@ -344,6 +353,7 @@ function renderComposerElement(
       snapshot: null,
       telemetryDraftConfig,
       workspacePath: "/workspace",
+      ...overrides,
     }),
   );
 }
@@ -384,6 +394,257 @@ afterEach(() => {
 });
 
 describe("ConversationComposer prompt history", () => {
+  function stoppedSnapshot(turnId = "turn-1"): ConversationSnapshot {
+    return {
+      sessionId: "session-1",
+      logEpoch: "epoch-1",
+      control: {
+        phase: "completedInterrupted",
+        canStop: false,
+        stopState: "idle",
+        activeWorks: [],
+      },
+      inputRouting: { mode: "choice" },
+      config: {},
+      usage: {},
+      goal: null,
+      queue: { items: [{ queueItemId: "queued-1" }], autoDrain: false },
+      rows: { window: [{ turnId }], totalCount: 1 },
+    } as unknown as ConversationSnapshot;
+  }
+
+  function continueButton(
+    node = chatPromptEditorProps.at(-1)?.submitControl as ReactNode,
+  ): Record<string, unknown> | null {
+    for (const child of Children.toArray(node)) {
+      if (!isValidElement<Record<string, unknown>>(child)) continue;
+      if (child.type === ContinueButton) return child.props;
+      const nested = continueButton((child.props.children ?? null) as ReactNode);
+      if (nested) return nested;
+    }
+    return null;
+  }
+
+  it("继续复用发送路径，保留队列，并在接受与投影间阻止重复点击", async () => {
+    const container = installMinimalDom();
+    const root = createRoot(container);
+    let resolveSend!: () => void;
+    const onSend = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSend = resolve;
+        }),
+    );
+    const render = (snapshot: ConversationSnapshot) =>
+      root.render(
+        renderComposerElement(
+          onSend,
+          "session-1",
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          true,
+          { snapshot },
+        ),
+      );
+    act(() => render(stoppedSnapshot()));
+    const click = continueButton()!.onClick as () => void;
+    await act(async () => {
+      click();
+      click();
+      await flushAsyncWork();
+    });
+    expect(onSend).toHaveBeenCalledTimes(1);
+    expect(onSend).toHaveBeenCalledWith(
+      "继续刚才中断的任务，从当前进度接着完成。",
+      expect.objectContaining({
+        heldQueueDisposition: "keepQueueAndSend",
+        expectedHeldQueueItemIds: ["queued-1"],
+      }),
+    );
+    expect(continueButton()?.disabled).toBe(true);
+    await act(async () => {
+      resolveSend();
+      await flushAsyncWork();
+    });
+    await act(async () => {
+      click();
+      await flushAsyncWork();
+    });
+    expect(onSend).toHaveBeenCalledTimes(1);
+    act(() => render(stoppedSnapshot("turn-2")));
+    expect(continueButton()?.disabled).toBe(false);
+    await act(async () => root.unmount());
+  });
+
+  it.each(["blocked", "confirmationRequired", "failure"] as const)(
+    "继续遇到 %s 后允许重试且不自动清空队列",
+    async (result) => {
+      const container = installMinimalDom();
+      const root = createRoot(container);
+      const onSend = vi.fn(async () => {
+        if (result === "failure") throw new Error("test rejection");
+        return result;
+      });
+      act(() =>
+        root.render(
+          renderComposerElement(
+            onSend,
+            "session-1",
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            true,
+            { snapshot: stoppedSnapshot() },
+          ),
+        ),
+      );
+      await act(async () => {
+        (continueButton()!.onClick as () => void)();
+        await flushAsyncWork();
+      });
+      expect(onSend).toHaveBeenCalledTimes(1);
+      expect(continueButton()?.disabled).toBe(false);
+      expect(dialogOpenStates).not.toContain(true);
+      await act(async () => root.unmount());
+    },
+  );
+
+  it("中断后新输入优先发送，迟到的继续按钮点击不消耗草稿", async () => {
+    const container = installMinimalDom();
+    const root = createRoot(container);
+    const onSend = vi.fn(async () => {});
+    act(() =>
+      root.render(
+        renderComposerElement(
+          onSend,
+          "session-1",
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          true,
+          { snapshot: stoppedSnapshot() },
+        ),
+      ),
+    );
+    const oldClick = continueButton()!.onClick as () => void;
+    await act(async () => {
+      (chatPromptEditorProps.at(-1)!.onChange as (text: string) => void)("新的要求");
+    });
+    expect(continueButton()).toBeNull();
+    await act(async () => {
+      oldClick();
+      await flushAsyncWork();
+    });
+    expect(onSend).not.toHaveBeenCalled();
+    expect(readV4ComposerDraft("/workspace", undefined, "session-1")?.text).toBe("新的要求");
+    await act(async () => root.unmount());
+  });
+
+  it.each(["disabled", "submissionReady", "blockingRequestId", "suppressGoalCommands"] as const)(
+    "Web 继续入口遵守 %s 门禁",
+    async (guard) => {
+      const container = installMinimalDom();
+      const root = createRoot(container);
+      const onSend = vi.fn(async () => {});
+      const snapshot = stoppedSnapshot();
+      if (guard === "suppressGoalCommands") {
+        snapshot.goal = { status: "paused" } as NonNullable<ConversationSnapshot["goal"]>;
+        snapshot.availability = {
+          resumeGoal: { allowed: true },
+        } as ConversationSnapshot["availability"];
+      }
+      act(() =>
+        root.render(
+          renderComposerElement(
+            onSend,
+            "session-1",
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            true,
+            {
+              snapshot,
+              isWebRemoteControl: true,
+              ...{
+                disabled: { disabled: true },
+                submissionReady: { submissionReady: false },
+                blockingRequestId: { blockingRequestId: "permission-1" },
+                suppressGoalCommands: { suppressGoalCommands: true },
+              }[guard],
+            },
+          ),
+        ),
+      );
+      const button = continueButton();
+      if (guard === "blockingRequestId" || guard === "suppressGoalCommands")
+        expect(button).toBeNull();
+      else {
+        expect(button?.disabled).toBe(true);
+        await act(async () => {
+          (button!.onClick as () => void)();
+          await flushAsyncWork();
+        });
+      }
+      expect(onSend).not.toHaveBeenCalled();
+      await act(async () => root.unmount());
+    },
+  );
+
+  it("暂停 Goal 通过原有恢复命令继续，迟到的完成不清除新草稿", async () => {
+    const container = installMinimalDom();
+    const root = createRoot(container);
+    let resolveSend!: () => void;
+    const onSend = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSend = resolve;
+        }),
+    );
+    const snapshot = stoppedSnapshot();
+    snapshot.goal = { status: "paused" } as NonNullable<ConversationSnapshot["goal"]>;
+    snapshot.availability = {
+      resumeGoal: { allowed: true },
+    } as ConversationSnapshot["availability"];
+    act(() =>
+      root.render(
+        renderComposerElement(
+          onSend,
+          "session-1",
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          true,
+          { snapshot },
+        ),
+      ),
+    );
+    await act(async () => {
+      (continueButton()!.onClick as () => void)();
+      await flushAsyncWork();
+    });
+    expect(onSend).toHaveBeenCalledWith("/goal resume", expect.any(Object));
+    await act(async () => {
+      (chatPromptEditorProps.at(-1)!.onChange as (text: string) => void)("恢复期间写的新要求");
+      resolveSend();
+      await flushAsyncWork();
+    });
+    expect(readV4ComposerDraft("/workspace", undefined, "session-1")?.text).toBe(
+      "恢复期间写的新要求",
+    );
+    await act(async () => root.unmount());
+  });
+
   it("真实编辑器文本变更会推进草稿 revision，保护迟到的推荐 Prompt", async () => {
     const { root } = renderComposer(vi.fn(async () => {}));
     const revisionBefore = getComposerDraftRevision("/workspace");

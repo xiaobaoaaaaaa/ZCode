@@ -5675,6 +5675,8 @@ const enUS: Record<string, string> = {
   "chat.attachments.dragHint": "Drop to add attachments",
   "chat.composer.workspaceFileDragHint": "Drop to mention this file or folder",
   "chat.send": "Send",
+  "chat.continue": "Continue",
+  "chat.continuePrompt": "Continue the interrupted task from where you left off.",
   "chat.scrollToBottom": "Scroll to bottom",
   "chat.message.edit": "Edit",
   "chat.message.sentByScheduledTask": "Sent by scheduled task",

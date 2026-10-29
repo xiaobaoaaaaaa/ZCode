@@ -6,6 +6,11 @@ import { useOptionalTabStore } from "@/store/TabStoreProvider.js";
 import { useRemoteConversationAvailable } from "@/v4/RemoteConversationAvailability.js";
 import { getLocalTtftObserver } from "@/v4/telemetry/localTtftObserver.js";
 import { formatConversationWorkDuration } from "@/v4/conversationWorkDuration.js";
+import {
+  ContinueButton,
+  resolveInterruptedContinuation,
+  type InterruptedContinuation,
+} from "@/conversation-continuation/index.js";
 /**
  * v4 会话 composer（composer parity）。
  *
@@ -712,6 +717,8 @@ function ConversationComposerImpl({
   const textRef = useRef("");
   const contentRevisionRef = useRef(0);
   const pendingRef = useRef(false);
+  const continuedKeyRef = useRef<string | null>(null);
+  const [continuedKey, setContinuedKey] = useState<string | null>(null);
   const snapshotRef = useRef(snapshot);
   snapshotRef.current = snapshot;
   // 这条线断过一次：composer 原本读一个平行的 sharedContextImport prop，而 SessionPane 从没
@@ -1335,6 +1342,20 @@ function ConversationComposerImpl({
     !runtimeBlocked;
   // 旧 UI 状态机：streaming + 空草稿 → Stop；有草稿 → 发送键（入队）。
   const showStopControl = canStop && !hasDraftToSubmit;
+  const continuationCandidate =
+    !draftMode && !hasDraftToSubmit && !blockingRequestId
+      ? resolveInterruptedContinuation(snapshot)
+      : null;
+  const continuation =
+    continuationCandidate?.kind === "goal" && suppressGoalCommands ? null : continuationCandidate;
+  const canContinue =
+    continuation !== null &&
+    !disabled &&
+    !pending &&
+    attachmentsReady &&
+    submissionReady &&
+    !runtimeBlocked &&
+    continuedKey !== continuation.key;
 
   useEffect(() => {
     if (!canSend) setSendTooltipOpen(false);
@@ -1346,8 +1367,13 @@ function ConversationComposerImpl({
       expectedHeldQueueItemIds?: readonly string[],
       existingTelemetrySeed?: ConversationPromptTelemetrySeed,
       requestedDelivery?: "startNow" | "queue" | "guide",
+      continueInterrupted?: InterruptedContinuation,
     ) => {
-      const trimmed = textRef.current.trim();
+      const trimmed = continueInterrupted
+        ? continueInterrupted.kind === "goal"
+          ? "/goal resume"
+          : intl.formatMessage({ id: "chat.continuePrompt" })
+        : textRef.current.trim();
       const submittedQueueItemIds =
         snapshotRef.current?.queue.items.map((item) => item.queueItemId) ?? [];
       const hasPendingAttachments = attachmentsApi.attachments.length > 0;
@@ -1362,6 +1388,29 @@ function ConversationComposerImpl({
       const currentConversationSelections = conversationSelectionReferences;
       const hasPendingConversationSelections = currentConversationSelections.length > 0;
       const submittedShareContext = pendingShareContext;
+      if (continueInterrupted) {
+        // 点击时重新核对快照与草稿，防止旧按钮事件在切换任务或状态回流后继续旧轮。
+        if (
+          disabled ||
+          draftMode ||
+          (continueInterrupted.kind === "goal" && suppressGoalCommands) ||
+          blockingRequestId ||
+          textRef.current.trim() ||
+          hasPendingAttachments ||
+          hasPendingCodeCommentContexts ||
+          hasPendingWebElementContexts ||
+          hasPendingPluginUiContexts ||
+          hasPendingPptxElementReferences ||
+          hasPendingConversationSelections ||
+          submittedShareContext ||
+          resolveInterruptedContinuation(snapshotRef.current)?.key !== continueInterrupted.key ||
+          continuedKeyRef.current === continueInterrupted.key
+        )
+          return;
+        // 继续保留暂停队列；CLI 仍按冻结 ID 裁决并发变化，不绕过 admission。
+        heldQueueDisposition = "keepQueueAndSend";
+        expectedHeldQueueItemIds = submittedQueueItemIds;
+      }
       // 草稿首发 accepted 后同一 composer 会原地从 __draft__ promotion 到
       // session scope；若成功清理时再读可变 ref，会误清新 scope，并把首条输入残留在
       // __draft__，下次新建任务又恢复。发送开始时冻结真正提交的 scope。
@@ -1397,6 +1446,16 @@ function ConversationComposerImpl({
       });
       pendingRef.current = true;
       setPending(true);
+      if (continueInterrupted) {
+        continuedKeyRef.current = continueInterrupted.key;
+        setContinuedKey(continueInterrupted.key);
+      }
+      const releaseContinuation = () => {
+        if (continueInterrupted && continuedKeyRef.current === continueInterrupted.key) {
+          continuedKeyRef.current = null;
+          setContinuedKey(null);
+        }
+      };
       // Bug 根因：草稿 intent 只保存用户显式改动，正常继承模型位于冻结初始化 config。
       // prewarm snapshot 尚未到达时若只读 draftConfig，send_btn 会错误落成空模型/glm。
       const telemetryConfig = telemetryDraftConfig ?? snapshotRef.current?.config ?? draftConfig;
@@ -1553,6 +1612,7 @@ function ConversationComposerImpl({
         // 二次门禁：只消费预传完成的 ref，不在点击发送时回落上传。
         const readyAttachmentRefs = await attachmentsApi.prepareForSend();
         if (readyAttachmentRefs === null) {
+          releaseContinuation();
           if (telemetrySeed.localTtft)
             getLocalTtftObserver()?.exclude(telemetrySeed.localTtft, "rejected");
           // send_click 已上报，此处不落定会留下无配对的悬空样本，污染成功率分母。
@@ -1611,7 +1671,7 @@ function ConversationComposerImpl({
           editorClearedOptimistically = true;
         }
         const sendResult = await onSendText(promptText, {
-          submittedDraftText: submittedDraft.text,
+          submittedDraftText: continueInterrupted ? trimmed : submittedDraft.text,
           submission,
           ...(currentConversationSelections.length
             ? {
@@ -1646,6 +1706,7 @@ function ConversationComposerImpl({
             : {}),
         });
         if (sendResult === "blocked") {
+          releaseContinuation();
           if (telemetrySeed.localTtft)
             getLocalTtftObserver()?.exclude(telemetrySeed.localTtft, "rejected");
           // 产品 guard 是一次正常拒绝，不应借异常路径表达；回滚发送前暂记的 history，
@@ -1662,6 +1723,22 @@ function ConversationComposerImpl({
           return;
         }
         if (sendResult === "confirmationRequired") {
+          releaseContinuation();
+          if (continueInterrupted) {
+            // 队列可能被另一端改动；本次不清空、不自动重试，等待新快照后允许再点继续。
+            rollbackPromptHistory();
+            restoreSubmittedDraft();
+            if (telemetrySeed.localTtft)
+              getLocalTtftObserver()?.exclude(telemetrySeed.localTtft, "rejected");
+            conversationTelemetry?.settleSendResult({
+              seed: telemetrySeed,
+              sessionId: sessionId ?? null,
+              status: "fail",
+              reasonCode: "blocked",
+            });
+            sendAction.noop();
+            return;
+          }
           if (telemetrySeed.localTtft)
             getLocalTtftObserver()?.confirmation(telemetrySeed.localTtft, true);
           rollbackPromptHistory();
@@ -1685,6 +1762,7 @@ function ConversationComposerImpl({
         await settleSubmittedContent();
         sendAction.complete({ resultSource: "authority_ack", admissionResult: "accepted" });
       } catch (error) {
+        if (!submittedContentSettled) releaseContinuation();
         rollbackPromptHistory();
         // 权威 ACK/投影可能在 Promise 失败回调前先到达；清理已开始时不能再把旧草稿恢复回来。
         if (!submittedContentSettled) restoreSubmittedDraft();
@@ -1707,6 +1785,11 @@ function ConversationComposerImpl({
     },
     [
       attachmentsApi,
+      disabled,
+      draftMode,
+      blockingRequestId,
+      suppressGoalCommands,
+      intl,
       conversationSelectionReferences,
       conversationTelemetry,
       draftConfig,
@@ -1826,6 +1909,12 @@ function ConversationComposerImpl({
       failureStage: "stop_generation",
     });
   }, [onStop]);
+
+  const handleContinueClick = useCallback(() => {
+    if (!continuation) return;
+    sendTriggerRef.current = "button";
+    void submit(undefined, undefined, undefined, undefined, continuation);
+  }, [continuation, submit]);
 
   // 发送键是 type="submit"，与 Enter 共用 handleEditorSubmit；DOM 事件顺序保证 click 早于
   // submit，故这里只置标记，由 submit() 读取并复位。
@@ -2397,6 +2486,13 @@ function ConversationComposerImpl({
               <span className="sr-only">{stopTooltipTitle}</span>
             </Button>
           </ControlHintTooltip>
+        ) : continuation ? (
+          <ContinueButton
+            label={intl.formatMessage({ id: "chat.continue" })}
+            disabled={!canContinue}
+            pending={pending}
+            onClick={handleContinueClick}
+          />
         ) : (
           <ControlHintTooltip
             title={resolvedSendTooltipTitle}
@@ -2422,6 +2518,10 @@ function ConversationComposerImpl({
     ),
     [
       canSend,
+      canContinue,
+      continuation,
+      handleContinueClick,
+      intl,
       activeConfigPicker,
       composerPhase,
       composerUsage,

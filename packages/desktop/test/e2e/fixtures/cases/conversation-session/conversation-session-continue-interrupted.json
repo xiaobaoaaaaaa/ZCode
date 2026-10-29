@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "caseName": "conversation-session-continue-interrupted",
+  "spec": "./test/e2e/conversation-session/conversation-session-continue-interrupted.test.ts",
+  "providerFixtures": [
+    "./test/e2e/fixtures/upstream/common.json",
+    "./test/e2e/fixtures/upstream/conversation-session/conversation-session-continue-interrupted.json"
+  ],
+  "fileFixtures": [],
+  "requests": [
+    {
+      "id": "continue-initial",
+      "kind": "main",
+      "source": "synthetic",
+      "timingPolicy": "controlled-stream",
+      "syntheticReason": "由真实停止与继续按钮驱动受控流；同一会话请求必须包含原任务及前轮上下文，每阶段仅匹配一次。"
+    },
+    {
+      "id": "continue-first",
+      "kind": "main",
+      "source": "synthetic",
+      "timingPolicy": "controlled-stream",
+      "syntheticReason": "由真实停止与继续按钮驱动受控流；同一会话请求必须包含原任务及前轮上下文，每阶段仅匹配一次。"
+    },
+    {
+      "id": "continue-second",
+      "kind": "main",
+      "source": "synthetic",
+      "timingPolicy": "controlled-stream",
+      "syntheticReason": "由真实停止与继续按钮驱动受控流；同一会话请求必须包含原任务及前轮上下文，每阶段仅匹配一次。"
+    },
+    {
+      "id": "continue-title",
+      "kind": "common",
+      "source": "synthetic",
+      "timingPolicy": "fast-text",
+      "syntheticReason": "固定标题，不影响中断继续验收。"
+    }
+  ]
+}
