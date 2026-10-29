@@ -7,6 +7,13 @@
 
 GitHub Actions 的 `personal-release.yml` 负责原生构建、打包、启动验证与草稿资产上传。
 发布者在核对五个平台的任务与草稿资产后公开 Release；构建流程不自行公开草稿。
+草稿默认带预发布标记。正式版核验完成后显式取消预发布并设为 Latest：
+
+```sh
+gh release edit v<version> --draft=false --prerelease=false --latest
+```
+
+版本继续使用个人版序列；是否正式发布由 GitHub Release 标记决定，不能仅根据标签名推断。
 
 | 目标        | Runner           | 资产                        |
 | ----------- | ---------------- | --------------------------- |
