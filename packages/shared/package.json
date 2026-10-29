@@ -8,6 +8,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./runtime-env": "./src/runtimeEnv.ts",
+    "./env": "./src/env.ts",
     "./test-ids": "./src/test-ids.ts",
     "./mcp": "./src/mcp.ts",
     "./runtime-tool-runtime": "./src/runtime-tool-runtime.ts",

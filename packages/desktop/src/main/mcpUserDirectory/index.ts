@@ -1,3 +1,4 @@
+import { getZCodeUserRootDir } from "@zcode/services/node";
 /**
  * MCP 用户目录模块 - 主入口
  */
@@ -74,6 +75,9 @@ function buildDirectoryConfigPath(
   scope: Exclude<McpScope, "common">,
   workspacePath?: string,
 ): string {
+  if (scope === "user" && descriptor.directorySource === "zcode") {
+    return join(getZCodeUserRootDir(), "cli", descriptor.fileName);
+  }
   const baseDir = scope === "user" ? resolveUserHomeDir() : workspacePath;
   if (!baseDir) {
     throw new Error(`Missing workspace path for ${descriptor.directorySource} workspace MCP config`);

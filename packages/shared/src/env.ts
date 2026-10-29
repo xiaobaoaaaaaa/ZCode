@@ -2,7 +2,7 @@ import type { ZCodeRuntimeEnv } from "./runtimeEnv.js";
 
 export type ZCodeEnv = "test" | "production";
 /** 安装包身份：决定应用名、app id、Electron 数据目录与更新策略；与后端环境 `ZCodeEnv` 是两个轴。 */
-export type ZCodeProductFlavor = "production" | "preview";
+export type ZCodeProductFlavor = "production" | "preview" | "personal";
 export type ArmsRumEnv = "local" | "prod";
 
 // 非构建环境（如 e2e 测试的 mocha）下 define 不存在，用 typeof 检查 + fallback 避免 ReferenceError
@@ -30,7 +30,7 @@ export function normalizeZCodeProductFlavor(
   zcodeEnv: ZCodeEnv,
 ): ZCodeProductFlavor {
   const normalized = value?.trim().toLowerCase();
-  if (normalized === "production" || normalized === "preview") {
+  if (normalized === "production" || normalized === "preview" || normalized === "personal") {
     return normalized;
   }
   return zcodeEnv === "production" ? "production" : "preview";
@@ -40,6 +40,17 @@ export const ZCODE_PRODUCT_FLAVOR = normalizeZCodeProductFlavor(
   typeof __ZCODE_PRODUCT_FLAVOR__ !== "undefined" ? __ZCODE_PRODUCT_FLAVOR__ : undefined,
   ZCODE_ENV,
 );
+/** 用户级数据与桌面入口跟随编译身份；项目内 .zcode 仍采用上游格式。 */
+export const ZCODE_DATA_DIR_NAME =
+  ZCODE_PRODUCT_FLAVOR === "personal" ? ".zcode-personal" : ".zcode";
+export const ZCODE_PROTOCOL_SCHEME =
+  ZCODE_PRODUCT_FLAVOR === "personal" ? "zcode-personal" : "zcode";
+export const ZCODE_PRODUCT_NAME =
+  ZCODE_PRODUCT_FLAVOR === "personal"
+    ? "ZCode Personal"
+    : ZCODE_PRODUCT_FLAVOR === "preview"
+      ? "ZCode Preview"
+      : "ZCode";
 export const ZCODE_APP_VERSION_ENV = "ZCODE_APP_VERSION" as const;
 export const ZCODE_BUILD_COMMIT_ID_ENV = "ZCODE_BUILD_COMMIT_ID" as const;
 

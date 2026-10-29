@@ -40,7 +40,7 @@ export function expectedFiles(version, target) {
   // Electron Builder 按包格式转换架构名称，必须收集真实产物名，不能统一假定为 runner 的 arch。
   return config.extensions.map((extension) => {
     const arch = config.artifactArchitectures?.[extension] ?? config.arch;
-    return `ZCode-${version}-${target.split("-")[0]}-${arch}.${extension}`;
+    return `ZCode-Personal-${version}-${target.split("-")[0]}-${arch}.${extension}`;
   });
 }
 
@@ -93,6 +93,9 @@ function validateSmoke(smoke, version, target) {
   assert.equal(smoke.arch, targets[target].arch, "startup architecture mismatch");
   assert.equal(smoke.homeIsolated, true, "startup home must be isolated");
   assert.equal(smoke.userDataIsolated, true, "startup userData must be isolated");
+  assert.equal(smoke.applicationName, "ZCode Personal", "startup application identity mismatch");
+  assert.equal(smoke.personalDataIsolated, true, "Personal data root must be independent");
+  assert.equal(smoke.officialDataPreserved, true, "official data must remain unchanged");
 }
 
 export async function stageTarget(source, destination, { version, target, commit, smokeFile }) {

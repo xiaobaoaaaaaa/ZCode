@@ -1824,3 +1824,7 @@ MCP isError 和历史 hydration 不触发创建。工具执行、权限、原始
 ### 文档插件多窗口视图修复（2026-10-16）
 
 MCP app-only report_view 增加可选 viewId，release_view 释放指定窗口；模型 get_view 可选 viewId，缺省且存在多个上报窗口时返回歧义与清单。状态唯一归属 DocumentOwner，不由页面决定其他窗口的视图；旧客户端缺省 viewId 仍走 legacy 槽。show_in_viewer 保持专用 surface 路由并明确工具描述。导入仍为 app-only workspace 副作用；串行 admission、10 分钟未活动过期与部分文件清扫归 importer，完成副本不清理。覆盖 schema 到真实 MCP/AppBridge 的多窗口回归。
+
+## Personal 用户数据根
+
+独立 Desktop 用 `ZCODE_PROFILE_ROOT_DIR` 定位用户级配置与全局工作流档案，合同见 [导入与独立根](../imported-desktop-profile.md)。ListSavedWorkflows / RunWorkflow / SaveWorkflow 的全局查找与写入沿用同一 store，仅替换用户根；项目级覆盖、参数、结果、权限和历史格式不变。用户 skills/commands/instructions 同步跟随该根。验证官方根中的同名文件不被自动读取，Personal 根与项目根仍按原优先级工作。

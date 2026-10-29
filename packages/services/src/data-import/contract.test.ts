@@ -15,6 +15,8 @@ describe("imported profile startup contract", () => {
       PATH: "original-path",
       ZCODE_PROFILE_BASE_DIR: base,
       ZCODE_DATA_BASE_DIR: base,
+      ZCODE_HOME: join(base, ".zcode"),
+      ZCODE_PROFILE_ROOT_DIR: join(base, ".zcode"),
       ZCODE_STORAGE_DIR: join(base, ".zcode"),
       ZCODE_SESSION_DB_PATH: join(base, ".zcode", "cli", "db", "db.sqlite"),
       ZCODE_LOG_DIR: join(base, ".zcode", "cli", "log"),

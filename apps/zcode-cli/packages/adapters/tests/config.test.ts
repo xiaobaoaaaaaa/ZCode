@@ -16,21 +16,32 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolveDefaultSkillRoots } from "../src/skills/roots.js";
 import { resolveDefaultCustomCommandRoots } from "../src/commands/roots.js";
+import { resolveSharedZCodeCredentialsPath } from "../src/auth/shared-credentials.js";
+import { getDefaultSessionDbPath } from "../src/storage/session-store/paths.js";
+import { getDefaultLogDir } from "../src/logging/index.js";
+import { resolveWorkspaceHookTrustStorePath } from "../src/storage/workspace-hook-trust-store.js";
 
 describe("config adapters", () => {
-  it("locates imported ZCode configuration without changing ordinary home expansion", async () => {
+  it.each([".zcode", ".zcode-personal"])("locates %s configuration without changing ordinary home expansion", async (directory) => {
     const profile = await mkdtemp(join(tmpdir(), "zcode-import-profile-"));
     try {
-      await mkdir(join(profile, ".zcode", "cli"), { recursive: true });
+      await mkdir(join(profile, directory, "cli"), { recursive: true });
       await writeFile(
-        join(profile, ".zcode", "cli", "config.json"),
+        join(profile, directory, "cli", "config.json"),
         JSON.stringify({ ui: { locale: "zh-CN" } }),
       );
       vi.stubEnv("ZCODE_PROFILE_BASE_DIR", profile);
-      expect(getDefaultConfigPath()).toBe(join(profile, ".zcode", "cli", "config.json"));
+      if (directory === ".zcode-personal") vi.stubEnv("ZCODE_PROFILE_ROOT_DIR", join(profile, directory));
+      if (directory === ".zcode-personal") {
+        expect(resolveSharedZCodeCredentialsPath()).toBe(join(profile, directory, "v2", "credentials.json"));
+        expect(getDefaultSessionDbPath()).toBe(join(profile, directory, "cli", "db", "db.sqlite"));
+        expect(getDefaultLogDir()).toBe(join(profile, directory, "cli", "log"));
+        expect(await resolveWorkspaceHookTrustStorePath()).toContain(join(profile, directory));
+      }
+      expect(getDefaultConfigPath()).toBe(join(profile, directory, "cli", "config.json"));
       expect(loadFileConfig().config.ui?.locale).toBe("zh-CN");
       expect(resolvePath("~/.zcode/cli/db/db.sqlite")).toBe(
-        join(profile, ".zcode", "cli", "db", "db.sqlite"),
+        join(profile, directory, "cli", "db", "db.sqlite"),
       );
       expect(resolvePath("~/.ssh/config")).toBe(join(homedir(), ".ssh", "config"));
       const project = join(profile, "project");
@@ -40,7 +51,7 @@ describe("config adapters", () => {
       ] as const) {
         expect(roots.map((root) => root.path)).toEqual(
           expect.arrayContaining([
-            join(profile, ".zcode", kind),
+            join(profile, directory, kind),
             join(homedir(), ".agents", kind),
             join(project, ".zcode", kind),
           ]),
@@ -53,6 +64,9 @@ describe("config adapters", () => {
       vi.unstubAllEnvs();
       await rm(profile, { recursive: true, force: true });
     }
+  });
+  it("rejects relative profile roots instead of silently using the working directory", () => {
+    expect(() => parseEnvConfig({ ZCODE_PROFILE_ROOT_DIR: "relative" })).toThrow(/absolute path/);
   });
   it("migrates the legacy official CUA plugin id to the canonical id", async () => {
     const dir = await mkdtemp(join(tmpdir(), "zcode-config-cua-identity-"));

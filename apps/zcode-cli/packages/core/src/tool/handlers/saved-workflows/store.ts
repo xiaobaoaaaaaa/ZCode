@@ -41,7 +41,7 @@ export interface SavedWorkflowRoot {
 
 /**
  * `savedWorkflowRoots` / 派生函数的可选参数。`homeDir` 只为测试注入：生产恒取
- * `os.homedir()`（agent 进程所在机器的家目录），**不**跟任何 `storage.dir` 配置走。
+ * Desktop profile 根优先，否则 `os.homedir()`；不跟任意 `storage.dir` 配置走。
  */
 export interface SavedWorkflowRootsOptions {
   homeDir?: string;
@@ -59,7 +59,9 @@ export function savedWorkflowRoots(
 ): SavedWorkflowRoot[] {
   return [
     { scope: "project", dir: join(cwd, SAVED_WORKFLOW_PROJECT_DIR) },
-    { scope: "global", dir: join(options?.homeDir ?? homedir(), SAVED_WORKFLOW_GLOBAL_DIR) },
+    { scope: "global", dir: !options?.homeDir && process.env.ZCODE_PROFILE_ROOT_DIR
+      ? join(process.env.ZCODE_PROFILE_ROOT_DIR, "workflows")
+      : join(options?.homeDir ?? process.env.ZCODE_PROFILE_BASE_DIR ?? homedir(), SAVED_WORKFLOW_GLOBAL_DIR) },
   ];
 }
 

@@ -131,13 +131,17 @@ export async function resolveWorkspaceHookTrustStorePath(
   options: WorkspaceHookTrustStorePathOptions = {},
 ): Promise<string> {
   const home = resolve(options.homeDir ?? homedir());
+  const profileRoot = (!options.homeDir && process.env.ZCODE_PROFILE_ROOT_DIR) || join(home, ".zcode");
   const userConfigPath = resolve(
-    options.userConfigPath ?? join(home, ".zcode", "cli", "config.json"),
+    options.userConfigPath ?? join(profileRoot, "cli", "config.json"),
   );
   const config = await readUserConfig(userConfigPath);
   const storage = isRecord(config.storage) ? config.storage : {};
   const configured = typeof storage.dir === "string" ? storage.dir.trim() : "";
-  const storageRoot = configured ? resolveTrustedUserPath(configured, home) : join(home, ".zcode");
+  const prefix = ["~/.zcode", "~/.zcode-personal"].find((root) => configured === root || configured.startsWith(root + "/"));
+  const storageRoot = configured
+    ? prefix ? join(profileRoot, configured.slice(prefix.length)) : resolveTrustedUserPath(configured, home)
+    : profileRoot;
   return join(storageRoot, SECURITY_DIRECTORY, TRUST_STORE_FILE);
 }
 

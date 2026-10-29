@@ -1,3 +1,4 @@
+import { ZCODE_DATA_DIR_NAME } from "@zcode/shared/env";
 import { open, readFile, writeFile } from "node:fs/promises";
 import { join, sep } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -191,7 +192,7 @@ export async function prepareImportedCopy(
   baseDir: string,
   files: SnapshotFile[],
 ): Promise<void> {
-  const target = join(baseDir, ".zcode");
+  const target = join(baseDir, ZCODE_DATA_DIR_NAME);
   const hasSessionDb = files.some(
     (file) => file.kind === "file" && file.path === join("cli", "db", "db.sqlite"),
   );

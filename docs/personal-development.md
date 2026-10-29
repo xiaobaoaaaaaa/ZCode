@@ -4,12 +4,12 @@
 
 ## 远端与分支
 
-| 名称 | 用途 |
-| --- | --- |
-| `upstream` | 官方仓库 `https://github.com/zai-org/ZCode` |
-| `origin` | 个人 fork `https://github.com/xiaobaoaaaaaa/ZCode` |
-| `main` | 官方基线镜像，只接受官方提交的快进更新 |
-| `personal` | 个人适配集成分支，跟踪 `origin/personal` |
+| 名称                          | 用途                                                          |
+| ----------------------------- | ------------------------------------------------------------- |
+| `upstream`                    | 官方仓库 `https://github.com/zai-org/ZCode`                   |
+| `origin`                      | 个人 fork `https://github.com/xiaobaoaaaaaa/ZCode`            |
+| `main`                        | 官方基线镜像，只接受官方提交的快进更新                        |
+| `personal`                    | 个人适配集成分支，跟踪 `origin/personal`                      |
 | `feat/<topic>`、`fix/<topic>` | 从 `personal` 创建的短期功能、修复分支，完成后合入 `personal` |
 
 个人改动不直接提交到 `main`。已发布的 `personal` 通过 merge 接收官方更新，保留提交历史；不对它执行 rebase 或强制推送。个人功能采用小而独立的提交，便于逐项定位冲突、回退或向官方贡献。
@@ -64,6 +64,8 @@ git push origin personal
 新鲜度脚本获取并检查 `origin`，不会自行获取官方 `upstream`，因此不能省略前面的官方 fetch。合并更新后，还应按受影响模块执行必要的运行时或 UI 验证；具体要求遵循 [AGENTS.md](../AGENTS.md)。
 
 ## 开发个人功能
+
+Personal 构建需设置 `ZCODE_PERSONAL_IDENTITY=1`；该开关与后端环境独立，不能与 Preview 身份同时开启。例如 `ZCODE_PERSONAL_IDENTITY=1 pnpm dev:desktop`。发布工作流已固定开启；未开启时保留官方构建路径，便于同步和对比，不能作为 Personal 安装包发布。具体数据与系统入口规则见 [独立版规格](desktop/personal-edition.md)。
 
 从已同步的 `personal` 创建功能分支，例如：
 

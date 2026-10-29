@@ -1,3 +1,4 @@
+import { ZCODE_DATA_DIR_NAME } from "@zcode/shared/env";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, join } from "node:path";
@@ -30,7 +31,7 @@ import { DatabaseSync } from "node:sqlite";
  * 一律上抛由 UI 保守判不弹——读不了 ≠ 没有。
  */
 
-const DEFAULT_SESSION_DB_PATH = "~/.zcode/cli/db/db.sqlite";
+const DEFAULT_SESSION_DB_PATH = `~/${ZCODE_DATA_DIR_NAME}/cli/db/db.sqlite`;
 
 /** 目录非空。仅 ENOENT 视为"无证据"；其他异常上抛，由 UI 侧保守判不弹。 */
 async function hasDirEntry(dir: string): Promise<boolean> {
@@ -91,7 +92,8 @@ export async function resolveAgentSessionDbPath(
 
   // CLI createConfig 的默认 user config 位置在 home（~/.zcode/cli/config.json），
   // 与 App dataBaseDir 无关（评审三轮 CR-01 第 1 条，zcode-protocol-entrypoint 实证）。
-  const userConfigPath = options.userConfigPath ?? join(home, ".zcode", "cli", "config.json");
+  const userConfigPath =
+    options.userConfigPath ?? join(home, ZCODE_DATA_DIR_NAME, "cli", "config.json");
   let raw: string;
   try {
     raw = await readConfigFile(userConfigPath);

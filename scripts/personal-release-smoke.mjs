@@ -16,14 +16,30 @@ const { version } = JSON.parse(await readFile(join(root, "package.json"), "utf8"
 const dist = join(root, "packages/desktop/dist");
 const executablePath =
   config.platform === "darwin"
-    ? join(dist, config.arch === "arm64" ? "mac-arm64" : "mac", "ZCode.app/Contents/MacOS/ZCode")
+    ? join(
+        dist,
+        config.arch === "arm64" ? "mac-arm64" : "mac",
+        "ZCode Personal.app/Contents/MacOS/ZCode Personal",
+      )
     : config.platform === "win32"
-      ? join(dist, "win-unpacked/ZCode.exe")
-      : join(dist, config.arch === "arm64" ? "linux-arm64-unpacked" : "linux-unpacked", "zcode");
+      ? join(dist, "win-unpacked/ZCode Personal.exe")
+      : join(
+          dist,
+          config.arch === "arm64" ? "linux-arm64-unpacked" : "linux-unpacked",
+          "zcode-personal",
+        );
 const output = join(root, "dist/personal-release-validation", target);
 const home = join(process.env.RUNNER_TEMP || output, `zcode-release-smoke-${target}`);
 await mkdir(home, { recursive: true });
 await mkdir(output, { recursive: true });
+// Pre-existing official data must neither select a profile nor receive Personal writes.
+const officialRoot = join(home, ".zcode");
+await mkdir(join(officialRoot, "v2"), { recursive: true });
+const officialSettings = JSON.stringify({ locale: "en-US" });
+const officialProfile = JSON.stringify({ version: 1, dataBaseDir: home });
+await writeFile(join(officialRoot, "v2", "setting.json"), officialSettings);
+await writeFile(join(officialRoot, "import-profile.json"), officialProfile);
+const officialEntries = (await readdir(officialRoot, { recursive: true })).sort();
 const env = { ...process.env };
 delete env.ELECTRON_RUN_AS_NODE;
 delete env.ELECTRON_RENDERER_URL;
@@ -110,7 +126,8 @@ try {
       arch: "x64",
       versionVerification: "about-dialog",
       architectureVerification: "PE-x64",
-      homeIsolated: (await readdir(join(home, ".zcode", "v2"))).length > 0,
+      applicationName: text.includes("ZCode Personal") ? "ZCode Personal" : "unknown",
+      homeIsolated: (await readdir(join(home, ".zcode-personal", "v2"))).length > 0,
       userDataIsolated: (await readdir(join(home, "electron"))).length > 0,
     };
     await about.screenshot({ path: join(output, "about.png") });
@@ -119,6 +136,7 @@ try {
       version: electronApp.getVersion(),
       platform: process.platform,
       arch: process.arch,
+      applicationName: electronApp.getName(),
       homeIsolated: electronApp.getPath("home") === process.env.ZCODE_DESKTOP_HOME_DIR,
       userDataIsolated: electronApp.getPath("userData") === process.env.ZCODE_DESKTOP_USER_DATA_DIR,
     }));
@@ -127,6 +145,13 @@ try {
   assert.equal(runtime.platform, config.platform);
   assert.equal(runtime.arch, config.arch);
   assert.ok(runtime.homeIsolated && runtime.userDataIsolated);
+  assert.equal(runtime.applicationName, "ZCode Personal");
+  assert.ok((await readdir(join(home, ".zcode-personal", "v2"))).length > 0);
+  assert.equal(await readFile(join(officialRoot, "v2", "setting.json"), "utf8"), officialSettings);
+  assert.equal(await readFile(join(officialRoot, "import-profile.json"), "utf8"), officialProfile);
+  assert.deepEqual((await readdir(officialRoot, { recursive: true })).sort(), officialEntries);
+  runtime.personalDataIsolated = true;
+  runtime.officialDataPreserved = true;
   await writeFile(
     join(output, "smoke.json"),
     `${JSON.stringify({ ok: true, welcomeReady: true, ...runtime, title: await page.title() }, null, 2)}\n`,

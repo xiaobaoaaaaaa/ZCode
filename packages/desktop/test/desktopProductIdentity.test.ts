@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -12,6 +12,51 @@ import {
 } from "../scripts/desktop-product-identity.mjs";
 
 describe("desktop product identity", () => {
+  it("Personal protocol and OS entries cannot claim the official identity", async () => {
+    vi.stubGlobal("__ZCODE_PRODUCT_FLAVOR__", "personal");
+    vi.resetModules();
+    try {
+      const links = await import("../src/main/desktopDeepLinkUrl.js");
+      expect(links.extractDeepLinkUrlFromArgs(["zcode://oauth/callback?state=test"])).toBeNull();
+      const personalUrl = "zcode-personal://oauth/callback?state=test";
+      expect(links.extractDeepLinkUrlFromArgs([personalUrl])).toBe(personalUrl);
+      expect(links.isOAuthCallbackUrl(new URL(personalUrl))).toBe(true);
+      const linux = await import("../src/main/desktopLinuxDeepLinkRegistration.js");
+      const entry = linux.createLinuxDeepLinkDesktopEntry({
+        executablePath: "/opt/ZCode Personal/zcode-personal",
+      });
+      expect(entry).toContain("Name=ZCode Personal");
+      expect(entry).toContain("x-scheme-handler/zcode-personal;");
+      expect(entry).not.toContain("x-scheme-handler/zcode;");
+      const windows = await import("../src/main/desktopWindowsOpenFolderContextMenu.js");
+      const operations = windows.buildWindowsOpenFolderRegistryOperations({
+        executablePath: "C:\\Apps\\ZCode Personal.exe",
+        locale: "en-US",
+      });
+      expect(JSON.stringify(operations)).toContain("ZCodePersonal.OpenInZCodePersonal");
+      expect(JSON.stringify(operations)).not.toContain("ZCode.OpenInZCode");
+    } finally {
+      vi.unstubAllGlobals();
+      vi.resetModules();
+    }
+  });
+  it("Personal builds have an independent installer identity on every backend", () => {
+    for (const ZCODE_ENV of ["production", "test"]) {
+      const env = { ZCODE_ENV, ZCODE_PERSONAL_IDENTITY: "1" };
+      expect(resolveDesktopProductIdentity(env)).toMatchObject({
+        flavor: "personal",
+        appId: "dev.zcode.app.personal",
+        productName: "ZCode Personal",
+        linuxExecutableName: "zcode-personal",
+        linuxPackageName: "zcode-personal",
+      });
+      expect(resolveWindowsAppUserModelId(env)).toBe("dev.zcode.app.personal");
+    }
+    expect(() => resolveDesktopProductIdentity({ ZCODE_PERSONAL_IDENTITY: "true" })).toThrow();
+    expect(() =>
+      resolveDesktopProductIdentity({ ZCODE_PERSONAL_IDENTITY: "1", ZCODE_PREVIEW_IDENTITY: "1" }),
+    ).toThrow(/mutually exclusive/);
+  });
   it("根锁文件的发布版本与构建版本一致", () => {
     // 合并上游发布提交只对齐当前版本，不恢复上游旧版本，也不重算依赖锁。
     const readRootJson = (name: string) =>

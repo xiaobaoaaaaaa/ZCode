@@ -6,6 +6,15 @@ async function importFreshEnvModule() {
 }
 
 describe("shared runtime env", () => {
+  it("Personal identity has independent user data, protocol and display name", async () => {
+    vi.stubGlobal("__ZCODE_ENV__", "production");
+    vi.stubGlobal("__ZCODE_PRODUCT_FLAVOR__", "personal");
+    const env = await importFreshEnvModule();
+    expect(env.ZCODE_DATA_DIR_NAME).toBe(".zcode-personal");
+    expect(env.ZCODE_PROTOCOL_SCHEME).toBe("zcode-personal");
+    expect(env.ZCODE_PRODUCT_NAME).toBe("ZCode Personal");
+    expect(env.ZCODE_ENV).toBe("production");
+  });
   afterEach(() => {
     vi.unstubAllGlobals();
   });

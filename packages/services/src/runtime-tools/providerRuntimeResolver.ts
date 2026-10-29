@@ -1,3 +1,4 @@
+import { ZCODE_DATA_DIR_NAME } from "@zcode/shared/env";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, resolve as resolvePath } from "node:path";
@@ -60,7 +61,8 @@ export function buildCleanEnv(
       delete env[nonCanonicalPathKey];
     }
   }
-  if (provider === "glm") {
+  // 独立/导入 profile 已明确传递 CLI 根，保留真实 HOME 供 SSH、Git 和 .agents 使用。
+  if (provider === "glm" && !env.ZCODE_PROFILE_ROOT_DIR) {
     const glmHome = getDataBaseDir();
     // Bugfix: GLM agent 会把 config/session 产物写到 dataBaseDir 下的 ~/.zcode/cli。
     // 这里统一把子进程 HOME 切到 dataBaseDir，保证“写入目录”和“运行时读取目录”始终一致。
@@ -130,7 +132,7 @@ export function findZCodeAgentRuntimeBinary(): string | null {
 
   const candidates = [
     packagedResourcesPath ? resolvePath(packagedResourcesPath, ...resourceSegments) : null,
-    resolvePath(homedir(), ".zcode", "server", "agents", ...resourceSegments),
+    resolvePath(homedir(), ZCODE_DATA_DIR_NAME, "server", "agents", ...resourceSegments),
     ...platformScopedRoots.map((root) =>
       root ? resolvePath(root, runtime.bundledResourceDir, ...entrySegments) : null,
     ),
@@ -158,7 +160,7 @@ export function findZCodeAgentRuntimeNodeBundle(): string | null {
 
   const candidates = [
     packagedResourcesPath ? resolvePath(packagedResourcesPath, ...resourceSegments) : null,
-    resolvePath(homedir(), ".zcode", "server", "agents", ...resourceSegments),
+    resolvePath(homedir(), ZCODE_DATA_DIR_NAME, "server", "agents", ...resourceSegments),
     ...platformScopedRoots.map((root) =>
       root ? resolvePath(root, runtime.bundledResourceDir, ...entrySegments) : null,
     ),

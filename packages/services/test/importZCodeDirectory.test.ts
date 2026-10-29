@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, mkdir, readFile, readdir, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -13,6 +13,9 @@ import { snapshotTree, copySnapshot } from "../src/data-import/snapshot.js";
 
 const fixtures: string[] = [];
 afterEach(async () => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+  vi.resetModules();
   await Promise.all(fixtures.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
 });
 
@@ -50,6 +53,55 @@ async function fixture() {
 }
 
 describe("ZCode directory snapshot import", () => {
+  it("Personal starts empty despite official profile, then imports into its own copy and selector", async () => {
+    const f = await fixture();
+    const oldPointer = JSON.stringify({ version: 1, dataBaseDir: join(f.root, "source") });
+    await writeFile(join(f.home, ".zcode", "import-profile.json"), oldPointer);
+    const personalRoot = join(f.home, ".zcode-personal");
+    await mkdir(join(personalRoot, "v2"), { recursive: true });
+    await writeFile(join(personalRoot, "v2", "setting.json"), '{"locale":"en-US"}');
+    vi.stubGlobal("__ZCODE_PRODUCT_FLAVOR__", "personal");
+    vi.stubEnv("ZCODE_DESKTOP_HOME_DIR", f.home);
+    // Bootstrap mutates only these owned environment keys; restore them after this test.
+    for (const key of [
+      "ZCODE_PROFILE_BASE_DIR",
+      "ZCODE_PROFILE_ROOT_DIR",
+      "ZCODE_HOME",
+      "ZCODE_STORAGE_DIR",
+      "ZCODE_SESSION_DB_PATH",
+      "ZCODE_LOG_DIR",
+      "ZCODE_DATA_BASE_DIR",
+    ])
+      vi.stubEnv(key, undefined);
+    vi.resetModules();
+    const personal = await import("../src/data-import/index.js");
+    expect(personal.readImportedProfile(f.home)).toBeNull();
+    await import("../src/data-import/bootstrap.js");
+    expect(process.env.ZCODE_PROFILE_BASE_DIR).toBeUndefined();
+    expect(process.env.ZCODE_STORAGE_DIR).toBe(personalRoot);
+    const paths = await import("../src/paths.js");
+    expect(paths.getZCodeDataRootDir()).toBe(personalRoot);
+    expect(paths.getZCodeUserRootDir()).toBe(personalRoot);
+    expect(paths.getProviderWorkspaceConfigDir()).toBe(join(personalRoot, "cli"));
+    const result = await personal
+      .createDataImporter({ bootstrapHome: f.home, currentDataRoot: personalRoot })
+      .importDirectory({ sourceDirectory: f.source, destinationParent: f.destination });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error);
+    const copiedRoot = join(result.dataBaseDir, ".zcode-personal");
+    expect(personal.readImportedProfile(f.home)).toBe(result.dataBaseDir);
+    const env: Record<string, string | undefined> = {};
+    personal.applyImportedProfileEnvironment(result.dataBaseDir, env);
+    expect(env.ZCODE_PROFILE_ROOT_DIR).toBe(copiedRoot);
+    expect(env.ZCODE_SESSION_DB_PATH).toBe(join(copiedRoot, "cli", "db", "db.sqlite"));
+    expect(await readFile(join(copiedRoot, "workspace", "default", "note.txt"), "utf8")).toBe(
+      "keep workspace",
+    );
+    expect(await readFile(join(f.home, ".zcode", "import-profile.json"), "utf8")).toBe(oldPointer);
+    expect(await readFile(join(personalRoot, "v2", "setting.json"), "utf8")).toBe(
+      '{"locale":"en-US"}',
+    );
+  });
   it("imports uncheckpointed WAL, settings and workspace while preserving source/current data", async () => {
     const f = await fixture();
     const db = new DatabaseSync(join(f.source, "cli", "db", "db.sqlite"));

@@ -14,6 +14,7 @@ concurrency:
 
 env:
   ZCODE_ENV: production
+  ZCODE_PERSONAL_IDENTITY: "1"
   ZCODE_AUTO_UPDATE: "0"
   CSC_IDENTITY_AUTO_DISCOVERY: "false"
   ELECTRON_MIRROR: https://github.com/electron/electron/releases/download/

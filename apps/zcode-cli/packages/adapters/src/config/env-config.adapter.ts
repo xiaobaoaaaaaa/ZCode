@@ -1,3 +1,4 @@
+import { isAbsolute } from "node:path";
 // Env Config Adapter - Parse the intentionally small ZCODE_* environment surface.
 
 import type { RuntimeConfigPatch } from "@zcode/contracts";
@@ -15,6 +16,8 @@ export function parseEnvConfig(
   env: Record<string, string | undefined> = process.env,
   options: EnvConfigOptions = {},
 ): RuntimeConfigPatch {
+  const root = env.ZCODE_PROFILE_ROOT_DIR?.trim();
+  if (root && !isAbsolute(root)) throw new Error("ZCODE_PROFILE_ROOT_DIR must be an absolute path");
   const prefix = options.prefix ?? DEFAULT_PREFIX;
   const config: RuntimeConfigPatch = {};
 

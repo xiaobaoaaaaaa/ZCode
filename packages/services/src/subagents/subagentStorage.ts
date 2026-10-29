@@ -1,3 +1,4 @@
+import { ZCODE_DATA_DIR_NAME } from "@zcode/shared/env";
 import { getZCodeUserRootDir, resolveImportedZCodePath } from "../paths.js";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -53,7 +54,7 @@ async function readUserCliConfig(
   try {
     const raw = await readFile(
       join(
-        options?.homeDir ? join(options.homeDir, ".zcode") : getZCodeUserRootDir(),
+        options?.homeDir ? join(options.homeDir, ZCODE_DATA_DIR_NAME) : getZCodeUserRootDir(),
         "cli",
         "config.json",
       ),

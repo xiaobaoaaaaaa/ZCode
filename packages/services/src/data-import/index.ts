@@ -9,7 +9,8 @@ import {
   statfs,
   writeFile,
 } from "node:fs/promises";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { ZCODE_DATA_DIR_NAME } from "@zcode/shared/env";
 import { randomUUID } from "node:crypto";
 import { appSettingsSchema } from "@zcode/shared";
 import type {
@@ -51,17 +52,21 @@ async function validateSourceStorage(source: string): Promise<void> {
   for (const [configured, expected] of paths) {
     if (configured === undefined) continue;
     if (typeof configured !== "string") throw new ImportFailure("invalid-source");
-    const expanded =
-      configured === "~/.zcode" || configured.startsWith("~/.zcode/")
-        ? join(source, configured.slice("~/.zcode".length))
-        : configured;
+    const prefix = ["~/.zcode", "~/.zcode-personal"].find(
+      (root) => configured === root || configured.startsWith(root + "/"),
+    );
+    const expanded = prefix ? join(source, configured.slice(prefix.length)) : configured;
     if (!isAbsolute(expanded) || relative(resolve(expanded), expected) !== "")
       throw new ImportFailure("invalid-source");
   }
 }
 
 async function resolveSource(directory: string): Promise<string> {
-  for (const candidate of [directory, join(directory, ".zcode")]) {
+  for (const candidate of [
+    directory,
+    join(directory, ZCODE_DATA_DIR_NAME),
+    join(directory, ".zcode"),
+  ]) {
     try {
       const path = join(candidate, "v2", "setting.json");
       const value: unknown = JSON.parse(await readFile(path, "utf8"));
@@ -72,7 +77,7 @@ async function resolveSource(directory: string): Promise<string> {
       if (
         typeof configuredBase === "string" &&
         configuredBase.trim() &&
-        (await realpath(join(configuredBase.trim(), ".zcode"))) !== source
+        (await realpath(join(configuredBase.trim(), basename(source)))) !== source
       )
         throw new ImportFailure("invalid-source");
       if (!(await stat(join(source, "v2"))).isDirectory()) continue;
@@ -117,7 +122,7 @@ export function createDataImporter(options: DataImportOptions) {
         const space = await statfs(parent);
         if (space.bavail * space.bsize < bytes + 32 * 1024 * 1024) throw new Error("space");
         target = await mkdtemp(join(parent, "zcode-import-"));
-        await copySnapshot(source, join(target, ".zcode"), files);
+        await copySnapshot(source, join(target, ZCODE_DATA_DIR_NAME), files);
         await prepareImportedCopy(source, target, files);
         const pointer = importedProfileFile(options.bootstrapHome);
         await mkdir(dirname(pointer), { recursive: true, mode: 0o700 });

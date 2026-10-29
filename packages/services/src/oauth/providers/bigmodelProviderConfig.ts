@@ -1,3 +1,4 @@
+import { ZCODE_PROTOCOL_SCHEME } from "@zcode/shared/env";
 import { BIGMODEL_PROVIDER_ID, buildBigModelApiUrl } from "@zcode/shared";
 import type { OAuthProviderRuntimeConfig } from "../runtimeConfig.js";
 import {
@@ -19,7 +20,7 @@ export const BIGMODEL_OAUTH_PROVIDER_CONFIG: Omit<OAuthProviderRuntimeConfig, "a
   tokenUrl: "https://zcode.z.ai/api/v1/oauth/token",
   userinfoUrl: buildBigModelApiUrl({ ZCODE_ENV: "production" }, BIGMODEL_USERINFO_PATH),
   appId: "zcode",
-  redirectUri: "zcode://oauth/callback",
+  redirectUri: `${ZCODE_PROTOCOL_SCHEME}://oauth/callback`,
 };
 
 export function createBigModelProviderRuntimeConfig(

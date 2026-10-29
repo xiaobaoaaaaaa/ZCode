@@ -42,6 +42,9 @@ async function fixture(t) {
         arch: config.arch,
         homeIsolated: true,
         userDataIsolated: true,
+        applicationName: "ZCode Personal",
+        personalDataIsolated: true,
+        officialDataPreserved: true,
       }),
     );
     await stageTarget(source, join(root, "input", `packages-${target}`), {
@@ -109,15 +112,15 @@ test("unsupported versions and targets fail closed", () => {
 
 test("Linux package names match native electron-builder architecture aliases", () => {
   assert.deepEqual(expectedFiles(version, "linux-x64"), [
-    `ZCode-${version}-linux-x86_64.AppImage`,
-    `ZCode-${version}-linux-amd64.deb`,
-    `ZCode-${version}-linux-x86_64.rpm`,
-    `ZCode-${version}-linux-x64.pkg.tar.zst`,
+    `ZCode-Personal-${version}-linux-x86_64.AppImage`,
+    `ZCode-Personal-${version}-linux-amd64.deb`,
+    `ZCode-Personal-${version}-linux-x86_64.rpm`,
+    `ZCode-Personal-${version}-linux-x64.pkg.tar.zst`,
   ]);
   assert.deepEqual(expectedFiles(version, "linux-arm64"), [
-    `ZCode-${version}-linux-arm64.AppImage`,
-    `ZCode-${version}-linux-arm64.deb`,
-    `ZCode-${version}-linux-aarch64.rpm`,
-    `ZCode-${version}-linux-aarch64.pkg.tar.zst`,
+    `ZCode-Personal-${version}-linux-arm64.AppImage`,
+    `ZCode-Personal-${version}-linux-arm64.deb`,
+    `ZCode-Personal-${version}-linux-aarch64.rpm`,
+    `ZCode-Personal-${version}-linux-aarch64.pkg.tar.zst`,
   ]);
 });

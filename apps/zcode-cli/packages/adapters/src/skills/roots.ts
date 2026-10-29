@@ -114,8 +114,9 @@ function skillRootsForBase(
   return [
     root(
       join(
-        scope === "user" ? process.env.ZCODE_PROFILE_BASE_DIR || baseDirectory : baseDirectory,
-        ZCODE_DIR,
+        scope === "user"
+          ? process.env.ZCODE_PROFILE_ROOT_DIR || join(process.env.ZCODE_PROFILE_BASE_DIR || baseDirectory, ZCODE_DIR)
+          : join(baseDirectory, ZCODE_DIR),
         SKILLS_DIR,
       ),
       scope,

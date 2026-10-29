@@ -1,7 +1,7 @@
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   findSavedWorkflowShadowing,
   listSavedWorkflows,
@@ -57,6 +57,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   if (originalHome === undefined) delete process.env.HOME;
   else process.env.HOME = originalHome;
   if (originalUserProfile === undefined) delete process.env.USERPROFILE;
@@ -71,6 +72,18 @@ const SCRIPT = [
 ].join("\n");
 
 describe("saved workflow frontmatter codec", () => {
+  it("Personal reads and writes only its global archive while retaining project precedence", () => {
+    const cwd = makeCwd();
+    const home = process.env.HOME!;
+    saveSavedWorkflow({ cwd, name: "official-only", meta: { description: "official" }, script: SCRIPT, scope: "global", homeDir: home });
+    const profileRoot = join(home, ".zcode-personal");
+    vi.stubEnv("ZCODE_PROFILE_ROOT_DIR", profileRoot);
+    expect(listSavedWorkflows({ cwd }).entries).toEqual([]);
+    saveSavedWorkflow({ cwd, name: "personal", meta: { description: "personal" }, script: SCRIPT, scope: "global" });
+    expect(listSavedWorkflows({ cwd }).entries.map((entry) => entry.name)).toEqual(["personal"]);
+    expect(savedWorkflowRoots(cwd)[1]?.dir).toBe(join(profileRoot, "workflows"));
+    expect(listSavedWorkflows({ cwd, homeDir: home }).entries.map((entry) => entry.name)).toEqual(["official-only"]);
+  });
   it("round-trips metadata and preserves the script byte-exactly", () => {
     const meta: SavedWorkflowMeta = {
       description: "Review a pull request",

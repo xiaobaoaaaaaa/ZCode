@@ -33,8 +33,7 @@ interface WorkflowIndexFile {
 }
 
 const DEFAULT_WORKFLOW_ROOT = join(
-  process.env.ZCODE_PROFILE_BASE_DIR || homedir(),
-  ".zcode",
+  process.env.ZCODE_PROFILE_ROOT_DIR || join(process.env.ZCODE_PROFILE_BASE_DIR || homedir(), ".zcode"),
   "cli",
   "workflows",
 );

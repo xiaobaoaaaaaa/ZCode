@@ -163,11 +163,13 @@ describe("providerRuntimeResolver workspace config dir identity", () => {
 describe("providerRuntimeResolver clean env", () => {
   const originalHome = process.env.HOME;
   const originalUserProfile = process.env.USERPROFILE;
+  const originalProfileRoot = process.env.ZCODE_PROFILE_ROOT_DIR;
   const createdDirs: string[] = [];
 
   afterEach(() => {
     restoreEnv("HOME", originalHome);
     restoreEnv("USERPROFILE", originalUserProfile);
+    restoreEnv("ZCODE_PROFILE_ROOT_DIR", originalProfileRoot);
     setDataBaseDir(null);
 
     for (const dir of createdDirs.splice(0).reverse()) {
@@ -193,6 +195,15 @@ describe("providerRuntimeResolver clean env", () => {
     if (process.platform === "win32") {
       expect(env.USERPROFILE).toBe(dataBaseDir);
     }
+  });
+
+  it("explicit Desktop profile keeps the system home for shell and shared .agents configuration", () => {
+    process.env.HOME = "/real-home";
+    process.env.ZCODE_PROFILE_ROOT_DIR = "/copied-profile/.zcode-personal";
+    setDataBaseDir("/copied-profile");
+    const env = buildCleanEnv("glm", "/copied-profile/.zcode-personal/cli");
+    expect(env.HOME).toBe("/real-home");
+    expect(env.ZCODE_PROFILE_ROOT_DIR).toBe("/copied-profile/.zcode-personal");
   });
 
   it("clean env 会剔除宿主 GOOGLE_API_KEY 并保留调用方额外参数", () => {

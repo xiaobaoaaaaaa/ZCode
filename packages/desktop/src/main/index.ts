@@ -1,4 +1,5 @@
 import "@zcode/services/data-import/bootstrap";
+import { ZCODE_DATA_DIR_NAME } from "@zcode/shared/env";
 import { installRequestSecurityDiagnostics } from "./request-security-edition/index.js";
 import { createLocalTtftExporter } from "./localTtftExporter.js";
 /* eslint-disable max-lines */
@@ -573,7 +574,7 @@ let currentDesktopWindowSize: DesktopWindowSize | undefined;
 const preloadPath = join(import.meta.dirname, "../preload/index.cjs");
 const settingsFile = join(
   process.env.ZCODE_PROFILE_BASE_DIR || runtimeHomePath || homedir(),
-  ".zcode",
+  ZCODE_DATA_DIR_NAME,
   "v2",
   "setting.json",
 );

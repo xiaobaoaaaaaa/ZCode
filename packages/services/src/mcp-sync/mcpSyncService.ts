@@ -1,3 +1,4 @@
+import { getZCodeUserRootDir } from "../paths.js";
 /* eslint-disable max-lines -- MCP 同步服务集中维护用户目录读写、远端导入和 filesystem 路径改写，拆分会增加远端配置同步回归面。 */
 import { createHash } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
@@ -164,6 +165,9 @@ function buildDirectoryConfigPath(
   scope: Exclude<McpScope, "common">,
   workspacePath?: string,
 ): string {
+  if (scope === "user" && descriptor.source === "zcode") {
+    return join(getZCodeUserRootDir(), "cli", descriptor.fileName);
+  }
   const baseDir = scope === "user" ? resolveUserHomeDir() : workspacePath;
   if (!baseDir) {
     throw new Error(

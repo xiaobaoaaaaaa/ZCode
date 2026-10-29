@@ -1,13 +1,11 @@
+import { ZCODE_DATA_DIR_NAME } from "@zcode/shared/env";
 /* path 规则集中维护：旧 task 快照与 provider 配置路径仍在这里收口。 */
 import { lstatSync } from "node:fs";
 import { cp } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { basename, join, win32 } from "node:path";
 import { homedir } from "node:os";
-import {
-  DATA_BASE_DIR_FORBIDDEN_WINDOWS_INSTALL_DIR_ERROR_CODE,
-  ZCODE_AGENT_RUNTIME,
-} from "@zcode/shared";
+import { DATA_BASE_DIR_FORBIDDEN_WINDOWS_INSTALL_DIR_ERROR_CODE } from "@zcode/shared";
 
 let _dataBaseDir: string | null = null;
 export const ZCODE_WINDOWS_APP_INSTALL_DIR_ENV = "ZCODE_WINDOWS_APP_INSTALL_DIR";
@@ -42,25 +40,29 @@ export function getDataBaseDir(): string {
   return defaultDataBaseDir;
 }
 
-/** {dataBaseDir}/.zcode */
+/** 当前发行身份在 dataBaseDir 下的数据根。 */
 export function getZCodeDataRootDir(): string {
-  return join(getDataBaseDir(), ".zcode");
+  return join(getDataBaseDir(), ZCODE_DATA_DIR_NAME);
 }
 
 /** 用户级 CLI/技能路径；完整导入切换此根，普通 dataBaseDir 迁移仍保持原语义。 */
 export function getZCodeUserRootDir(): string {
   return join(
     process.env.ZCODE_PROFILE_BASE_DIR?.trim() ||
+      process.env.ZCODE_DESKTOP_HOME_DIR?.trim() ||
       process.env.HOME?.trim() ||
       process.env.USERPROFILE?.trim() ||
       homedir(),
-    ".zcode",
+    ZCODE_DATA_DIR_NAME,
   );
 }
 
 export function resolveImportedZCodePath(path: string): string {
-  if (process.env.ZCODE_PROFILE_BASE_DIR && (path === "~/.zcode" || path.startsWith("~/.zcode/"))) {
-    return join(getZCodeUserRootDir(), path.slice("~/.zcode".length));
+  const prefix = ["~/.zcode", "~/.zcode-personal"].find(
+    (root) => path === root || path.startsWith(root + "/"),
+  );
+  if (prefix && (process.env.ZCODE_PROFILE_BASE_DIR || ZCODE_DATA_DIR_NAME !== ".zcode")) {
+    return join(getZCodeUserRootDir(), path.slice(prefix.length));
   }
   return path;
 }
@@ -250,9 +252,7 @@ export function getLegacyDeletedTaskSessionSnapshotPath(
  * 避免同机不同工作区配置漂移。
  */
 export function getProviderWorkspaceConfigDir(): string {
-  return ZCODE_AGENT_RUNTIME.nativeConfigDir
-    ? join(getDataBaseDir(), ZCODE_AGENT_RUNTIME.nativeConfigDir)
-    : join(getDataBaseDir(), ".zcode", "cli");
+  return join(getZCodeDataRootDir(), "cli");
 }
 
 /**
@@ -261,8 +261,8 @@ export function getProviderWorkspaceConfigDir(): string {
  * state must only live at the default homedir location.
  */
 export async function copyDataDirectory(oldBaseDir: string, newBaseDir: string): Promise<void> {
-  const oldDir = join(oldBaseDir, ".zcode", "v2");
-  const newDir = join(newBaseDir, ".zcode", "v2");
+  const oldDir = join(oldBaseDir, ZCODE_DATA_DIR_NAME, "v2");
+  const newDir = join(newBaseDir, ZCODE_DATA_DIR_NAME, "v2");
   await cp(oldDir, newDir, {
     recursive: true,
     force: false,

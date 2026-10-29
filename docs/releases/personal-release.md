@@ -32,6 +32,8 @@ macOS 使用 ad-hoc 签名，不代表 Developer ID 签名或公证；Windows �
 
 ## 资产合同
 
+- `personal.3` 起固定开启 `ZCODE_PERSONAL_IDENTITY=1`，应用名 ZCode Personal，文件名前缀 `ZCode-Personal-`，协议 `zcode-personal`，默认根 `.zcode-personal`。
+- 启动检查预置官方配置和 profile，必须验证 Personal 根实际写入，且官方文件内容与目录清单不变；聚合门校验这两项及运行应用名。
 - 版本、平台与架构必须匹配当前源码与 runner；每个目标必须生成全部约定格式。
 - Linux 文件名遵循 electron-builder 的格式别名：x64 的 AppImage/RPM 使用 `x86_64`、
   DEB 使用 `amd64`、Arch 使用 `x64`；ARM64 的 RPM/Arch 使用 `aarch64`，其他格式使用 `arm64`。
@@ -49,7 +51,7 @@ macOS 使用 ad-hoc 签名，不代表 Developer ID 签名或公证；Windows �
 ## 验收
 
 本地验证脚本的资产格式、缺失文件、校验篡改和版本校验；执行类型检查、lint 和提交前检查。
-更新 `package.json`（包括仅递增版本号）后，先运行 `node scripts/licenses.mjs notices` 重新生成输入哈希，
+更新 `package.json`（包括仅递增版本号）时同步根 `package-lock.json` 的两处版本；随后运行 `node scripts/licenses.mjs notices` 重新生成输入哈希，
 再运行 `node scripts/licenses.mjs check`；将生成材料与版本一并提交。
 CI 五个原生目标全部通过后核对草稿的资产名称、大小和服务器 SHA-256，再公开。
 Linux CI 的启动验证在 Xvfb 内进行，使用测试进程的 `--no-sandbox`，不改变发行包配置；
