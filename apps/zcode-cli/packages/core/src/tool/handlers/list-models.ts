@@ -35,11 +35,11 @@ const LIST_MODELS_MODEL_BYTES = 24_000;
 const LIST_MODELS_ERROR_CODE = { CATALOG_UNAVAILABLE: 31 } as const;
 
 const LIST_MODELS_DESCRIPTION = [
-  "Lists the models this host has configured, so a dynamic workflow's subagents can be pointed at one.",
+  "Lists the models this host has configured, for Agent.model or a dynamic workflow's subagent_model.",
   "",
-  "- Each row's `id` (`providerId/modelId`) pastes verbatim into the `subagent_model` field of CreateWorkflow or AmendWorkflow. Append `$<level>` to pick a reasoning level from that row's `reasoningLevels`.",
-  "- This tool does NOT change the model you are running on. The session model is the user's choice and only the user changes it; `subagent_model` only moves the workflow's subagents.",
-  "- The model the session is on right now is marked `[current]` — setting the subagents to that one is the same as omitting the field.",
+  "- Each row's `id` (`providerId/modelId`) pastes verbatim into `model` on Agent or `subagent_model` on CreateWorkflow or AmendWorkflow. Append `$<level>` to pick a reasoning level from that row's `reasoningLevels`.",
+  "- This tool does NOT change the model you are running on. The session model is the user's choice and only the user changes it; These fields only select child models.",
+  "- The model the session is on right now is marked `[current]` — Agent with no model uses its definition first, then inherits the parent; workflows default to the session model.",
   "- A row marked `disabled` cannot be used (no API key, disabled by policy). Resolve that with the user rather than picking around it silently.",
 ].join("\n");
 
@@ -53,7 +53,7 @@ function modelCatalogUnavailableFailure(): ToolHandlerFailure {
     result: false,
     errorCode: LIST_MODELS_ERROR_CODE.CATALOG_UNAVAILABLE,
     message:
-      "model_catalog_unavailable: this session cannot list models — the host did not provide a model catalog. This is a capability gap, not an empty configuration. Omit `subagent_model` on CreateWorkflow and AmendWorkflow; the workflow's subagents will run on the session model.",
+      "model_catalog_unavailable: this session cannot list models — the host did not provide a model catalog. This is a capability gap, not an empty configuration. Omit Agent.model to use the agent definition or parent model; omit `subagent_model` on CreateWorkflow and AmendWorkflow to use the session model.",
   };
 }
 
@@ -103,7 +103,7 @@ function formatListModelsModelContent(output: unknown): ModelMessageContent {
     // 「一个都没配」必须说成一句话：空容器容易被读成「工具没答上来」。
     return [
       '<models count="0">',
-      "No models are configured on this host. Omit `subagent_model`: the workflow's subagents run on the session model.",
+      "No models are configured on this host. Omit Agent.model to use the agent definition or parent model. Omit `subagent_model` to use the session model in workflows.",
       "</models>",
     ].join("\n");
   }
@@ -114,7 +114,9 @@ function formatListModelsModelContent(output: unknown): ModelMessageContent {
     if (model.reasoningLevels.length > 0) {
       const levels = model.reasoningLevels.join(",");
       const fallback =
-        model.defaultReasoningLevel === undefined ? "" : ` (default ${model.defaultReasoningLevel})`;
+        model.defaultReasoningLevel === undefined
+          ? ""
+          : ` (default ${model.defaultReasoningLevel})`;
       parts.push(`; levels: ${levels}${fallback}`);
     }
     // current 与 disabled 排在行尾且各用方括号：它们是模型据以**排除**一行的两个标记，
@@ -128,7 +130,8 @@ function formatListModelsModelContent(output: unknown): ModelMessageContent {
 }
 
 export const listModelsToolEntry: ToolEntry = {
-  capability: "List the models this host has configured, for choosing a workflow's subagent model",
+  capability:
+    "List the models this host has configured, for choosing an Agent or workflow subagent model",
   metadata: {
     shouldDefer: true,
     name: LIST_MODELS_TOOL_NAME,

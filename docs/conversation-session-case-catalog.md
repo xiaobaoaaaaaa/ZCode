@@ -1,5 +1,9 @@
 # Conversation Session Case Catalog
 
+## Agent 调用级选模（SAM，2026-10-30）
+
+SAM01–06 的前置、动作、断言与证据见 [影响与验收](subagent-invocation-model-impact.md)。本次实现 schema/handler/父子 runtime 回归；GUI E2E 场景待验证，未转正或纳入 CI。
+
 ## 项目与任务草稿生命周期（2026-10-16）
 
 PD01–PD12 的前置、动作、断言与证据要求见 [统一生命周期规格](ui/project-task-draft-lifecycle.md)。产品语义 accepted；自动化保持 manual-review/pending，运行证据见 coverage matrix 与规格的验证记录，不代表已转正或发布。覆盖项目/任务新建、同目录项目隔离、接纳后默认配置、目录复用、迟到回执、手机独立恢复及旧数据认领。

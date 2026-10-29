@@ -13,7 +13,9 @@ import {
   type AgentInput,
   type AgentOutput,
   type TraceContext,
+  type ModelSelection,
 } from "@zcode/contracts";
+import { resolveModelReference } from "./model-reference.js";
 import { TASK_TOOL_NAME } from "../compat.js";
 import type { ToolEntry, ToolHandler } from "../types.js";
 
@@ -105,7 +107,9 @@ function buildAgentProviderDescription(
     "",
     "- The agent's final message is returned to you as the tool result; it is not shown to the user — relay what matters.",
     "- Use SendMessage with the agent's ID to continue a previously spawned agent with its context intact; a new Agent call starts fresh.",
-    "- Each agent type's model, reasoning effort, and tools come from its definition (`.zcode/agents/*.md` frontmatter).",
+    "- Omit `model` to use the agent definition, or inherit the parent model when the definition has none.",
+    "- Set `model` to choose a model for this child only. Use ListModels to discover configured providerId/modelId values and optional $reasoningLevel; do not invent model names. The main session and saved agent definition are unchanged.",
+    "- SendMessage keeps a child's invocation model; use a new Agent call to choose another model.",
     "- `run_in_background: true` runs the agent asynchronously; you'll be notified when it completes.",
     // 只保留「用户点名工作流」这一种情形：工作流一律由用户显式请求触发，与系统提示词其余
     // 部分一致。不能把「结果层层喂给下一步的多代理编排」也划给 CreateWorkflow，
@@ -183,7 +187,34 @@ const agentHandler: ToolHandler = async (input, context) => {
     );
   }
 
+  let modelSelection: ModelSelection | undefined;
+  if (parsed.model !== undefined) {
+    if (context.subagentModelOverride) {
+      throw createCoreError(
+        CoreErrorType.ConfigurationError,
+        "agent_model_override_unavailable: this execution binds the child model; omit Agent.model.",
+        { recoverable: true },
+      );
+    }
+    if (!context.modelCatalogPort) {
+      throw createCoreError(
+        CoreErrorType.ConfigurationError,
+        "model_catalog_unavailable: cannot validate Agent.model on this host; omit model to use the agent definition or parent model.",
+        { recoverable: true },
+      );
+    }
+    const resolution = resolveModelReference(parsed.model, context.modelCatalogPort.listModels());
+    if (!resolution.ok) {
+      throw createCoreError(
+        CoreErrorType.ConfigurationError,
+        `agent_model_${resolution.reason}: ${resolution.message}`,
+        { recoverable: true },
+      );
+    }
+    modelSelection = resolution.selection;
+  }
   const request = {
+    ...(modelSelection ? { modelSelection } : {}),
     sessionId: context.sessionId,
     turnId: context.turnId,
     parentToolCallId: context.toolCallId,

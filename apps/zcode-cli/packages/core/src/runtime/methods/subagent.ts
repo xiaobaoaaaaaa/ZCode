@@ -116,6 +116,13 @@ export function createDefaultSubagentPort(
           };
       }
       try {
+        if (request.modelSelection && options?.modelOverride) {
+          throw createCoreError(
+            CoreErrorType.ConfigurationError,
+            "agent_model_override_unavailable: this execution binds the child model; omit Agent.model.",
+            { recoverable: true },
+          );
+        }
         request.reportActivity?.();
         const builtInExplore = isBuiltInExploreAgentProfile(request.profile);
         const agentsMdInstructions =

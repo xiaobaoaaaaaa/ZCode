@@ -1,5 +1,6 @@
 import type {
   ModelUsage,
+  ModelSelection,
   SessionId,
   SubagentTaskSnapshot,
   TraceContext,
@@ -41,6 +42,8 @@ export interface RuntimeTaskMessageSink {
 }
 
 export interface RuntimeTaskSnapshot extends SubagentTaskSnapshot {
+  /** 同一 child 续跑使用原调用选择；省略时继续读取当前 profile。 */
+  subagentModelSelection?: ModelSelection;
   /** 内存执行归属；重启不会恢复闲时后台任务。 */
   offPeakExecutionId?: string;
   offPeakCancelled?: boolean;

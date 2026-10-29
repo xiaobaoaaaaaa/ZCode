@@ -12,6 +12,32 @@ import {
 } from "./subagent-profile-scenario.js";
 
 describe("single-field profile refresh through parent tools", () => {
+  it.each([false, true])(
+    "keeps invocation selection on SendMessage and isolates later spawns (background=%s)",
+    async (background) => {
+      const scenario = setup();
+      await scenario.turn([spawn("chosen-child", background, "custom/chosen")]);
+      const child = (await scenario.spawned())[0]!;
+      await scenario.waitCompleted(child.agentId, 1);
+      scenario.update({
+        ...initial(),
+        modelSelection: { providerId: "custom", modelId: "replacement" },
+      });
+      await scenario.turn([send(child.agentId, "continue-chosen")]);
+      await scenario.waitCompleted(child.agentId, 2);
+      await scenario.turn([spawn("default-child")]);
+      expect(scenario.children.map((child) => child.model)).toEqual([
+        "chosen",
+        "chosen",
+        "replacement",
+      ]);
+      expect(scenario.children.slice(0, 2).map((child) => child.reasoning)).toEqual([
+        "high",
+        "high",
+      ]);
+    },
+  );
+
   it.each(["reasoning", "prompt", "tools"] as const)(
     "updates only %s for completed resume and new spawn without changing model",
     async (field) => {

@@ -2564,10 +2564,9 @@ too: the `Agent` tool description drops its "CreateWorkflow is mandatory for wor
 requests" line, so the model is not told to reach for a tool it cannot see.
 
 The ten tools: `CreateWorkflow`, `AmendWorkflow`, `SaveWorkflow`, `ListSavedWorkflows`,
-`ListModels`, `EvalWorkflowSnippet`, `ListWorkflowRuns`, `GetWorkflowRun`, `ResumeWorkflowRun`,
-`ResolveWorkflowQuestion`. `ListModels` is in the set because its only purpose is naming a run's
-`subagent_model` (see "The model catalog"); with nothing to create, it would only point the model
-at a tool it cannot see. The legacy `Workflow` tool and `/expert` are a different feature
+`EvalWorkflowSnippet`, `ListWorkflowRuns`, `GetWorkflowRun`, `ResumeWorkflowRun`,
+`ResolveWorkflowQuestion`, `FillWorkflowHole`. `ListModels` remains available when the gate is off:
+it also serves ordinary `Agent.model` selection (2026-10-30). The legacy `Workflow` tool and `/expert` are a different feature
 and are untouched. Workflow actor sessions (`workflow_child`) inherit the parent's flag, which
 is necessarily on, since a child only exists under a run.
 

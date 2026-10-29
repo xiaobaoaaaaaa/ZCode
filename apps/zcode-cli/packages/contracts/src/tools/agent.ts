@@ -22,8 +22,14 @@ export const AgentInputSchema = z.object({
     .string()
     .optional()
     .describe("The type of specialized agent to use for this task"),
-  // subagent 模型由 Settings / Markdown profile 统一决定；若把调用级
-  // model 暴露给父模型，历史 tool call 会持续生成旧 override 并覆盖当前配置。
+  model: z
+    .string()
+    .trim()
+    .min(1)
+    .optional()
+    .describe(
+      "Optional model for this agent only: providerId/modelId from ListModels, optionally followed by $reasoningLevel. Omit to use the agent definition or inherit the parent model.",
+    ),
   run_in_background: z
     .boolean()
     .optional()

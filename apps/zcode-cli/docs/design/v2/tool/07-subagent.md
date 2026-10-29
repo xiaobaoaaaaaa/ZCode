@@ -25,12 +25,11 @@
 | --- | --- | --- | --- |
 | `description` | `string` | 是 | 3 到 5 个词的短描述，用于 UI、task 状态、activity 文案 |
 | `prompt` | `string` | 是 | 给子 agent 的任务正文 |
+| `model` | `string` | 否 | 当前主机的 `providerId/modelId`，可附 `$reasoningLevel`；只覆盖本次 child |
 | `subagent_type` | `string` | 否 | 要使用的 agent 类型。fork gate 关闭时省略则默认为 `general-purpose`，开启时省略则触发 fork |
 | `run_in_background` | `boolean` | 否 | 请求后台运行。后台任务禁用或 fork gate 开启时 schema 会隐藏该字段 |
 
-`Agent` 模型可见输入不包含 invocation 级 `model` 覆盖。旧 transcript 可以保留历史
-`model` 字段，但当前输入 schema 会忽略该字段；child runtime 只消费 Settings 或 Markdown
-定义解析出的 Agent profile 模型。
+`Agent` 支持可选的调用级 `model`；格式、校验和优先级见本文末节“Agent 调用级模型选择”。
 
 扩展输入：
 
@@ -372,7 +371,7 @@ ZCode 应把 hook/MCP/skill 都视为外部 I/O 或扩展边界，必须带 trac
   或文件摘要；child topic 仍按原始事件生成完整工具行。foreground child 的等待态由父 Agent tool
   和 main turn phase 表达，background child 由 subagent manifest/background work 表达；权限、提问等
   阻塞交互继续按 subagent origin 代理到父会话。桌面 continuous 与手机 replayable 使用同一投影边界。
-- child runtime 的模型只来自已解析的 Agent profile；profile 未配置模型时继承父 runtime 当时的 `modelRef` 和 `modelProviderOptions`。`Agent` tool input 不提供 invocation 级模型覆盖，避免历史 tool call 参数覆盖 Settings 或 Markdown profile 的当前配置。
+- child runtime 默认从已解析的 Agent profile 选模；profile 未配置模型时继承父 runtime 当时的 `modelRef` 和 `modelProviderOptions`。`Agent.model` 可为本次 child 显式选模，优先于 profile；未提供时保留继承规则，见下节。
 - 主 runtime 当前默认采用 embedded search 分支；主模型请求和
   Explore child 请求都隐藏 direct `Glob/Grep`，并通过 Bash `find` / `grep` function 承接
   broad file/code search。Windows CMD 或 legacy shell fallback 无法注入 Bash function 时，
@@ -505,3 +504,47 @@ Child finish    -> no parent MCP cleanup
   需要覆盖 child runner/model promise 永不 settle 时，外层 `Agent` 仍能停止等待，静默超时
   需要覆盖 child 没有任何 session event 且 promise 永不 settle 的场景。
 - 所有 spawn、tool call、hook、MCP、task state、notification、resume 事件都携带同一个 `traceId`，并记录 parent session/turn/toolCall/span 关系。
+
+
+## Agent 调用级模型选择（2026-10-30）
+
+主 Agent 可在 `Agent` 输入中提供可选 `model` 字符串。通过 `ListModels` 获取当前执行主机
+已配置模型，使用 `providerId/modelId`，可附 `$reasoningLevel`；复用现有模型引用解析器，
+裸名仅在当前 provider 内匹配，无当前模型时须唯一。主 Agent 可按子任务选择，不能编造候选。
+
+- 不传参数：profile 显式模型优先，否则继承父轮 Active Model，保持当前行为。
+- 传参数：校验后覆盖本次 profile 的完整 Selection；不继承被覆盖模型的 reasoning level。
+  缺省档位来自目标模型目录。只复制执行用 profile，不改 Settings、Markdown、父会话或其他 child。
+- 未知、歧义、禁用模型、非法档位、目录不可用均在启动前返回错误，不回退或启动 child。
+- Core Server/Off-Peak 执行绑定依旧拥有最高优先级；有此绑定时明确拒绝调用级 model，
+  不静默忽略选择，也不绕过临时鉴权和后台限制。
+- 前台、显式后台、自动转后台复用相同选择。既有 registry 保存该 task 的调用意图，
+  `SendMessage` 恢复同一 child 时继续应用；未显式选择的 task 仍读取当前 profile。
+  不新增重启后的 task 发现机制，不迁移历史调用或配置。旧调用不会重新执行；新调用均校验目录。
+- `ListModels` 保持只读/deferred，即使动态工作流灰度关闭也可用于 Agent；工具结果说明两种用途。
+- 唯一模型执行权威仍为 child runtime/ModelFactory；解析后的 Selection 经既有有效选择服务校验，
+  session 模型记录与模型变化事件沿用现有持久化路径，不增加 Host/UI 状态或协议字段。
+
+```mermaid
+sequenceDiagram
+  participant Main as 主 Agent
+  participant Handler as Agent handler / 主机目录
+  participant Runner as Subagent runner / task registry
+  participant Child as Child runtime / ModelFactory
+  Main->>Handler: Agent(prompt, model?)
+  Handler->>Handler: 校验模型引用 / 拒绝无效选择
+  Handler->>Runner: launch(modelSelection?)
+  Runner->>Runner: 复制 profile + 保存 task 调用意图
+  Runner->>Child: 解析有效 Selection / 创建 Model / 持久化
+  Child-->>Main: 既有工具结果和 projection
+  Main->>Runner: SendMessage(agentId)
+  Runner->>Child: 同一 child 历史 + 原调用选择
+```
+
+Desktop continuous 与 mobile replayable 仍消费同一 child 事实，不改变投递时序、owner/lease、
+CommandInbox、workspaceIdentity 或 stale-run 防护。无新增 GUI 控件。
+
+验收：SAM01 显式覆盖 profile/父模型且保持隔离；SAM02 省略字段兼容；SAM03 无效引用不启动；
+SAM04 前后台一致且 SendMessage 保留选择；SAM05 工作流关闭仍可发现 ListModels；
+SAM06 执行绑定拒绝覆盖。验证层为 schema、handler、runner、真实父子 runtime 的模型请求测试；
+GUI E2E 场景为主会话要求子代理使用指定模型，检查 child 模型、主会话不变及后台恢复，暂不计为已执行。

@@ -13,6 +13,8 @@ export interface SubagentRunRequest {
   turnId?: TurnId;
   parentToolCallId: ToolCallId | string;
   agentType: string;
+  /** 经当前主机目录校验的调用级模型意图；不写回 profile。 */
+  modelSelection?: ModelSelection;
   description: string;
   prompt: string;
   callerCanReadOutputFile?: boolean;

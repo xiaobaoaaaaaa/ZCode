@@ -70,7 +70,7 @@ Settings 允许用户为内置 `general-purpose`、`Explore`、custom subagent �
 - 不允许禁用内置 agent。
 - 不新增 workspace 级内置覆盖。
 - 不改变 workspace subagent 的编辑范围；plugin subagent 只开放模型与 reasoning effort 覆盖，不开放名称、描述、prompt、tools、删除与单个启停。
-- 不增加 `Agent` tool 调用级的 model 或 reasoning effort 覆盖。
+- `Agent.model` 支持调用级完整 Selection 覆盖（2026-10-30）；仅影响该 child，省略时继续使用本页配置。详见 CLI `07-subagent.md`。
 - 运行中的父上下文及 child 保持原配置，保存后在下一父上下文生效。
 - 不改变 desktop continuous 与 mobile `/remote` replayable 的消息流边界。
 
@@ -136,7 +136,7 @@ type BuiltInSubagentModelSelectionOverrides = Partial<Record<BuiltInSubagentName
 
 bootstrap 启动时读取 state；本地集成入口在新父上下文使用 Host 内存 state 更新 built-in profile 的 model / thought level overrides。启动配置显式传入的覆盖优先于磁盘配置；若启动配置替换了某个 agent 的 model 但没有提供 thought level，该 agent 不继承磁盘中旧模型的 thought level。
 
-`Agent` tool 的 provider-visible input 不提供 `model` 或 `thoughtLevel` 参数，也不存在 invocation 级覆盖。普通会话的 child runtime 读取最终解析出的 `AgentProfile`：
+`Agent` tool 提供可选 `model`（`providerId/modelId$reasoningLevel`）覆盖本次 child 的完整选择。省略时，普通会话的 child runtime 读取最终解析出的 `AgentProfile`：
 
 - profile 未配置模型时继承父会话 main model 及 provider options。
 - profile 配置具体模型、未配置 thought level 时，按该目标模型的 catalog 默认档位生成 provider options。
@@ -144,7 +144,7 @@ bootstrap 启动时读取 state；本地集成入口在新父上下文使用 Hos
 
 闲时任务为本轮前台 child 提供 `turnExecutionModel` 时，该快照覆盖 profile 的 model、thought level、provider options 与模型限制；此时不校验或应用 profile thought level。快照只在当前 turn 生效且不持久化，后续普通调用恢复上述 profile 语义；后台 child 继续由闲时任务边界拒绝。
 
-历史消息中已经持久化的旧 `Agent.model` 字段不做数据迁移，后续执行时按未知字段丢弃，不能覆盖当前 profile。
+历史消息不做迁移或重放。新的 `Agent.model` 调用必须通过当前主机模型目录校验；合法选择覆盖执行副本，不写回 profile。
 
 custom / workspace profile 的既有加载、命名优先级和模型字段保持不变。plugin profile 的命名优先级不变；bootstrap 加载插件 agent 时读取同一 state 文件，按 id 把 model / thought level 覆盖注入规范名 profile 与裸名别名 profile，未命中时保留 md 声明的 model。
 
@@ -215,7 +215,7 @@ Subagent 设置页只读取目标 Environment 的 Model Selection View。远端 
 3. 注入非法历史 effort，确认显示错误、阻止保存，并可选择合法档位修正。
 4. 冷启动后通过 `Agent` tool 触发 child request，确认 provider-visible model 与 reasoning 参数来自 profile 配置，父请求不受影响。
 5. `Explore` child request 不暴露写工具。
-6. 即使 provider 返回历史版本的 `Agent.model` 参数，也不能覆盖当前 profile 模型。
+6. 显式 `Agent.model` 覆盖仅限本次 child；未知/禁用/歧义模型返回错误，profile 配置不变。
 7. 对 App metadata 未声明 reasoning 的 `claude-opus-4-8`，主输入框与 builtin/custom Subagent 都必须展示 runtime catalog 的 `low/medium/high/xhigh`，并通过 raw provider request 与 model-io 验证父子 effort 隔离。
 8. Settings 只选择 reasoning 模型但不操作 effort 控件时，核对 builtin state 不新增 thought-level key，custom Markdown frontmatter 不新增 `thoughtLevel`；同时确认控件仍展示目标模型的 catalog 默认档位。
 9. Custom 保存模型 A 与 effort 后，从模型供应商设置删除 A，再重新打开该 Subagent 编辑页；核对模型控件显示“选择模型”提示、下拉菜单不含 A、effort 控件隐藏、保存不可用，并确认原 Markdown 未被自动改写。
@@ -254,5 +254,5 @@ Settings 保存与清空覆盖由 UI/service 单测覆盖。SHR01-SHR03 的真�
 - 非法历史档位不会静默回落或被保存。
 - 清空覆盖恢复默认模型。
 - runtime child request 使用覆盖模型及该模型对应的 provider options。
-- provider-visible `Agent` input 不包含 `model`，历史版本额外传入该字段时不会改变 child 模型。
+- provider-visible `Agent` input 包含可选 `model`；SAM01–06 验证调用隔离、校验和续跑，见 CLI `07-subagent.md`。
 - `Explore` child tools 与覆盖模型能力一致。

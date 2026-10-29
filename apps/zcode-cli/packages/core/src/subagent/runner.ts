@@ -81,6 +81,7 @@ export interface ExploreSubagentRuntimeRequest {
   permissionMode?: AgentProfile["permissionMode"];
   prompt: string;
   profile: AgentProfile;
+  modelSelection?: SubagentRunRequest["modelSelection"];
   registerMessageSink?: (sink: RuntimeTaskMessageSink) => void;
   reportActivity?: () => void;
   resumeFromStore?: boolean;
@@ -711,7 +712,10 @@ function resolveAgentProfileForRequest(
   if (resolution.kind === "matched") {
     const { profile } = resolution;
     return {
-      profile,
+      // 调用选择只覆盖执行副本，不能污染后续调用共享的定义快照。
+      profile: request.modelSelection
+        ? { ...profile, modelSelection: structuredClone(request.modelSelection) }
+        : profile,
       request:
         profile.name === request.agentType
           ? request
@@ -981,13 +985,15 @@ async function resumeTerminalAgentInBackground(
     turnId: request.turnId,
     parentToolCallId: request.parentToolCallId,
     agentType: task.agentType,
+    ...(task.subagentModelSelection ? { modelSelection: task.subagentModelSelection } : {}),
     description: request.summary || task.description,
     prompt: request.message,
     workingDirectory: request.workingDirectory,
     workspaceRoot: request.workspaceRoot,
     trace: request.trace,
   };
-  const lifecycle = createSubagentLifecycleFromTask(options, resumeRequest, profile, task);
+  const resumedProfile = resolveAgentProfileForRequest(profiles, resumeRequest).profile;
+  const lifecycle = createSubagentLifecycleFromTask(options, resumeRequest, resumedProfile, task);
   if (!lifecycle) {
     return createSendMessageFailure(
       request,
@@ -1159,6 +1165,7 @@ async function runAgentToCompletion(
       permissionMode: lifecycle.profile.permissionMode,
       prompt: request.prompt,
       profile: lifecycle.profile,
+      modelSelection: request.modelSelection,
       registerMessageSink: createMessageSinkRegistration(options, lifecycle, registry),
       reportActivity: monitorOptions.reportActivity,
       resumeFromStore: executionOptions.resumeFromStore,
@@ -1463,6 +1470,9 @@ function createRuntimeTaskSnapshot(input: {
     taskId: input.lifecycle.agentId,
     agentId: input.lifecycle.agentId,
     agentType: input.request.agentType,
+    ...(input.request.modelSelection
+      ? { subagentModelSelection: structuredClone(input.request.modelSelection) }
+      : {}),
     childSessionId: input.lifecycle.childSessionId,
     description: input.request.description,
     isBackgrounded: input.isBackgrounded,

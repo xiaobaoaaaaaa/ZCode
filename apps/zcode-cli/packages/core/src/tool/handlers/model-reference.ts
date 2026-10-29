@@ -7,7 +7,7 @@
 // 三档匹配、大小写、档位校验与「解不出来时说什么」是这套里唯一会被反复改动的地方，
 // 而它们一旦和端口实现搅在一起就只能靠集成测试去钉。
 //
-// 调用点只有一个：`CreateWorkflow` / `AmendWorkflow` 的 `resolveInput`。解析必须发生在
+// Agent handler 与 `CreateWorkflow` / `AmendWorkflow` 的 `resolveInput` 共用解析。工作流解析发生在
 // 确认窗**之前**——窗上显示的是将要生效的那个模型，而解不出来的调用根本不该开窗。
 
 import type { ModelCatalogEntry, ModelSelection } from "@zcode/contracts";
@@ -109,15 +109,16 @@ export function resolveModelReference(
  * `resolveInput` 的解析，所以解不开只可能是有人绕过了归一化——那是接线故障，按接线故障喊出来，
  * 而不是静默把用户要的模型丢掉（子代理会安静地跑在会话模型上，没人看得出来）。
  */
-export function parseWorkflowSubagentModel(canonical: string | undefined): ModelSelection | undefined {
+export function parseWorkflowSubagentModel(
+  canonical: string | undefined,
+): ModelSelection | undefined {
   if (canonical === undefined) return undefined;
   try {
     return parseModelPickerValue(canonical);
   } catch (cause) {
-    throw new Error(
-      `workflow subagent_model reached the handler un-canonicalised: ${canonical}`,
-      { cause },
-    );
+    throw new Error(`workflow subagent_model reached the handler un-canonicalised: ${canonical}`, {
+      cause,
+    });
   }
 }
 

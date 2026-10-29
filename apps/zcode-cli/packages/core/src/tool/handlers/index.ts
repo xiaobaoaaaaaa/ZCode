@@ -9,7 +9,6 @@ import {
   EVAL_WORKFLOW_SNIPPET_TOOL_NAME,
   FILL_WORKFLOW_HOLE_TOOL_NAME,
   GET_WORKFLOW_RUN_TOOL_NAME,
-  LIST_MODELS_TOOL_NAME,
   LIST_SAVED_WORKFLOWS_TOOL_NAME,
   LIST_WORKFLOW_RUNS_TOOL_NAME,
   RESOLVE_WORKFLOW_QUESTION_TOOL_NAME,
@@ -152,7 +151,7 @@ export const builtInTools: ToolEntry[] = [
  * （2026-09-28 起含 FillWorkflowHole：关闭态下没有 run 会到达留白）。
  * 灰度关的语义是「没有任何办法开始一条工作流」，所以创建、修订、保存、快照实验与四个
  * run 面工具一起下架；只读的 run 内省工具也在列，因为关闭态下它们只会指向用户无法再操作的历史。
- * `ListModels` 也在列：它唯一的用途是给一次 run 挑 `subagent_model`，没有 CreateWorkflow 可填时留着它只会把模型引向不存在的工具。
+ * `ListModels` 同时服务普通 Agent 调用级选模，不受工作流灰度门限制。
  * 旧的 `Workflow` 工具（`/expert` 脚本通道）是另一个功能，**不在**这份名单里。
  */
 const DYNAMIC_WORKFLOW_TOOL_NAMES: ReadonlySet<string> = new Set([
@@ -160,7 +159,6 @@ const DYNAMIC_WORKFLOW_TOOL_NAMES: ReadonlySet<string> = new Set([
   AMEND_WORKFLOW_TOOL_NAME,
   SAVE_WORKFLOW_TOOL_NAME,
   LIST_SAVED_WORKFLOWS_TOOL_NAME,
-  LIST_MODELS_TOOL_NAME,
   EVAL_WORKFLOW_SNIPPET_TOOL_NAME,
   LIST_WORKFLOW_RUNS_TOOL_NAME,
   GET_WORKFLOW_RUN_TOOL_NAME,

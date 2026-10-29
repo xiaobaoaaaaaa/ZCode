@@ -1603,6 +1603,8 @@ nodes:
       - "子代理"
       - "智能体配置"
     docs:
+      - "docs/subagent-invocation-model-impact.md"
+      - "apps/zcode-cli/docs/design/v2/tool/07-subagent.md"
       - "docs/subagents-built-in-model-overrides.md"
       - "docs/subagent-session-side-tabs.md"
       - "docs/working-memory/provider-refactor/steps/todo-97-subagent-markdown-in-place-migration-and-legacy-read-audit.md"
@@ -1621,6 +1623,7 @@ nodes:
       - symbol: "parseSubagentMarkdownSelection"
         file: "packages/shared/src/subagent-markdown-selection.ts"
     invariants:
+      - "Agent.model optionally selects a per-child model from the target host catalog; omit to retain profile/parent inheritance. Invocation selection never mutates the parent or saved profile and is retained for SendMessage within the same runtime task registry. Execution-bound models reject invocation overrides. ListModels remains available with dynamic workflows disabled."
       - "Host and standalone Agent await offline migration of user-directory Markdown and builtin state before formal reads. Markdown keeps model/thoughtLevel; intermediate modelSelection is not consumed. Only user Markdown provider values are rewritten, preserving unrelated bytes; project/plugin files and symlinks are excluded. JSON uses builtInModelSelectionOverrides after one-way import. Ordinary readers do not remap legacy identities or fall back to old fields. Explicit execution still validates its concrete selection; Host effective-selection protocol remains a separate Todo96 decision."
 
   - id: "capability.provider-registry"

@@ -22,10 +22,16 @@ export const initial = (): AgentProfile => ({
   systemPrompt: "PROFILE_ORIGINAL",
   modelSelection: { providerId: "custom", modelId: "fixed", options: { reasoningLevel: "low" } },
 });
-export const spawn = (prompt: string, background = false) => ({
+export const spawn = (prompt: string, background = false, model?: string) => ({
   id: `spawn_${prompt}`,
   name: "Agent",
-  input: { description: prompt, prompt, subagent_type: "reviewer", run_in_background: background },
+  input: {
+    description: prompt,
+    prompt,
+    subagent_type: "reviewer",
+    run_in_background: background,
+    ...(model ? { model } : {}),
+  },
 });
 export const send = (id: string, message: string) => ({
   id: `send_${message}`,
@@ -59,6 +65,17 @@ export function setup(onChild?: (record: ChildRequest) => Promise<ModelResult>) 
       sessionStore: store,
       eventStore: events,
       loadAgentDefinitions: load,
+      modelCatalogPort: {
+        listModels: () => [
+          {
+            providerId: "custom",
+            modelId: "chosen",
+            reasoningLevels: ["high"],
+            defaultReasoningLevel: "high",
+            current: false,
+          },
+        ],
+      },
       modelFactory: createTestModelFactory({
         async generateText(request, observation) {
           if (observation.invocationContext?.metadata?.querySource === "subagent") {

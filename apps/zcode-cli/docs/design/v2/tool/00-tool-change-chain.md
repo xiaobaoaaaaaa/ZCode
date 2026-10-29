@@ -1824,3 +1824,11 @@ MCP isError 和历史 hydration 不触发创建。工具执行、权限、原始
 ### 文档插件多窗口视图修复（2026-10-16）
 
 MCP app-only report_view 增加可选 viewId，release_view 释放指定窗口；模型 get_view 可选 viewId，缺省且存在多个上报窗口时返回歧义与清单。状态唯一归属 DocumentOwner，不由页面决定其他窗口的视图；旧客户端缺省 viewId 仍走 legacy 槽。show_in_viewer 保持专用 surface 路由并明确工具描述。导入仍为 app-only workspace 副作用；串行 admission、10 分钟未活动过期与部分文件清扫归 importer，完成副本不清理。覆盖 schema 到真实 MCP/AppBridge 的多窗口回归。
+
+## Agent 调用级选模（2026-10-30）
+
+链路：AgentInputSchema.model → handler 当前主机 modelCatalogPort/resolveModelReference →
+SubagentRunRequest.modelSelection → runner 执行 profile 副本及 registry → child 有效选择和
+ModelFactory → 既有 child session/model-change 事件。ListModels 解除工作流专属灰度，保持 deferred。
+检查 schema/provider 文案、错误无启动、前后台、SendMessage、父/兄弟隔离及执行绑定拒绝；
+不新增权限、UI/V4 字段、存储迁移或模型请求旁路。规格和 SAM01–06 见 07-subagent.md。

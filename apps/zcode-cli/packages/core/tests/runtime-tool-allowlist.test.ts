@@ -200,7 +200,6 @@ const GATED_DYNAMIC_WORKFLOW_TOOL_NAMES = [
   AMEND_WORKFLOW_TOOL_NAME,
   SAVE_WORKFLOW_TOOL_NAME,
   LIST_SAVED_WORKFLOWS_TOOL_NAME,
-  LIST_MODELS_TOOL_NAME,
   EVAL_WORKFLOW_SNIPPET_TOOL_NAME,
   LIST_WORKFLOW_RUNS_TOOL_NAME,
   GET_WORKFLOW_RUN_TOOL_NAME,
@@ -216,6 +215,7 @@ describe("registerBuiltInTools：动态工作流灰度门", () => {
   it("includeDynamicWorkflow:false 时十个工具一个都不注册", () => {
     const registry = createToolRegistry();
     registerBuiltInTools(registry, { includeDynamicWorkflow: false });
+    expect(registry.has(LIST_MODELS_TOOL_NAME)).toBe(true);
     for (const name of GATED_TOOL_NAMES) {
       expect({ name, registered: registry.has(name) }).toEqual({ name, registered: false });
     }

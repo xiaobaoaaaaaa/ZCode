@@ -3339,7 +3339,7 @@ describe("Explore subagent", () => {
     expect(finalParentRequestText).toContain("child completed the remaining permission work");
   });
 
-  it("ignores a legacy call model and runs the built-in general-purpose agent on its configured model", async () => {
+  it("runs the built-in general-purpose agent on its configured model when model is omitted", async () => {
     const sessionId = createSessionId("runtime-general-purpose-built-in-model-override");
     const eventStore = createTestSessionEventStore();
     const childRequests: any[] = [];
@@ -3382,7 +3382,6 @@ describe("Explore subagent", () => {
                       name: "Agent",
                       input: {
                         description: "Investigate default agent override",
-                        model: "haiku",
                         prompt: "Check the configured model override.",
                       },
                     },
@@ -3421,7 +3420,7 @@ describe("Explore subagent", () => {
     });
   });
 
-  it("ignores a legacy call model and uses the built-in Explore override for child request, spawn event, and tool branch capability", async () => {
+  it("uses the invocation model for built-in Explore requests and spawn events without changing its tool policy", async () => {
     const sessionId = createSessionId("runtime-explore-built-in-model-override");
     const eventStore = createTestSessionEventStore();
     const childRequests: any[] = [];
@@ -3444,6 +3443,16 @@ describe("Explore subagent", () => {
       },
       {
         eventStore,
+        modelCatalogPort: {
+          listModels: () => [
+            {
+              providerId: "custom-openai",
+              modelId: "chosen",
+              current: false,
+              reasoningLevels: [],
+            },
+          ],
+        },
         modelFactory: createTestModelFactory({
           properties: { supportsNativeWebSearch: true },
           async generateText(request: any, observation) {
@@ -3461,8 +3470,7 @@ describe("Explore subagent", () => {
                       name: "Agent",
                       input: {
                         description: "Check Explore override",
-                        // 修复原因：旧 transcript 可能继续生成调用级 model；Explore 也必须只消费 profile。
-                        model: "haiku",
+                        model: "custom-openai/chosen",
                         prompt: "Check the configured model override.",
                         subagent_type: "Explore",
                       },
@@ -3501,11 +3509,11 @@ describe("Explore subagent", () => {
     expect(childRequests).toHaveLength(1);
     expect(childObservations[0].model).toMatchObject({
       providerId: "custom-openai",
-      modelId: "glm-5.2",
+      modelId: "chosen",
     });
     expect(spawnEvent?.payload).toMatchObject({
       agentType: "Explore",
-      model: "custom-openai/glm-5.2",
+      model: "custom-openai/chosen",
     });
     expect(childToolNames).toEqual([
       "Bash",

@@ -1,5 +1,9 @@
 # Conversation Session E2E Coverage Matrix
 
+## Agent 调用级选模（SAM，2026-10-30）
+
+SAM01–06 的前置、动作、断言与证据见 [影响与验收](../subagent-invocation-model-impact.md)。本次实现 schema/handler/父子 runtime 回归；GUI E2E 场景待验证，未转正或纳入 CI。
+
 ## 项目与任务草稿生命周期（PD，2026-10-16）
 
 PD01–PD12 定义及分层验证见 [统一生命周期规格](../ui/project-task-draft-lifecycle.md#本轮验证记录2026-10-16)。产品语义 accepted；自动化保持 manual-review/pending，未自动转正或加入 CI。
