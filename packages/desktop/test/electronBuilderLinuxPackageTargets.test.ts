@@ -59,9 +59,9 @@ describe("electron-builder Linux 打包目标", () => {
     ]);
   });
 
-  it("pacman 不显式覆盖 electron-builder 的默认压缩格式", () => {
-    // electron-builder 26.8.1 的 pacman 默认产物就是 zstd；显式填写 zstd 会被其
-    // 配置 schema 拒绝，因此只约束扩展名，不在配置中覆盖默认压缩格式。
+  it("pacman 通过 FPM 参数使用与扩展名一致的 zstd 压缩", () => {
+    // FpmTarget.executeFpm 默认传 xz；compression schema 不接受 zstd，必须通过后置 FPM 参数覆盖。
     expect(desktopBuilderConfig.pacman?.compression).toBeUndefined();
+    expect(desktopBuilderConfig.pacman?.fpm).toEqual(["--pacman-compression", "zstd"]);
   });
 });

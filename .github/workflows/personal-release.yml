@@ -73,6 +73,7 @@ jobs:
         if: matrix.target == 'linux-x64'
         run: |
           node --test scripts/test/personal-release.test.mjs scripts/test/desktop-dev-version.test.mjs
+          pnpm exec vitest run packages/desktop/test/electronBuilderLinuxPackageTargets.test.ts
           node scripts/licenses.mjs check
           pnpm lint
           pnpm typecheck
