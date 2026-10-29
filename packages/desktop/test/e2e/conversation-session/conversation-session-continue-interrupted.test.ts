@@ -1,5 +1,11 @@
 import { join } from "node:path";
-import { clearAppData } from "../helpers/desktop-app.js";
+import { clearAppData, DEFAULT_WORKSPACE } from "../helpers/desktop-app.js";
+import { startDraftFromProject } from "../helpers/project-sidebar.js";
+import {
+  TID_TASK_NEW_BUTTON,
+  TID_COMPOSER_WORKSPACE_TRIGGER,
+  TID_COMPOSER_WORK_OUTSIDE_PROJECT,
+} from "@zcode/shared/test-ids";
 import { releaseControlledReplay } from "../helpers/controlled-replay.js";
 import {
   clickV4Stop,
@@ -123,5 +129,91 @@ describe("Continue interrupted conversation", () => {
     await browser.saveScreenshot(
       join(process.env.ZCODE_E2E_ARTIFACT_DIR!, "continue-completed.png"),
     );
+  });
+
+  it("global new task leaves the project, reuses its pending draft and preserves project menu navigation", async function () {
+    this.timeout(90000);
+    const navigation = () =>
+      browser.execute(() => {
+        const stores = window as unknown as Window & {
+          __zcodeTabStoreE2E: {
+            getState(): { activeWorkspacePath: string; activeWorkspaceIdentity?: string };
+          };
+          __zcodeSessionStoreE2E: {
+            getState(): {
+              workspaces: Record<
+                string,
+                {
+                  draftProjectId?: string | null;
+                  draftFocusVersion: number;
+                  activeTaskId: string | null;
+                }
+              >;
+            };
+          };
+        };
+        const tab = stores.__zcodeTabStoreE2E.getState();
+        const state =
+          stores.__zcodeSessionStoreE2E.getState().workspaces[
+            tab.activeWorkspaceIdentity || tab.activeWorkspacePath
+          ];
+        return {
+          path: tab.activeWorkspacePath,
+          ...state,
+          draftFocusVersion: state?.draftFocusVersion ?? 0,
+        };
+      });
+    for (const [locale, theme] of [
+      ["zh-CN", "zai-light"],
+      ["en-US", "zai-dark"],
+    ] as const) {
+      await browser.execute(
+        (locale, theme) => {
+          (window as PreferencesWindow).__testActions.setLocale(locale);
+          (window as PreferencesWindow).__testActions.setTheme(theme);
+        },
+        locale,
+        theme,
+      );
+      await startDraftFromProject(DEFAULT_WORKSPACE);
+      expect((await navigation()).draftProjectId).toBeTruthy();
+      await browser.$(`[data-testid="${TID_TASK_NEW_BUTTON}"]`).click();
+      await browser.waitUntil(
+        async () => {
+          const state = await navigation();
+          return (
+            state.path !== DEFAULT_WORKSPACE &&
+            state.draftProjectId === null &&
+            state.activeTaskId === null
+          );
+        },
+        { timeout: 15000, timeoutMsg: "项目外新建没有进入未归类草稿" },
+      );
+      await waitForV4Pane((state) => state.sessionId === "draft", "新建未归类草稿没有显示");
+      const first = await navigation();
+      await browser.$(`[data-testid="${TID_TASK_NEW_BUTTON}"]`).click();
+      await browser.waitUntil(
+        async () => (await navigation()).draftFocusVersion > first.draftFocusVersion,
+        { timeout: 15000 },
+      );
+      expect((await navigation()).path).toBe(first.path);
+      await browser.saveScreenshot(
+        join(process.env.ZCODE_E2E_ARTIFACT_DIR!, `global-new-task-${locale}.png`),
+      );
+      await startDraftFromProject(DEFAULT_WORKSPACE);
+      await browser.$(`[data-testid="${TID_COMPOSER_WORKSPACE_TRIGGER}"]`).click();
+      await browser.$(`[data-testid="${TID_COMPOSER_WORK_OUTSIDE_PROJECT}"]`).click();
+      await browser.waitUntil(
+        async () => {
+          const state = await navigation();
+          return (
+            state.path !== DEFAULT_WORKSPACE &&
+            state.draftProjectId === null &&
+            state.activeTaskId === null
+          );
+        },
+        { timeout: 15000, timeoutMsg: "项目菜单没有切换到未归类草稿" },
+      );
+    }
   });
 });

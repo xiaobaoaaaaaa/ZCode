@@ -82,7 +82,8 @@ vi.mock("@/WorkspaceSidebarFooter.js", () => ({
   WorkspaceSidebarFooter: () => createElement("footer", {}, "Footer"),
 }));
 vi.mock("@/NewTaskButtonGroup.js", () => ({
-  NewTaskButtonGroup: () => createElement("button", {}, "New task"),
+  NewTaskButtonGroup: ({ onCreateTask }: { onCreateTask(): void }) =>
+    createElement("button", { onClick: onCreateTask }, "New task"),
 }));
 vi.mock("@/project-sidebar/ProjectTaskRows.js", () => ({ ProjectTaskRows: () => null }));
 vi.mock("@/project-sidebar/useProjectTaskNavigation.js", () => ({
@@ -175,6 +176,14 @@ afterEach(() => {
 });
 
 describe("ProjectSidebar home-only workspace list", () => {
+  it.each([false, true])("global new task explicitly leaves the project (mobile=%s)", (mobile) => {
+    const { switcher } = createSwitcher(Promise.resolve({ workspaces: [local] }));
+    const onCreateTask = vi.fn();
+    render(createElement(Sidebar, props(switcher, { isWebRemoteControl: mobile, onCreateTask })));
+    fireEvent.click(screen.getByText("New task"));
+    expect(onCreateTask).toHaveBeenCalledWith({ projectId: null });
+  });
+
   it("skips unrelated parent updates but accepts changed navigation props", async () => {
     const { switcher } = createSwitcher(Promise.resolve({ workspaces: [local] }));
     const stableProps = props(switcher);

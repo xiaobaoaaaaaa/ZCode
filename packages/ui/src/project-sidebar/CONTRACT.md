@@ -112,3 +112,5 @@ Root 的原项目完成 guard 从成员目录异步复验 entryId、membershipId
 分组手工移动提交节点/来源/锚点，Host 事务处理并广播刷新。`grouped/` 的嵌套 view 只做展示和当前手势预览，不恢复旧任务事实缓存或整表 applyOrder。吸顶浮层位于统一渐隐容器之外，Hash/收起全部操作挂在既有列表工具栏。关闭草稿行只从 Composer 草稿 owner 清除分组意图。
 
 Composer 头部通过 `ProjectComposerMenu.showEditProject` 启用当前项目 Plus 编辑入口；`children` 放置分支等既有控件，顺序为项目、children、编辑按钮。当前项目解析仍由菜单持有。复用 ProjectEditor 与目录服务，在线且非 legacySingleRoot 才能编辑；Host/project 身份、会话或草稿切换使已打开编辑器失效。保存/删除仅刷新目录，不调用导航；其他选择器默认不启用入口。
+
+项目外的新建按钮明确提交 `projectId: null`，进入未归类任务；项目旁按钮继续提交项目身份。Root 的快捷键上下文推导与 pending draft 幂等归其原 owner，不在侧栏复制状态。

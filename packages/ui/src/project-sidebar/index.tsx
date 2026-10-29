@@ -228,7 +228,11 @@ export const ProjectSidebar = memo(function ProjectSidebar(props: ProjectSidebar
               className="absolute inset-0 flex min-h-0 flex-col"
             >
               {/* 原因：顶层新建显式传 null 会抹掉当前项目；省略归属，让 Root 与快捷键共用继承路径。 */}
-              <ProjectSidebarNavigation props={props} onCreate={() => props.onCreateTask()} />
+              {/* 项目外入口必须显式取消项目继承，否则会再次打开当前项目草稿，看起来没有响应。 */}
+              <ProjectSidebarNavigation
+                props={props}
+                onCreate={() => props.onCreateTask({ projectId: null })}
+              />
               <div
                 data-testid="sidebar-task-list-region"
                 className="flex min-h-0 flex-1 flex-col border-t border-border/50 pt-3 [anchor-name:--sidebar-task-list-divider]"
