@@ -49,6 +49,8 @@ macOS 使用 ad-hoc 签名，不代表 Developer ID 签名或公证；Windows �
 ## 验收
 
 本地验证脚本的资产格式、缺失文件、校验篡改和版本校验；执行类型检查、lint 和提交前检查。
+更新 `package.json`（包括仅递增版本号）后，先运行 `node scripts/licenses.mjs notices` 重新生成输入哈希，
+再运行 `node scripts/licenses.mjs check`；将生成材料与版本一并提交。
 CI 五个原生目标全部通过后核对草稿的资产名称、大小和服务器 SHA-256，再公开。
 Linux CI 的启动验证在 Xvfb 内进行，使用测试进程的 `--no-sandbox`，不改变发行包配置；
 该检查不等价于每一种发行版、安装器交互、模型账号和远程功能的完整验证。
