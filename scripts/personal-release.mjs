@@ -13,18 +13,35 @@ export const targets = Object.freeze({
     platform: "linux",
     arch: "x64",
     extensions: ["AppImage", "deb", "rpm", "pkg.tar.zst"],
+    artifactArchitectures: {
+      AppImage: "x86_64",
+      deb: "amd64",
+      rpm: "x86_64",
+      "pkg.tar.zst": "x64",
+    },
   },
   "linux-arm64": {
     platform: "linux",
     arch: "arm64",
     extensions: ["AppImage", "deb", "rpm", "pkg.tar.zst"],
+    artifactArchitectures: {
+      AppImage: "arm64",
+      deb: "arm64",
+      rpm: "aarch64",
+      "pkg.tar.zst": "aarch64",
+    },
   },
 });
 
 export function expectedFiles(version, target) {
   assert.match(version, /^\d+\.\d+\.\d+-personal\.[1-9]\d*$/u, "invalid personal version");
   assert.ok(Object.hasOwn(targets, target), `unsupported target: ${target}`);
-  return targets[target].extensions.map((extension) => `ZCode-${version}-${target}.${extension}`);
+  const config = targets[target];
+  // Electron Builder 按包格式转换架构名称，必须收集真实产物名，不能统一假定为 runner 的 arch。
+  return config.extensions.map((extension) => {
+    const arch = config.artifactArchitectures?.[extension] ?? config.arch;
+    return `ZCode-${version}-${target.split("-")[0]}-${arch}.${extension}`;
+  });
 }
 
 async function digest(path) {

@@ -27,6 +27,7 @@ await mkdir(output, { recursive: true });
 const env = { ...process.env };
 delete env.ELECTRON_RUN_AS_NODE;
 delete env.ELECTRON_RENDERER_URL;
+delete env.NODE_OPTIONS;
 Object.assign(env, {
   ZCODE_DATA_BASE_DIR: home,
   ZCODE_DESKTOP_HOME_DIR: home,

@@ -26,6 +26,8 @@ macOS 使用 ad-hoc 签名，不代表 Developer ID 签名或公证；Windows �
 ## 资产合同
 
 - 版本、平台与架构必须匹配当前源码与 runner；每个目标必须生成全部约定格式。
+- Linux 文件名遵循 electron-builder 的格式别名：x64 的 AppImage/RPM 使用 `x86_64`、
+  DEB 使用 `amd64`、Arch 使用 `x64`；ARM64 的 RPM/Arch 使用 `aarch64`，其他格式使用 `arm64`。
 - 每个安装包必须通过文件头检查、SHA-256 计算与 500 MiB 的上游体积约束。
 - 对解包后的真实应用执行启动检查，记录版本、运行架构与欢迎页面截图。
 - Windows 保持上游禁用 Node Inspector 的 fuse；通过 Chromium 调试连接验证欢迎页和

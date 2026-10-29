@@ -93,3 +93,18 @@ test("unsupported versions and targets fail closed", () => {
   assert.throws(() => expectedFiles("../../escape", "linux-x64"), /version/u);
   assert.throws(() => expectedFiles(version, "linux-ia32"), /target/u);
 });
+
+test("Linux package names match native electron-builder architecture aliases", () => {
+  assert.deepEqual(expectedFiles(version, "linux-x64"), [
+    `ZCode-${version}-linux-x86_64.AppImage`,
+    `ZCode-${version}-linux-amd64.deb`,
+    `ZCode-${version}-linux-x86_64.rpm`,
+    `ZCode-${version}-linux-x64.pkg.tar.zst`,
+  ]);
+  assert.deepEqual(expectedFiles(version, "linux-arm64"), [
+    `ZCode-${version}-linux-arm64.AppImage`,
+    `ZCode-${version}-linux-arm64.deb`,
+    `ZCode-${version}-linux-aarch64.rpm`,
+    `ZCode-${version}-linux-aarch64.pkg.tar.zst`,
+  ]);
+});
