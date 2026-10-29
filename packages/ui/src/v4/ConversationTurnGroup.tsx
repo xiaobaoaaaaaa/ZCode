@@ -72,12 +72,14 @@ import { useAssistantPreviewCardsForAssistantTextRow } from "@/v4/useAssistantPr
 import { shouldShowTurnChatLoading } from "@/v4/chatLoadingVisibility.js";
 import {
   buildAssistantWorkRenderItems,
+  describeAssistantWorkActivity,
   ENABLE_CHANGES_TOOL_CALL_GROUPING,
   ENABLE_CUA_TOOL_CALL_GROUPING,
   ENABLE_EXPLORE_TOOL_CALL_GROUPING,
   ENABLE_TERMINAL_TOOL_CALL_GROUPING,
   type ConversationAssistantWorkRenderItem,
 } from "@/v4/conversationAssistantWorkItems.js";
+import { ExecutionActivityGroup, groupExecutionActivities } from "@/execution-activity/index.js";
 import type { ConversationCuaGroupEvent } from "@/v4/conversationCuaGroups.js";
 import { ConversationAgentToolCallRow } from "@/v4/ConversationAgentToolCallRow.js";
 import { ConversationFileSummaryPanel } from "@/v4/ConversationFileSummaryPanel.js";
@@ -391,6 +393,7 @@ function ConversationAssistantWorkItems({
   context,
   stageTailIsRunning = false,
   assistantCodeCommentProjectionEnabled = false,
+  collapseActivities = false,
   historyContainer,
 }: {
   rows: readonly AssistantWorkRow[];
@@ -398,6 +401,7 @@ function ConversationAssistantWorkItems({
   stageTailIsRunning?: boolean;
   /** running turn 的正文可能暂时落在 history renderer，仍需隐藏特化协议原文。 */
   assistantCodeCommentProjectionEnabled?: boolean;
+  collapseActivities?: boolean;
   historyContainer?: {
     chunkKey: string;
     open: boolean;
@@ -446,25 +450,35 @@ function ConversationAssistantWorkItems({
 
   // 连续工作项（工具/explore/reasoning）统一 gap-4 组容器（对齐旧版 tool-call-group），
   // 取代继承父级 gap-5/gap-2 + 每行 py-2 的双重且不一致的间距。
+  const renderItem = (item: ConversationAssistantWorkRenderItem) =>
+    item.kind === "row" ? (
+      <ConversationTurnRow
+        key={item.key}
+        row={item.row}
+        context={context}
+        hideAssistantActions={item.row.kind === "assistantText"}
+        assistantCodeCommentProjectionEnabled={assistantCodeCommentProjectionEnabled}
+      />
+    ) : item.kind === "agentToolCall" ? (
+      <ConversationAgentToolCallRow key={item.key} item={item} context={context} />
+    ) : item.kind === "exploreGroup" ? (
+      <ConversationExploreGroupRow key={item.key} item={item} context={context} />
+    ) : (
+      <ConversationToolGroupRow key={item.key} item={item} context={context} />
+    );
   const content = (
     <div className="flex flex-col gap-4">
-      {items.map((item) =>
-        item.kind === "row" ? (
-          <ConversationTurnRow
-            key={item.key}
-            row={item.row}
-            context={context}
-            hideAssistantActions={item.row.kind === "assistantText"}
-            assistantCodeCommentProjectionEnabled={assistantCodeCommentProjectionEnabled}
-          />
-        ) : item.kind === "agentToolCall" ? (
-          <ConversationAgentToolCallRow key={item.key} item={item} context={context} />
-        ) : item.kind === "exploreGroup" ? (
-          <ConversationExploreGroupRow key={item.key} item={item} context={context} />
-        ) : (
-          <ConversationToolGroupRow key={item.key} item={item} context={context} />
-        ),
-      )}
+      {collapseActivities
+        ? groupExecutionActivities(items, describeAssistantWorkActivity).map((group) =>
+            group.kind === "item" ? (
+              renderItem(group.item)
+            ) : (
+              <ExecutionActivityGroup key={`activity:${group.key}`} activity={group}>
+                {group.items.map(renderItem)}
+              </ExecutionActivityGroup>
+            ),
+          )
+        : items.map(renderItem)}
     </div>
   );
 
@@ -827,6 +841,7 @@ function ConversationWorkSegmentFlow({
               stageTailIsRunning={stageTailIsRunning}
               assistantCodeCommentProjectionEnabled={assistantCodeCommentProjectionEnabled}
               historyContainer={{ chunkKey, open }}
+              collapseActivities={segment.workStatus?.state === "running"}
             />
           );
         } else if (item.kind === "assistantText") {
@@ -854,6 +869,7 @@ function ConversationWorkSegmentFlow({
               context={context}
               stageTailIsRunning={stageTailIsRunning}
               assistantCodeCommentProjectionEnabled={assistantCodeCommentProjectionEnabled}
+              collapseActivities={segment.workStatus?.state === "running"}
             />
           );
         }

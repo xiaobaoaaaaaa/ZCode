@@ -5,9 +5,114 @@ import type {
   SubagentRow,
   ToolCallRow,
 } from "@zcode/shared/zcode-protocol-v4";
-import { buildAssistantWorkRenderItems } from "@/v4/conversationAssistantWorkItems.js";
+import {
+  buildAssistantWorkRenderItems,
+  describeAssistantWorkActivity,
+} from "@/v4/conversationAssistantWorkItems.js";
+import { groupExecutionActivities } from "@/execution-activity/index.js";
 
 const SHOW_ALL_REASONING = { messageStreamShowReasoning: true } as const;
+
+describe("execution activity projection", () => {
+  it("counts visible thoughts and mixed tools without replacing the existing render items", () => {
+    const items = buildRenderItems([
+      reasoning(1),
+      toolCall(2, "Read", { file_path: "a.ts" }),
+      toolCall(3, "Read", { file_path: "b.ts" }),
+      toolCall(4, "Write", { file_path: "c.ts", content: "hello" }),
+      toolCall(5, "Bash", { command: "pwd" }, { status: "running" }),
+    ]);
+    expect(items.map((item) => item.kind)).toEqual(["row", "exploreGroup", "row", "row"]);
+    expect(groupExecutionActivities(items, describeAssistantWorkActivity)).toEqual([
+      { kind: "activity", key: "1", reasoningCount: 1, toolCount: 4, running: true, items },
+    ]);
+  });
+
+  it("keeps identity when a single tool becomes an existing Explore group", () => {
+    const first = toolCall(2, "Read", { file_path: "a.ts" });
+    const single = buildRenderItems([first]);
+    const grouped = buildRenderItems([first, toolCall(3, "Read", { file_path: "b.ts" })]);
+    expect(describeAssistantWorkActivity(single[0]!)).toMatchObject({ key: "2", toolCount: 1 });
+    expect(describeAssistantWorkActivity(grouped[0]!)).toMatchObject({ key: "2", toolCount: 2 });
+  });
+
+  it.each(["pendingApproval", "error", "cancelled"] as const)(
+    "keeps %s tools outside the new fold",
+    (status) => {
+      const items = buildRenderItems([
+        reasoning(1),
+        toolCall(2, "Bash", { command: "pwd" }, { status }),
+        reasoning(3),
+      ]);
+      expect(
+        groupExecutionActivities(items, describeAssistantWorkActivity).map((item) => item.kind),
+      ).toEqual(["activity", "item", "activity"]);
+    },
+  );
+
+  it("does not hide a failed child inside an existing Explore group", () => {
+    const items = buildRenderItems([
+      toolCall(1, "Read", { file_path: "a.ts" }),
+      toolCall(2, "Read", { file_path: "missing.ts" }, { status: "error" }),
+    ]);
+    expect(items[0]?.kind).toBe("exploreGroup");
+    expect(describeAssistantWorkActivity(items[0]!)).toBeNull();
+  });
+
+  it.each(["AskUserQuestion", "TodoWrite", "Agent", "EnterPlanMode", "CronCreate"])(
+    "leaves special %s tools outside the fold",
+    (name) => {
+      const items = buildRenderItems([toolCall(1, name, {})]);
+      expect(describeAssistantWorkActivity(items[0]!)).toBeNull();
+    },
+  );
+
+  it("respects the reasoning visibility setting before counting", () => {
+    const items = buildRenderItems(
+      [reasoning(1), reasoning(2), toolCall(3, "Read", { file_path: "a.ts" })],
+      {
+        messageStreamShowReasoning: false,
+        messageStreamFirstReasoningRowId: 1,
+      },
+    );
+    expect(groupExecutionActivities(items, describeAssistantWorkActivity)).toMatchObject([
+      { reasoningCount: 1, toolCount: 1 },
+    ]);
+  });
+
+  it("collapses ordinary MCP calls but keeps plugin UI visible using canonical output display", () => {
+    const display = { kind: "mcp_tool", serverName: "example", toolName: "lookup" } as const;
+    const row = toolCall(1, "mcp__example__lookup", {}, { display });
+    expect(describeAssistantWorkActivity(buildRenderItems([row])[0]!)).toMatchObject({
+      toolCount: 1,
+    });
+    const withUi = {
+      ...row,
+      output: {
+        display: {
+          ...display,
+          ui: { pluginId: "example", resourceUri: "ui://example/panel", showInline: true as const },
+        },
+      },
+    };
+    expect(describeAssistantWorkActivity(buildRenderItems([withUi])[0]!)).toBeNull();
+  });
+
+  it("keeps pending interaction IDs and interrupted thoughts outside even with stale status", () => {
+    const tool = toolCall(
+      1,
+      "Bash",
+      { command: "pwd" },
+      { approvalInteractionId: "approval-1", status: "running" },
+    );
+    expect(describeAssistantWorkActivity(buildRenderItems([tool])[0]!)).toBeNull();
+    expect(
+      describeAssistantWorkActivity(
+        buildRenderItems([{ ...reasoning(2), state: "interrupted" }])[0]!,
+      ),
+    ).toBeNull();
+  });
+});
 
 function buildRenderItems(
   rows: Parameters<typeof buildAssistantWorkRenderItems>[0],
