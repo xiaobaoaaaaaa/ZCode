@@ -12,7 +12,7 @@ export const exampleExecutionActivities = groupExecutionActivities(
       : {
           key: item.id,
           reasoningCount: item.kind === "reasoning" ? 1 : 0,
-          toolCount: item.kind === "tool" ? 1 : 0,
+          toolCounts: item.kind === "tool" ? { read: 1 } : {},
           running: false,
         },
 );

@@ -68,6 +68,43 @@
       }
     },
     {
+      "id": "activity-browser",
+      "metadata": {
+        "kind": "main",
+        "source": "synthetic",
+        "timingPolicy": "controlled-stream",
+        "syntheticReason": "受控 provider 触发真实 Browser/Node REPL 截图，验证含图结果与日志共同折叠、图片预览及分组身份。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["E2E_EXECUTION_ACTIVITY_COLLAPSE", "toolu_activity_bash"],
+        "bodyExcludes": [
+          "Generate a concise title",
+          "CRITICAL: Respond with TEXT ONLY",
+          "toolu_activity_browser"
+        ]
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "content-type": "text/event-stream; charset=utf-8"
+        },
+        "releaseAfterChunks": 1,
+        "chunks": [
+          {
+            "offsetMs": 0,
+            "text": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"activity-browser\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"deepseek-v4-flash\",\"content\":[],\"stop_reason\":null,\"usage\":{\"input_tokens\":100,\"output_tokens\":0}}}\n\n"
+          },
+          {
+            "offsetMs": 1,
+            "text": "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"tool_use\",\"id\":\"toolu_activity_browser\",\"name\":\"mcp__node_repl__js\",\"input\":{}}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"title\\\": \\\"浏览器截图过程\\\", \\\"code\\\": \\\"const root = process.env.ZCODE_PLUGIN_ROOT ?? process.env.CLAUDE_PLUGIN_ROOT;\\\\nif (!root) throw new Error('Browser plugin root is unavailable');\\\\nconst { join } = await import('node:path');\\\\nconst { pathToFileURL } = await import('node:url');\\\\nconst { setupBrowserRuntime } = await import(pathToFileURL(join(root, 'scripts', 'browser-client.mjs')).href);\\\\nawait setupBrowserRuntime({ globals: globalThis });\\\\nconst controlledBrowser = await agent.browsers.get('iab');\\\\nconst tab = await controlledBrowser.tabs.new();\\\\nconst { readFile } = await import('node:fs/promises');\\\\nconst pageUrl = await readFile('{{e2eRuntimeRoot}}/conversation-session-execution-activity-collapse/screenshot-url.txt', 'utf8');\\\\nawait tab.goto(pageUrl);\\\\nawait nodeRepl.emitImage(await tab.screenshot());\\\\n({ marker: 'E2E_ACTIVITY_BROWSER_LOG' });\\\"}\"}}\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\"},\"usage\":{\"input_tokens\":100,\"output_tokens\":30}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"
+          }
+        ]
+      }
+    },
+    {
       "id": "activity-boundary",
       "metadata": {
         "kind": "main",
@@ -79,7 +116,11 @@
       "match": {
         "method": "POST",
         "pathIncludes": "/messages",
-        "bodyIncludes": ["E2E_EXECUTION_ACTIVITY_COLLAPSE", "toolu_activity_bash"],
+        "bodyIncludes": [
+          "E2E_EXECUTION_ACTIVITY_COLLAPSE",
+          "toolu_activity_browser",
+          "E2E_ACTIVITY_BROWSER_LOG"
+        ],
         "bodyExcludes": [
           "Generate a concise title",
           "CRITICAL: Respond with TEXT ONLY",

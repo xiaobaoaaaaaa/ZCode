@@ -1,5 +1,6 @@
 "use client";
 
+import { useSidePaneWindowPortalContainer } from "@/side-pane-windows/portal.js";
 import * as React from "react";
 import { Tooltip as TooltipPrimitive } from "radix-ui";
 
@@ -71,7 +72,7 @@ function TooltipContent({
     </TooltipPrimitive.Content>
   );
   return (
-    <TooltipPrimitive.Portal>
+    <TooltipPrimitive.Portal container={useSidePaneWindowPortalContainer()}>
       {/* 侧栏提示会覆盖相邻按钮；连同 Radix 生成的定位外壳一起透传鼠标，
           避免旧浮层消失后新按钮收不到 pointermove。菜单内的提示也不能恢复 pointer-events。 */}
       {hoverDelay === undefined ? content : <div className="pointer-events-none">{content}</div>}

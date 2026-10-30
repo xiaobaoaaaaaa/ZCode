@@ -1,3 +1,4 @@
+import { resolveSidePaneViewOwner, resolveSidePaneViewPresentation } from "../side-pane-windows/index.js";
 import "@zcode/services/data-import/bootstrap";
 import { ZCODE_DATA_DIR_NAME } from "@zcode/shared/env";
 import { installRequestSecurityDiagnostics } from "./request-security-edition/index.js";
@@ -374,6 +375,7 @@ ipcMain.on(PlatformChannels.EmbeddedBrowserJavaScriptDialog, (event, payload: un
 // BrowserGuestManager 虽是 main singleton，但 tab owner 带 window/workspace/session/generation；
 // create/close 只投递到 owner window，禁止旧的全窗口广播造成跨窗口 attach。
 const browserScreenshotSurfaceCoordinator = createDesktopBrowserScreenshotSurfaceCoordinator({
+  resolvePresentation: resolveSidePaneViewPresentation,
   fromId: (windowId) => BrowserWindow.fromId(windowId),
   fromWebContentsId: (webContentsId) => webContents.fromId(webContentsId) ?? null,
   log: (message) => logger.debug(message),
@@ -486,7 +488,10 @@ const browserGuestManager = new BrowserGuestManager(
     },
   },
   // 隐藏窗口截图的透明 presentation：capture 期间 showInactive + opacity 0 主动要帧。
-  (windowId) => BrowserWindow.fromId(windowId),
+  (windowId, guestWebContentsId) => {
+    const hostId = guestWebContentsId === undefined ? undefined : webContents.fromId(guestWebContentsId)?.hostWebContents?.id;
+    return (hostId === undefined ? undefined : resolveSidePaneViewPresentation(windowId, hostId)?.window) ?? BrowserWindow.fromId(windowId);
+  },
 );
 setBrowserUseGuestWebContentsIdsProvider(() => browserGuestManager.listGuestWebContentsIds());
 
@@ -2188,7 +2193,16 @@ app.whenReady().then(async () => {
 
   // 内置浏览器权限闸门（CNVD 未授权访问修复）：必须在任何 guest attach 前完成注册。
   // 弹窗桥把策略决策点接到主窗口 UI；store 落盘「访问此网站时允许/阻止」的站点同意记录。
-  const embeddedBrowserPermissionUiBridge = createEmbeddedBrowserPermissionUiBridge({ logger });
+  const permissionBridge = createEmbeddedBrowserPermissionUiBridge({ logger });
+  const logicalPermissionHost = (hostId: number | undefined) => hostId === undefined
+    ? undefined : resolveSidePaneViewOwner(hostId)?.id ?? hostId;
+  const embeddedBrowserPermissionUiBridge = {
+    ...permissionBridge,
+    promptPermission: (request: Parameters<typeof permissionBridge.promptPermission>[0]) =>
+      permissionBridge.promptPermission({ ...request, hostWebContentsId: logicalPermissionHost(request.hostWebContentsId) }),
+    devicePicker: (request: Parameters<typeof permissionBridge.devicePicker>[0]) =>
+      permissionBridge.devicePicker({ ...request, hostWebContentsId: logicalPermissionHost(request.hostWebContentsId) }),
+  };
   embeddedBrowserPermissionUiBridge.registerResolveListener();
   setActiveEmbeddedBrowserPermissionUiBridge(embeddedBrowserPermissionUiBridge);
   try {

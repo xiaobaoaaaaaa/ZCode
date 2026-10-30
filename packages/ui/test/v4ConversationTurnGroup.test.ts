@@ -1177,13 +1177,48 @@ describe("ConversationTurnGroup assistant history status", () => {
       ]);
       const html = renderUnit(unit!, { messageStreamShowReasoning: true, compactForRemoteControl });
       expect(html.match(/data-testid="execution-activity-trigger"/g)).toHaveLength(2);
-      expect(html).toContain("1 段思考 · 1 次工具调用");
-      expect(html).toContain("2 次工具调用 · 执行中");
+      expect(html).toContain("1 段思考 · 读取 1");
+      expect(html).toContain("编辑 1 · 终端 1 · 执行中");
       expect(html).toContain("正文始终可见");
       expect(html).not.toContain('data-tool-call-id="tool-4"');
       expect(html).not.toContain('data-tool-call-id="tool-6"');
       expect(html).toContain('data-execution-activity="3"');
       expect(html).toContain('data-execution-activity="6"');
+    },
+  );
+
+  it.each([false, true])(
+    "keeps browser logs and screenshots inside the closed activity (remote=%s)",
+    (compactForRemoteControl) => {
+      const [unit] = buildConversationTurnRenderUnits([
+        turnHeader({ state: "running" }),
+        userInputRow(2),
+        reasoningRow(),
+        toolCallRow(
+          4,
+          "mcp__node_repl__js",
+          {
+            title: "BROWSER_CAPTURE_STEP",
+            code: "const { setupBrowserRuntime } = await import('/plugin/scripts/browser-client.mjs'); await setupBrowserRuntime({ globals: globalThis });",
+          },
+          {
+            output: { text: "BROWSER_EXECUTION_LOG" },
+            display: {
+              kind: "node_repl_images",
+              images: [{ base64: "AAAA", mimeType: "image/png" }],
+            },
+          },
+        ),
+        toolCallRow(5, "Read", { file_path: "result.txt" }),
+      ]);
+      const html = renderUnit(unit!, { messageStreamShowReasoning: true, compactForRemoteControl });
+      expect(html.match(/data-testid="execution-activity-trigger"/g)).toHaveLength(1);
+      expect(html).toContain("1 段思考 · 读取 1 · 浏览器 1");
+      expect(html).not.toContain("次工具调用");
+      expect(html).not.toContain("终端 0");
+      expect(html).not.toContain("BROWSER_CAPTURE_STEP");
+      expect(html).not.toContain("BROWSER_EXECUTION_LOG");
+      expect(html).not.toContain("data:image/png;base64,AAAA");
     },
   );
 

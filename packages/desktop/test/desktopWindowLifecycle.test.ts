@@ -22,14 +22,20 @@ vi.mock("electron", () => ({
 
 vi.mock("../src/main/desktopWindowChrome.js", () => ({
   createBrowserWindow: vi.fn(),
+  installDesktopBrowserGuestHost: vi.fn(),
 }));
+vi.mock("../src/side-pane-windows/index.js", () => ({ attachSidePaneWindows: vi.fn() }));
 
 vi.mock("../src/main/armsBrowserPerfLoadNudge.js", () => ({
   scheduleArmsBrowserPerfLoadNudge: vi.fn(),
 }));
 
 import { handleDarwinWindowCloseRequest } from "../src/main/desktopDarwinCloseBehavior.js";
-import { createBrowserWindow } from "../src/main/desktopWindowChrome.js";
+import {
+  createBrowserWindow,
+  installDesktopBrowserGuestHost,
+} from "../src/main/desktopWindowChrome.js";
+import { attachSidePaneWindows } from "../src/side-pane-windows/index.js";
 import {
   createWindow,
   handleDesktopWindowCloseRequest,
@@ -86,6 +92,18 @@ describe("desktopWindowLifecycle createWindow", () => {
     });
 
     expect(handleDomReady).toBeTypeOf("function");
+    expect(attachSidePaneWindows).toHaveBeenCalledWith(win, {
+      prepareBrowserHost: expect.any(Function),
+    });
+    const host = { id: 99 };
+    vi.mocked(attachSidePaneWindows)
+      .mock.calls.at(-1)![1]!
+      .prepareBrowserHost(host as never);
+    expect(installDesktopBrowserGuestHost).toHaveBeenCalledWith(
+      host,
+      webContents,
+      expect.any(Object),
+    );
     handleDomReady?.();
     expect(spawnHostProcess).toHaveBeenCalledWith(
       win,

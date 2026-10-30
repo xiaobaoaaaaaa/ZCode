@@ -47,6 +47,20 @@ function normalizeError(error: unknown): Error {
     return error;
   }
 
+  // 原生侧栏宿主有独立 realm，网页控件抛出的 Error 不满足原窗口的 instanceof。
+  // 保留其诊断字段，否则错误边界只剩 Unknown error，无法定位页面挂载失败。
+  if (
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    const normalized = new Error(error.message);
+    if ("name" in error && typeof error.name === "string") normalized.name = error.name;
+    if ("stack" in error && typeof error.stack === "string") normalized.stack = error.stack;
+    return normalized;
+  }
+
   return new Error(typeof error === "string" ? error : "Unknown error");
 }
 

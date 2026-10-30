@@ -71,6 +71,10 @@ export class DesktopBrowserScreenshotActivityController {
     private readonly options: {
       fromId(windowId: number): BrowserWindowForActivity | null;
       fromWebContentsId(webContentsId: number): GuestWebContentsForActivity | null;
+      resolvePresentation?(windowId: number, hostWebContentsId: number): {
+        window: BrowserWindowForTransparentBootstrap;
+        webContents: BrowserWindowForActivity["webContents"];
+      } | undefined;
       allowTransparentWindowBootstrap?: boolean;
       hideTaskbarDuringTransparentWindowBootstrap?: boolean;
       log?(message: string): void;
@@ -417,7 +421,7 @@ export class DesktopBrowserScreenshotActivityController {
     webContentsId: number,
   ):
     | {
-        window: BrowserWindowForActivity;
+        window: BrowserWindowForTransparentBootstrap;
         owner: BrowserWindowForActivity["webContents"];
         guest: GuestWebContentsForActivity;
       }
@@ -428,10 +432,15 @@ export class DesktopBrowserScreenshotActivityController {
     if (
       !guest ||
       guest.isDestroyed() ||
-      guest.id !== webContentsId ||
-      guest.hostWebContents?.id !== win.webContents.id
+      guest.id !== webContentsId
     ) {
       return undefined;
+    }
+    if (guest.hostWebContents?.id !== win.webContents.id) {
+      const presentation = guest.hostWebContents && this.options.resolvePresentation?.(windowId, guest.hostWebContents.id);
+      // 视图可以换显示窗口，但仍必须通过可信 registry 验证原 window owner，不能放宽跨窗授权。
+      if (!presentation || presentation.window.isDestroyed() || presentation.webContents.isDestroyed()) return undefined;
+      return { window: presentation.window, owner: presentation.webContents, guest };
     }
     return { window: win, owner: win.webContents, guest };
   }

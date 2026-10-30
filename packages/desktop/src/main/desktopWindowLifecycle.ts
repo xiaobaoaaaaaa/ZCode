@@ -5,7 +5,8 @@ import { app, BrowserWindow, Menu, MessageChannelMain, nativeImage } from "elect
 import type { UtilityProcess as ElectronUtilityProcess } from "electron";
 import { HostMessageTypes, InternalChannels, PlatformChannels, type Locale } from "@zcode/shared";
 import { scheduleArmsBrowserPerfLoadNudge } from "./armsBrowserPerfLoadNudge.js";
-import { createBrowserWindow } from "./desktopWindowChrome.js";
+import { installDesktopBrowserGuestHost, createBrowserWindow } from "./desktopWindowChrome.js";
+import { attachSidePaneWindows } from "../side-pane-windows/index.js";
 import type { HostInitMessage, WindowBootstrapOptions } from "./desktopHostProcess.js";
 import type { StartupWorkspaceWarmupTarget } from "./startupWorkspace.js";
 import type { RemoteAssetDirs } from "./desktopRuntimeEnv.js";
@@ -97,6 +98,9 @@ export function createWindow(options: {
     resolveBrowserViewOwner: options.resolveBrowserViewOwner,
   });
   const label = `local-${win.webContents.id}`;
+  attachSidePaneWindows(win, {
+    prepareBrowserHost: (host) => installDesktopBrowserGuestHost(host, win.webContents, options),
+  });
 
   if (options.persistWindowSize) {
     attachDesktopWindowSizePersistence(win, options.persistWindowSize, (error) => {

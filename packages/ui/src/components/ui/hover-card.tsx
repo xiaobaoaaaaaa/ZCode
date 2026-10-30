@@ -1,3 +1,4 @@
+import { useSidePaneWindowPortalContainer } from "@/side-pane-windows/portal.js";
 import * as React from "react";
 import { HoverCard as HoverCardPrimitive } from "radix-ui";
 
@@ -24,7 +25,11 @@ function HoverCardContent({
   ...props
 }: React.ComponentProps<typeof HoverCardPrimitive.Content> & HoverCardScopeProps) {
   return (
-    <HoverCardPrimitive.Portal data-slot="hover-card-portal" {...{ __scopeHoverCard }}>
+    <HoverCardPrimitive.Portal
+      container={useSidePaneWindowPortalContainer()}
+      data-slot="hover-card-portal"
+      {...{ __scopeHoverCard }}
+    >
       <HoverCardPrimitive.Content
         {...{ __scopeHoverCard }}
         data-slot="hover-card-content"

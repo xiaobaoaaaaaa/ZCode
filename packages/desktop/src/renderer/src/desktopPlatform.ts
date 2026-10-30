@@ -3,11 +3,21 @@ import { DesktopCommandIds, buildLocalMediaPreviewUrl, type IPlatformService } f
 
 import { desktopBrowserPlatformBridge } from "./desktopBrowserPlatformBridge.js";
 import { createDesktopPluginSandboxPlatform } from "./plugin-sandbox/desktopPluginSandboxPlatform.js";
+import { createSidePaneWindowPort } from "./side-pane-windows/renderer.js";
+import { createSidePaneViewPort } from "./side-pane-windows/view.js";
 
 export function createDesktopPlatform(options: {
   isLocalDevelopmentRuntime: boolean;
 }): IPlatformService {
   return {
+    createSidePaneView: createSidePaneViewPort({
+      onCloseRequested: (handler) => window.zcode.onSidePaneWindowCloseRequested(handler),
+      command: (command) => window.zcode.sidePaneViewCommand(command),
+    }),
+    openSidePaneWindow: createSidePaneWindowPort({
+      onCloseRequested: (handler) => window.zcode.onSidePaneWindowCloseRequested(handler),
+      close: (key) => window.zcode.closeSidePaneWindow(key),
+    }),
     canSelectFilePath: true,
     canOpenLocalFiles: true,
     pluginSandbox: createDesktopPluginSandboxPlatform(),

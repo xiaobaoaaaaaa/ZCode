@@ -4410,6 +4410,8 @@ async function seedUpstreamE2EModelConfig(specs: string[] = []) {
         // manual-review 的极小自动 compact 会改写这两类历史，和目标断言语义互斥。
         // Browser compact 连续性应由独立 case 覆盖，不能混入 lifecycle 回归。
         !browserUseIabLifecycleSpec &&
+        // SPW 浏览器窗口验证页面/CDP/截图连续性，不在移动中混入上下文压缩。
+        !spec.includes("conversation-session-side-pane-browser-windows.test.ts") &&
         // BG41 只验证父 launch turn idle 后的 model-only 文件 Diff。manual-review
         // 默认 240-token 窗口会在 Read/Edit 之间插入 compact，并清空 read guard，
         // 把本 case 剪枝掉的 compact 语义错误混入缺陷回归。

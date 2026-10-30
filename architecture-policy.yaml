@@ -798,6 +798,38 @@ modules:
       ui: .
     owner: desktop-settings
 
+  # side-pane-windows：由 architecture:adopt 登记
+  - id: side-pane-windows
+    roots:
+      - packages/ui/src/side-pane-windows
+    managed: true
+    requires:
+      - shared
+      - ui
+    publicEntrypoints:
+      - packages/ui/src/side-pane-windows/index.ts
+      - packages/ui/src/side-pane-windows/contract.ts
+      - packages/ui/src/side-pane-windows/portal.ts
+    layers:
+      ui: .
+    owner: desktop-shell
+  # side-pane-window-host：由 architecture:adopt 登记
+  - id: side-pane-window-host
+    roots:
+      - packages/desktop/src/side-pane-windows
+      - packages/desktop/src/renderer/src/side-pane-windows
+    managed: true
+    requires:
+      - shared
+    publicEntrypoints:
+      - packages/desktop/src/side-pane-windows/index.ts
+      - packages/desktop/src/side-pane-windows/contract.ts
+      - packages/desktop/src/renderer/src/side-pane-windows/renderer.ts
+      - packages/desktop/src/renderer/src/side-pane-windows/view.ts
+    layers:
+      adapters: .
+    owner: desktop-shell
+
 global:
   # 临时时间戳（2026-09-10）：unmanaged-new-file 只约束此日期之后首次入库的文件。
   # 基于领先 staging 很多的分支开工时，merge-base 之前的"新增"文件不应被追溯。

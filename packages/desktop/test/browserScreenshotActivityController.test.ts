@@ -65,6 +65,21 @@ async function settleCaptures(harness: ReturnType<typeof createHarness>): Promis
 }
 
 describe("DesktopBrowserScreenshotActivityController", () => {
+  it("requires a trusted original owner mapping for a movable browser carrier", () => {
+    const harness = createHarness();
+    const carrier = { ...harness.ownerWebContents, id: 701, capturePage: vi.fn(() => new Promise<never>(() => undefined)) };
+    harness.guestWebContents.hostWebContents = carrier;
+    const physicalWindow = { isDestroyed: () => false };
+    const resolvePresentation = vi.fn((owner: number, host: number) => owner === 7 && host === 701 ? {window: physicalWindow, webContents: carrier} : undefined);
+    const controller = new DesktopBrowserScreenshotActivityController({ fromId: harness.fromId, fromWebContentsId: harness.fromWebContentsId, resolvePresentation });
+    expect(controller.acquire({ windowId: 8, webContentsId: 70, requestId: "wrong-owner", reason: "browser-screenshot" })).toBeUndefined();
+    const lease = controller.acquire({ windowId: 7, webContentsId: 70, requestId: "carrier", reason: "browser-screenshot" });
+    expect(lease).toBeDefined();
+    expect(resolvePresentation).toHaveBeenLastCalledWith(7, 701);
+    expect(carrier.capturePage).toHaveBeenCalled();
+    expect(harness.ownerCapturePage).not.toHaveBeenCalled();
+    lease?.release();
+  });
   function createTransparentBootstrapHarness(options?: {
     allowTransparentWindowBootstrap?: boolean;
     hideTaskbarDuringTransparentWindowBootstrap?: boolean;

@@ -632,12 +632,6 @@ export function createBrowserWindow(options: {
   win.on("maximize", () => syncDesktopWindowChromeState(win));
   win.on("unmaximize", () => syncDesktopWindowChromeState(win));
   attachWindowsWindowRepaint(win);
-  // will-attach 与 did-attach 按顺序配对；队列元素记录 guest 种类，did-attach 据此分派策略。
-  const pendingWebviewGuestKinds: Array<
-    | { kind: "browser" | "codingPlan"; isRewards: boolean }
-    | { kind: "pluginSandbox"; sandboxId: string }
-  > = [];
-
   win.webContents.once("did-finish-load", () => {
     // 生产包使用 loadFile(file://...) 导航时，Chromium 可能在页面加载完成后重放
     // origin 级 zoom 状态，把窗口创建阶段设置的持久化缩放覆盖回默认值。
@@ -661,7 +655,58 @@ export function createBrowserWindow(options: {
     },
   );
 
-  win.webContents.on("will-attach-webview", (event, webPreferences, params) => {
+  installDesktopBrowserGuestHost(win.webContents, win.webContents, options);
+
+  win.webContents.on("context-menu", (_event, params) => {
+    // 只设置 Electron role 时，菜单文案跟随系统/Electron 语言，可能与应用语言不一致。
+    // 每次右键时读取当前 locale 并显式设置 label，切换语言后下一次打开即可生效。
+    const template = buildTextContextMenuTemplate(
+      params,
+      options.currentApplicationLocale?.() ?? DEFAULT_LOCALE,
+    );
+
+    if (!app.isPackaged) {
+      if (template.length > 0) {
+        template.push({ type: "separator" });
+      }
+      template.push({
+        label: "Inspect Element",
+        click: () => {
+          win.webContents.inspectElement(params.x, params.y);
+        },
+      });
+    }
+
+    if (template.length === 0) {
+      return;
+    }
+
+    // 之前为避免和终端等 DOM 右键菜单双弹，生产环境完全不弹 Electron 原生菜单；
+    // 但普通文本选区和输入框没有 DOM 菜单，导致右键复制/粘贴像被禁用。这里仅在文本编辑语义下补原生菜单。
+    Menu.buildFromTemplate(template).popup({ window: win });
+  });
+
+  void Promise.resolve(loadWindow(win, "index", options.bootstrap)).catch((error: unknown) => {
+    // loadFile/loadURL 返回的导航 Promise 过去被丢弃，长跑中的导航失败
+    // 只会表现为 chrome-error 页面，主进程日志没有原始异常可供追踪。
+    options.logger.warn("[desktop-window] renderer navigation rejected", error);
+  });
+  return win;
+}
+
+/** 同一安全安装路径用于工作区 document 与稳定浏览器承载 document。 */
+export function installDesktopBrowserGuestHost(
+  host: WebContents,
+  logicalOwner: WebContents,
+  options: Pick<Parameters<typeof createBrowserWindow>[0], "logger" | "resolveBrowserViewOwner">,
+): void {
+  // will-attach 与 did-attach 按顺序配对；队列元素记录 guest 种类，did-attach 据此分派策略。
+  const pendingWebviewGuestKinds: Array<
+    | { kind: "browser" | "codingPlan"; isRewards: boolean }
+    | { kind: "pluginSandbox"; sandboxId: string }
+  > = [];
+
+  host.on("will-attach-webview", (event, webPreferences, params) => {
     // CDP 在原生 Dialog 已创建后再替换 UI，macOS 仍可能显示已经排队的
     // Chromium NSAlert。固定 preload 在每个 frame 调用原生 API 前拦截，且隔离世界只
     // 暴露 alert/confirm 同步桥；网页主世界仍没有 Node 或任意 IPC 能力。
@@ -675,7 +720,7 @@ export function createBrowserWindow(options: {
       const decision = host?.configureGuest({
         webPreferences,
         params,
-        ownerWebContentsId: win.webContents.id,
+        ownerWebContentsId: logicalOwner.id,
       });
       if (!decision?.ok) {
         options.logger.warn(
@@ -735,7 +780,7 @@ export function createBrowserWindow(options: {
     });
   });
 
-  win.webContents.on("did-attach-webview", (_event, guestWebContents) => {
+  host.on("did-attach-webview", (_event, guestWebContents) => {
     const guestKind = pendingWebviewGuestKinds.shift() ?? {
       kind: "browser" as const,
       isRewards: false,
@@ -743,14 +788,14 @@ export function createBrowserWindow(options: {
     if (guestKind.kind === "pluginSandbox") {
       getPluginSandboxHost()?.attachGuest({
         guest: guestWebContents,
-        hostWebContents: win.webContents,
+        hostWebContents: logicalOwner,
         sandboxId: guestKind.sandboxId,
       });
       return;
     }
     attachEmbeddedBrowserWindowOpenHandler({
       guestWebContents,
-      hostWebContents: win.webContents,
+      hostWebContents: logicalOwner,
       resolveBrowserViewOwner: options.resolveBrowserViewOwner,
       // PayPal/relay 的 30x 重定向不保证逐跳触发 will-navigate。
       // Coding Plan guest 身份必须按初始 src 粘住，不能由当前 URL 解防护。
@@ -763,44 +808,9 @@ export function createBrowserWindow(options: {
     if (guestKind.kind === "browser") {
       installEmbeddedBrowserBluetoothDeviceGuard(guestWebContents, options.logger.warn, {
         devicePicker: getEmbeddedBrowserDevicePicker(),
-        hostWebContentsId: win.webContents.id,
+        hostWebContentsId: logicalOwner.id,
       });
     }
   });
 
-  win.webContents.on("context-menu", (_event, params) => {
-    // 只设置 Electron role 时，菜单文案跟随系统/Electron 语言，可能与应用语言不一致。
-    // 每次右键时读取当前 locale 并显式设置 label，切换语言后下一次打开即可生效。
-    const template = buildTextContextMenuTemplate(
-      params,
-      options.currentApplicationLocale?.() ?? DEFAULT_LOCALE,
-    );
-
-    if (!app.isPackaged) {
-      if (template.length > 0) {
-        template.push({ type: "separator" });
-      }
-      template.push({
-        label: "Inspect Element",
-        click: () => {
-          win.webContents.inspectElement(params.x, params.y);
-        },
-      });
-    }
-
-    if (template.length === 0) {
-      return;
-    }
-
-    // 之前为避免和终端等 DOM 右键菜单双弹，生产环境完全不弹 Electron 原生菜单；
-    // 但普通文本选区和输入框没有 DOM 菜单，导致右键复制/粘贴像被禁用。这里仅在文本编辑语义下补原生菜单。
-    Menu.buildFromTemplate(template).popup({ window: win });
-  });
-
-  void Promise.resolve(loadWindow(win, "index", options.bootstrap)).catch((error: unknown) => {
-    // loadFile/loadURL 返回的导航 Promise 过去被丢弃，长跑中的导航失败
-    // 只会表现为 chrome-error 页面，主进程日志没有原始异常可供追踪。
-    options.logger.warn("[desktop-window] renderer navigation rejected", error);
-  });
-  return win;
 }

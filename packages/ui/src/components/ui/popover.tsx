@@ -1,5 +1,6 @@
 "use client";
 
+import { useSidePaneWindowPortalContainer } from "@/side-pane-windows/portal.js";
 import * as React from "react";
 import { Popover as PopoverPrimitive } from "radix-ui";
 
@@ -20,7 +21,7 @@ function PopoverContent({
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
   return (
-    <PopoverPrimitive.Portal>
+    <PopoverPrimitive.Portal container={useSidePaneWindowPortalContainer()}>
       <PopoverPrimitive.Content
         data-slot="popover-content"
         align={align}

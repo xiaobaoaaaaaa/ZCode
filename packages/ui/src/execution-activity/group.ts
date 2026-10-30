@@ -1,4 +1,8 @@
-import type { ExecutionActivityDescriptor, ExecutionActivityItem } from "./contract.js";
+import {
+  EXECUTION_ACTIVITY_TOOL_CATEGORIES,
+  type ExecutionActivityDescriptor,
+  type ExecutionActivityItem,
+} from "./contract.js";
 
 export function groupExecutionActivities<T>(
   items: readonly T[],
@@ -15,10 +19,20 @@ export function groupExecutionActivities<T>(
     if (previous?.kind === "activity") {
       previous.items.push(item);
       previous.reasoningCount += activity.reasoningCount;
-      previous.toolCount += activity.toolCount;
+      const toolCounts = { ...previous.toolCounts };
+      for (const category of EXECUTION_ACTIVITY_TOOL_CATEGORIES) {
+        const count = activity.toolCounts[category];
+        if (count) toolCounts[category] = (toolCounts[category] ?? 0) + count;
+      }
+      previous.toolCounts = toolCounts;
       previous.running ||= activity.running;
     } else {
-      result.push({ kind: "activity", ...activity, items: [item] });
+      result.push({
+        kind: "activity",
+        ...activity,
+        toolCounts: { ...activity.toolCounts },
+        items: [item],
+      });
     }
   }
   return result;

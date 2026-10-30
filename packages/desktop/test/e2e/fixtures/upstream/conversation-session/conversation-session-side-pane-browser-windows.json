@@ -1,0 +1,136 @@
+{
+  "version": 1,
+  "caseName": "conversation-session-side-pane-browser-windows",
+  "spec": "./test/e2e/conversation-session/conversation-session-side-pane-browser-windows.test.ts",
+  "fixtures": [
+    {
+      "id": "spw-browser-0",
+      "description": "窗口浏览器标题",
+      "metadata": {
+        "kind": "common",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "控制模型输出以验证真实 Browser guest、CDP、移动及截图链路，不模拟浏览器执行。"
+      },
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": [
+          "Generate a concise title",
+          "E2E_SIDE_PANE_AGENT_BROWSER"
+        ]
+      },
+      "response": {
+        "statusCode": 200,
+        "statusMessage": "OK",
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "body": "{\"id\":\"upstream-browser-use-iab-title\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"deepseek-v4-flash\",\"content\":[{\"type\":\"text\",\"text\":\"{\\\"title\\\":\\\"Browser Window\\\"}\"}],\"stop_reason\":\"end_turn\",\"stop_sequence\":null,\"usage\":{\"input_tokens\":64,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"output_tokens\":8,\"service_tier\":\"standard\"}}"
+      }
+    },
+    {
+      "id": "spw-browser-1",
+      "description": "创建真实 Agent Browser 并留下页面现场",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "控制模型输出以验证真实 Browser guest、CDP、移动及截图链路，不模拟浏览器执行。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "lastUserMessageIncludes": [
+          "E2E_SIDE_PANE_AGENT_BROWSER",
+          "E2E_BROWSER_FIXTURE_URL:"
+        ],
+        "bodyIncludes": [
+          "mcp__node_repl__js"
+        ],
+        "bodyExcludes": [
+          "Generate a concise title",
+          "CRITICAL: Respond with TEXT ONLY"
+        ]
+      },
+      "response": {
+        "statusCode": 200,
+        "toolUse": {
+          "id": "toolu_spw_browser_bootstrap",
+          "name": "mcp__node_repl__js",
+          "input": {
+            "code": "const browserPluginRoot = process.env.ZCODE_PLUGIN_ROOT ?? process.env.CLAUDE_PLUGIN_ROOT;\nif (!browserPluginRoot) throw new Error('Browser plugin root is unavailable in the node_repl host');\nconst { join } = await import('node:path');\nconst { pathToFileURL } = await import('node:url');\nconst browserClientUrl = pathToFileURL(join(browserPluginRoot, 'scripts', 'browser-client.mjs')).href;\nconst { setupBrowserRuntime } = await import(browserClientUrl);\nawait setupBrowserRuntime({ globals: globalThis });\nconst browser = await agent.browsers.get('iab');\nconst tab = await browser.tabs.new();\nawait tab.goto('{{browserFixtureUrl}}');\nawait tab.setViewportSize({width:480,height:640});\nawait tab.playwright.getByLabel('Name', {exact:true}).fill('before move');\n({marker:'E2E_SPW_BROWSER_READY', e2eBrowserTabId:tab.id, snapshot:await tab.playwright.domSnapshot()});",
+            "title": "准备浏览器窗口测试"
+          }
+        }
+      }
+    },
+    {
+      "id": "spw-browser-2",
+      "description": "窗口移动后操作同一页并截图",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "控制模型输出以验证真实 Browser guest、CDP、移动及截图链路，不模拟浏览器执行。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": [
+          "E2E_SIDE_PANE_AGENT_BROWSER",
+          "toolu_spw_browser_bootstrap",
+          "E2E_SPW_BROWSER_READY",
+          "e2eBrowserTabId"
+        ],
+        "bodyExcludes": [
+          "E2E_SPW_BROWSER_ACTION_DONE",
+          "Generate a concise title",
+          "CRITICAL: Respond with TEXT ONLY"
+        ]
+      },
+      "response": {
+        "statusCode": 200,
+        "toolUse": {
+          "id": "toolu_spw_browser_action",
+          "name": "mcp__node_repl__js",
+          "input": {
+            "code": "const browserPluginRoot = process.env.ZCODE_PLUGIN_ROOT ?? process.env.CLAUDE_PLUGIN_ROOT;\nif (!browserPluginRoot) throw new Error('Browser plugin root is unavailable in the node_repl host');\nconst { join } = await import('node:path');\nconst { pathToFileURL } = await import('node:url');\nconst browserClientUrl = pathToFileURL(join(browserPluginRoot, 'scripts', 'browser-client.mjs')).href;\nconst { setupBrowserRuntime } = await import(browserClientUrl);\nawait setupBrowserRuntime({ globals: globalThis });\nconst browser = await agent.browsers.get('iab');\nconst tab=await browser.tabs.get('{{latestBrowserTabId}}');\nawait tab.playwright.getByLabel('Name', {exact:true}).fill('after move');\nawait tab.playwright.getByRole('button',{name:'Continue',exact:true}).click();\nawait nodeRepl.emitImage(await tab.screenshot());\n({marker:'E2E_SPW_BROWSER_ACTION_DONE',e2eBrowserTabId:tab.id,snapshot:await tab.playwright.domSnapshot()});",
+            "title": "操作移出后的网页并截图"
+          }
+        }
+      }
+    },
+    {
+      "id": "spw-browser-3",
+      "description": "结束回合验证自动截图",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "控制模型输出以验证真实 Browser guest、CDP、移动及截图链路，不模拟浏览器执行。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": [
+          "E2E_SIDE_PANE_AGENT_BROWSER",
+          "toolu_spw_browser_action",
+          "E2E_SPW_BROWSER_ACTION_DONE",
+          "Submitted after move"
+        ],
+        "bodyExcludes": [
+          "Generate a concise title",
+          "CRITICAL: Respond with TEXT ONLY"
+        ]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": "E2E_SPW_BROWSER_FINISHED"
+      }
+    }
+  ]
+}

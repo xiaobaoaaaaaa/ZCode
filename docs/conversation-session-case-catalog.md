@@ -4759,3 +4759,11 @@ SPR01 是连接隔离 Electron 的独立 `node:test` / CDP E2E，保持 pending�
 沿用 `conversation-session-r3-daemon-detached.test.ts` 的 accepted / pending 场景：独立 Linux SSH 目标首次以 detached 模式连接；桌面断开不杀 daemon。终止 daemon 后，在该目标的非交互 shell 设置 `SYSTEMD_OFFLINE=1`，确认真实 `systemctl --user show --property=Version` 退出 0 但没有属性响应，再通过桌面设备重连。必须进入 ready、`serviceRegistered=false`，Supervisor/Core 均换代，原任务可续发；最后恢复 shell 配置。禁止以替换 systemctl 或直接设置 ZCode 跳过注册开关代替该场景。
 
 2026-10-30：M06k 根据用户需求改为 queue → guide，取代旧的 startNow 抢占；M06n 仍为 guide → queue。规格见 `docs/ui/chat-message-queue.md`，2026-09-12 的 M06k 抢占回放只作为历史记录。
+
+## 子代理独立窗口（SPW-004，2026-10-30）
+
+已接受：Desktop 中运行中的 child 由现有摘要入口打开侧边标签，移至独立原生窗口，继续接收输出，再收回。断言 child/root/workspace 身份、主会话和标签 ID 不变，provider 子请求只有一次，窗口移动不调用新 Agent。由受控 child 文本流证明迁移前后持续更新；不扩展会话写入、Host attachment、Web/mobile 或远程恢复合同。
+
+## 浏览器独立窗口（SPW-005b，2026-10-30）
+
+已接受保留页面现场：真实 Agent Browser 创建本地页面并填写表单，移出窗口后从原 tab 继续操作并生成过程/轮尾截图。断言 guest ID、host ID、内存 token 不变，导航计数为 1；真实点击更新页面，过程图与轮尾图均解码且最终截图仍位于工作历史之外。权限沿用原 owner。Provider fixture 仅控制模型输出，不模拟浏览器工具；自动 compact 与本场景无关，使用正常上下文窗口。

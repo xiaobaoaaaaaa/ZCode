@@ -1,3 +1,4 @@
+import { useSidePaneWindowPortalContainer } from "@/side-pane-windows/portal.js";
 import * as React from "react";
 import type { VariantProps } from "class-variance-authority";
 import { AlertDialog as AlertDialogPrimitive } from "radix-ui";
@@ -15,7 +16,13 @@ function AlertDialogTrigger({
 }
 
 function AlertDialogPortal({ ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Portal>) {
-  return <AlertDialogPrimitive.Portal data-slot="alert-dialog-portal" {...props} />;
+  return (
+    <AlertDialogPrimitive.Portal
+      container={useSidePaneWindowPortalContainer()}
+      data-slot="alert-dialog-portal"
+      {...props}
+    />
+  );
 }
 
 function AlertDialogOverlay({

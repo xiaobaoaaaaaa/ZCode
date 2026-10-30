@@ -1,4 +1,5 @@
 import { installPluginSandboxHostBridge } from "./pluginSandbox/hostBridge.js";
+import { sidePaneWindowChannels } from "../side-pane-windows/contract.js";
 import {
   databaseStartupControlSchema,
   databaseStartupStateSchema,
@@ -262,6 +263,13 @@ window.addEventListener("DOMContentLoaded", updateRendererProcessTitle, {
  * 通过 MessagePort RPC 访问，不再经过此 bridge。
  */
 contextBridge.exposeInMainWorld("zcode", {
+  sidePaneViewCommand: (command: import("@zcode/shared").SidePaneViewCommand) => ipcRenderer.invoke(sidePaneWindowChannels.viewCommand, command),
+  closeSidePaneWindow: (key: string) => ipcRenderer.send(sidePaneWindowChannels.close, key),
+  onSidePaneWindowCloseRequested: (callback: (key: string) => void) => {
+    const listener = (_event: unknown, key: string) => callback(key);
+    ipcRenderer.on(sidePaneWindowChannels.closeRequested, listener);
+    return () => ipcRenderer.removeListener(sidePaneWindowChannels.closeRequested, listener);
+  },
   connectRemote: (
     options: RemoteTarget,
     requestId?: string,

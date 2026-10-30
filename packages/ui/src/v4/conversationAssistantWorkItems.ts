@@ -1,12 +1,16 @@
 import type { SubagentRow, ToolCallRow } from "@zcode/shared/zcode-protocol-v4";
-import type { ExecutionActivityDescriptor } from "@/execution-activity/contract.js";
+import type {
+  ExecutionActivityDescriptor,
+  ExecutionActivityToolCategory,
+  ExecutionActivityToolCounts,
+} from "@/execution-activity/contract.js";
 import {
   isExecuteToolCall,
   isExploreToolCall,
   isShellToolCallAwaitingCommand,
 } from "@/lib/exploreToolCall.js";
 import type { TaskChatToolCallTreeNode } from "@/lib/toolCallTree.js";
-import { resolveToolCallIdentity } from "@/lib/toolIdentity.js";
+import { resolveToolCallIdentity, type ToolCallPresentationFamily } from "@/lib/toolIdentity.js";
 import {
   isConversationReasoningRowVisible,
   type ConversationReasoningVisibility,
@@ -69,7 +73,7 @@ export function describeAssistantWorkActivity(
       : {
           key: String(item.row.rowId),
           reasoningCount: 1,
-          toolCount: 0,
+          toolCounts: {},
           running: item.row.state === "streaming",
         };
   }
@@ -79,13 +83,56 @@ export function describeAssistantWorkActivity(
       : item.kind === "exploreGroup" || item.kind === "executeGroup" || item.kind === "changesGroup"
         ? item.rows
         : null;
-  if (!rows?.length || !rows.every(canCollapseExecutionTool)) return null;
+  if (!rows?.length) return null;
+  const toolCounts: ExecutionActivityToolCounts = {};
+  for (const row of rows) {
+    const { toolCall } = toolCallRowToLegacyNode(row);
+    const { family } = resolveToolCallIdentity(toolCall);
+    if (!canCollapseExecutionTool(row, family)) return null;
+    // 只汇总总次数会抹掉文件编辑、终端与浏览器的区别；按原始调用分类，
+    // 不按 Explore/Execute 包装组或截图张数计数，避免内层分组开关改变摘要。
+    const category = executionToolCategory(row, family, toolCall.input);
+    toolCounts[category] = (toolCounts[category] ?? 0) + 1;
+  }
   return {
     key: String(rows[0]!.rowId),
     reasoningCount: 0,
-    toolCount: rows.length,
+    toolCounts,
     running: rows.some((row) => row.status === "running" || row.status === "inputStreaming"),
   };
+}
+
+function executionToolCategory(
+  row: ToolCallRow,
+  family: ToolCallPresentationFamily,
+  input: unknown,
+): ExecutionActivityToolCategory {
+  switch (family) {
+    case "file-read":
+      return "read";
+    case "file-write":
+      return "edit";
+    case "shell":
+      return "terminal";
+    case "search":
+      return "search";
+    case "web-fetch":
+      return "web";
+    case "node-repl": {
+      const code =
+        input && typeof input === "object" && "code" in input && typeof input.code === "string"
+          ? input.code
+          : "";
+      // Node REPL 也能画图和运行普通脚本，不能见到图片就归为浏览器。
+      // Browser Runtime 的无状态调用会导入该入口并重新初始化；此判断只影响摘要文案。
+      if (code.includes("browser-client.mjs") && /\bsetupBrowserRuntime\s*\(/u.test(code))
+        return "browser";
+      const display = row.output?.display ?? row.display;
+      return row.cuaApp || (display?.kind === "node_repl_images" && display.app) ? "app" : "script";
+    }
+    default:
+      return "other";
+  }
 }
 
 const COLLAPSIBLE_TOOL_FAMILIES = new Set([
@@ -99,7 +146,7 @@ const COLLAPSIBLE_TOOL_FAMILIES = new Set([
   "session-context",
   "unknown",
 ]);
-function canCollapseExecutionTool(row: ToolCallRow): boolean {
+function canCollapseExecutionTool(row: ToolCallRow, family: ToolCallPresentationFamily): boolean {
   // 待用户处理和失败项必须跳出新增折叠层，不能等用户展开才发现阻塞原因。
   if (
     row.status === "pendingApproval" ||
@@ -110,13 +157,17 @@ function canCollapseExecutionTool(row: ToolCallRow): boolean {
   )
     return false;
   const display = row.output?.display ?? row.display;
-  if (display && display.kind !== "file_diff" && display.kind !== "mcp_tool") return false;
+  // 浏览器过程截图属于同一次工具调用；把所有图片 display 当作产物边界会让结果到达后
+  // 整条日志跳出折叠并拆组。仅轮尾最终截图独立外显，过程图和 app 身份保留在原组内。
+  if (display?.kind === "node_repl_images") {
+    if (display.source === "browser_turn_end") return false;
+  } else if (display && display.kind !== "file_diff" && display.kind !== "mcp_tool") {
+    return false;
+  }
   if (display?.kind === "mcp_tool" && (display.ui || display.unavailable)) return false;
   if (["EnterPlanMode", "CronCreate", "CronUpdate", "OffPeakCreate"].includes(row.toolName))
     return false;
-  return COLLAPSIBLE_TOOL_FAMILIES.has(
-    resolveToolCallIdentity(toolCallRowToLegacyNode(row).toolCall).family,
-  );
+  return COLLAPSIBLE_TOOL_FAMILIES.has(family);
 }
 
 export interface ConversationAssistantWorkRenderOptions {

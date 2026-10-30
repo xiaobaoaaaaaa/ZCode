@@ -503,6 +503,7 @@ export class BrowserGuestManager {
     // index.ts 接 BrowserWindow.fromId。不注入时该能力整体禁用，行为与旧版一致。
     private readonly resolveOwnerWindow?: (
       windowId: number,
+      guestWebContentsId?: number,
     ) => BrowserWindowForTransparentBootstrap | null,
     // CDP 命令流空闲多久后主动释放（detach）。guest renderer 被
     // Chromium 杀且 render-process-gone 未送达 main 时，destroyed 直达 + CDP attached 即
@@ -1818,7 +1819,7 @@ export class BrowserGuestManager {
     guest: GuestWebContents,
   ): TransparentWindowBootstrap | undefined {
     if (!this.resolveOwnerWindow) return undefined;
-    const win = this.resolveOwnerWindow(context.windowId);
+    const win = this.resolveOwnerWindow(context.windowId, guest.id);
     if (!win) return undefined;
     return (
       startBrowserScreenshotTransparentWindowBootstrap({

@@ -12,8 +12,152 @@ import {
 import { groupExecutionActivities } from "@/execution-activity/index.js";
 
 const SHOW_ALL_REASONING = { messageStreamShowReasoning: true } as const;
+const BROWSER_CODE =
+  "const { setupBrowserRuntime } = await import('/plugin/scripts/browser-client.mjs'); await setupBrowserRuntime({ globals: globalThis });";
 
 describe("execution activity projection", () => {
+  const screenshotDisplay = {
+    kind: "node_repl_images" as const,
+    images: [{ base64: "AAAA", mimeType: "image/png" }],
+  };
+
+  it.each([
+    ["Read", "read"],
+    ["Write", "edit"],
+    ["Edit", "edit"],
+    ["Bash", "terminal"],
+    ["Grep", "search"],
+    ["Glob", "search"],
+    ["WebFetch", "web"],
+    ["mcp__node_repl__js", "script"],
+    ["Skill", "other"],
+    ["mcp__custom__lookup", "other"],
+  ])("classifies %s by its tool identity", (name, category) => {
+    const item = buildRenderItems([toolCall(1, name!, {})])[0]!;
+    expect(describeAssistantWorkActivity(item)?.toolCounts).toEqual({ [category!]: 1 });
+  });
+
+  it("does not mistake ordinary image generation or a browser mention for browser automation", () => {
+    const row = toolCall(
+      1,
+      "mcp__node_repl__js",
+      { code: "console.log('browser-client.mjs setupBrowserRuntime')" },
+      { display: screenshotDisplay },
+    );
+    expect(describeAssistantWorkActivity(buildRenderItems([row])[0]!)?.toolCounts).toEqual({
+      script: 1,
+    });
+  });
+
+  it("reclassifies streaming input without duplicating the call or changing its anchor", () => {
+    const row = toolCall(1, "mcp__node_repl__js", undefined, {
+      inputText: '{"code":',
+      status: "inputStreaming",
+    });
+    const initial = describeAssistantWorkActivity(buildRenderItems([row])[0]!);
+    const updated = describeAssistantWorkActivity(
+      buildRenderItems([{ ...row, inputText: JSON.stringify({ code: BROWSER_CODE }) }])[0]!,
+    );
+    expect(initial).toMatchObject({ key: "1", toolCounts: { script: 1 } });
+    expect(updated).toMatchObject({ key: "1", toolCounts: { browser: 1 } });
+    expect(Object.values(updated!.toolCounts).reduce((sum, count) => sum + count, 0)).toBe(1);
+  });
+
+  it("counts original calls consistently with inner grouping enabled or disabled", () => {
+    const rows = [
+      toolCall(1, "Read", { file_path: "a.ts" }),
+      toolCall(2, "Read", { file_path: "a.ts" }),
+      toolCall(3, "Write", { file_path: "a.ts", content: "one" }),
+      toolCall(4, "Write", { file_path: "a.ts", content: "two" }),
+      toolCall(5, "Bash", { command: "node -v" }),
+      toolCall(6, "Bash", { command: "pnpm -v" }),
+    ];
+    for (const enabled of [true, false]) {
+      const items = buildRenderItems(rows, SHOW_ALL_REASONING, {
+        enableExploreGrouping: enabled,
+        enableChangesGrouping: enabled,
+        enableTerminalGrouping: enabled,
+      });
+      const groups = groupExecutionActivities(items, describeAssistantWorkActivity);
+      expect(groups).toMatchObject([{ key: "1", toolCounts: { read: 2, edit: 2, terminal: 2 } }]);
+      expect(groups).toHaveLength(1);
+    }
+  });
+
+  it.each(["row", "output"] as const)(
+    "keeps browser screenshot results in the same activity (%s display)",
+    (channel) => {
+      const pending = toolCall(
+        2,
+        "mcp__node_repl__js",
+        { code: BROWSER_CODE },
+        { status: "running" },
+      );
+      const result = {
+        ...pending,
+        status: "success" as const,
+        output: {
+          text: "BROWSER_EXECUTION_LOG",
+          ...(channel === "output" ? { display: screenshotDisplay } : {}),
+        },
+        ...(channel === "row" ? { display: screenshotDisplay } : {}),
+      };
+      const project = (row: ToolCallRow) =>
+        groupExecutionActivities(
+          buildRenderItems([row, toolCall(3, "Read", { file_path: "result.txt" })]),
+          describeAssistantWorkActivity,
+        );
+      expect(project(pending)).toMatchObject([
+        { kind: "activity", key: "2", toolCounts: { browser: 1, read: 1 } },
+      ]);
+      const updated = project(result);
+      expect(updated).toMatchObject([
+        { kind: "activity", key: "2", toolCounts: { browser: 1, read: 1 } },
+      ]);
+      const activity = updated[0];
+      expect(activity?.kind === "activity" && activity.items[0]).toMatchObject({
+        row: result,
+      });
+    },
+  );
+
+  it("keeps an app-only Node REPL result inside and honors canonical display precedence", () => {
+    const row = toolCall(
+      1,
+      "mcp__node_repl__js",
+      {},
+      {
+        display: { ...screenshotDisplay, source: "browser_turn_end" },
+        output: { display: { kind: "node_repl_images", app: { appKey: "test-app" } } },
+      },
+    );
+    expect(describeAssistantWorkActivity(buildRenderItems([row])[0]!)).toMatchObject({
+      toolCounts: { app: 1 },
+    });
+  });
+
+  it.each(["row", "output"] as const)(
+    "leaves the final screenshot outside (%s display)",
+    (channel) => {
+      const display = { ...screenshotDisplay, source: "browser_turn_end" as const };
+      const row = toolCall(
+        1,
+        "mcp__node_repl__js",
+        {},
+        channel === "row" ? { display } : { output: { display } },
+      );
+      expect(describeAssistantWorkActivity(buildRenderItems([row])[0]!)).toBeNull();
+    },
+  );
+
+  it.each(["pendingApproval", "error", "cancelled"] as const)(
+    "keeps a screenshot tool outside when %s requires attention",
+    (status) => {
+      const row = toolCall(1, "mcp__node_repl__js", {}, { status, display: screenshotDisplay });
+      expect(describeAssistantWorkActivity(buildRenderItems([row])[0]!)).toBeNull();
+    },
+  );
+
   it("counts visible thoughts and mixed tools without replacing the existing render items", () => {
     const items = buildRenderItems([
       reasoning(1),
@@ -24,7 +168,14 @@ describe("execution activity projection", () => {
     ]);
     expect(items.map((item) => item.kind)).toEqual(["row", "exploreGroup", "row", "row"]);
     expect(groupExecutionActivities(items, describeAssistantWorkActivity)).toEqual([
-      { kind: "activity", key: "1", reasoningCount: 1, toolCount: 4, running: true, items },
+      {
+        kind: "activity",
+        key: "1",
+        reasoningCount: 1,
+        toolCounts: { read: 2, edit: 1, terminal: 1 },
+        running: true,
+        items,
+      },
     ]);
   });
 
@@ -32,8 +183,14 @@ describe("execution activity projection", () => {
     const first = toolCall(2, "Read", { file_path: "a.ts" });
     const single = buildRenderItems([first]);
     const grouped = buildRenderItems([first, toolCall(3, "Read", { file_path: "b.ts" })]);
-    expect(describeAssistantWorkActivity(single[0]!)).toMatchObject({ key: "2", toolCount: 1 });
-    expect(describeAssistantWorkActivity(grouped[0]!)).toMatchObject({ key: "2", toolCount: 2 });
+    expect(describeAssistantWorkActivity(single[0]!)).toMatchObject({
+      key: "2",
+      toolCounts: { read: 1 },
+    });
+    expect(describeAssistantWorkActivity(grouped[0]!)).toMatchObject({
+      key: "2",
+      toolCounts: { read: 2 },
+    });
   });
 
   it.each(["pendingApproval", "error", "cancelled"] as const)(
@@ -76,7 +233,7 @@ describe("execution activity projection", () => {
       },
     );
     expect(groupExecutionActivities(items, describeAssistantWorkActivity)).toMatchObject([
-      { reasoningCount: 1, toolCount: 1 },
+      { reasoningCount: 1, toolCounts: { read: 1 } },
     ]);
   });
 
@@ -84,7 +241,7 @@ describe("execution activity projection", () => {
     const display = { kind: "mcp_tool", serverName: "example", toolName: "lookup" } as const;
     const row = toolCall(1, "mcp__example__lookup", {}, { display });
     expect(describeAssistantWorkActivity(buildRenderItems([row])[0]!)).toMatchObject({
-      toolCount: 1,
+      toolCounts: { other: 1 },
     });
     const withUi = {
       ...row,

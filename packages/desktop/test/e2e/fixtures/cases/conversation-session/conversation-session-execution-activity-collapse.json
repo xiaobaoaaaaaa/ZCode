@@ -29,6 +29,13 @@
       "syntheticReason": "固定流式阶段并由 UI 断言释放；工具仍真实执行，以验证追加、展开状态、正文边界和文件详情。"
     },
     {
+      "id": "activity-browser",
+      "kind": "main",
+      "source": "synthetic",
+      "timingPolicy": "controlled-stream",
+      "syntheticReason": "受控 provider 触发真实 Browser/Node REPL 截图，验证含图结果与日志共同折叠、图片预览及分组身份。"
+    },
+    {
       "id": "activity-boundary",
       "kind": "main",
       "source": "synthetic",

@@ -7,7 +7,10 @@ import {
 } from "@/components/ui/collapsible.js";
 import { Button } from "@/components/ui/button.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
-import type { ExecutionActivityDescriptor } from "./contract.js";
+import {
+  EXECUTION_ACTIVITY_TOOL_CATEGORIES,
+  type ExecutionActivityDescriptor,
+} from "./contract.js";
 
 export function ExecutionActivityGroup({
   activity,
@@ -19,19 +22,21 @@ export function ExecutionActivityGroup({
   const [open, setOpen] = useState(false);
   const { intl } = useZCodeIntl();
   const label = intl.formatMessage({ id: "chat.executionActivity.title" });
-  const counts = [
+  const summaries = [
     activity.reasoningCount > 0
       ? intl.formatMessage(
           { id: "chat.executionActivity.thinking" },
           { count: activity.reasoningCount },
         )
       : null,
-    activity.toolCount > 0
-      ? intl.formatMessage({ id: "chat.executionActivity.tools" }, { count: activity.toolCount })
-      : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+    ...EXECUTION_ACTIVITY_TOOL_CATEGORIES.map((category) => {
+      const count = activity.toolCounts[category] ?? 0;
+      return count > 0
+        ? intl.formatMessage({ id: `chat.executionActivity.${category}` }, { count })
+        : null;
+    }),
+  ].filter((summary): summary is string => summary !== null);
+  const counts = summaries.join(" · ");
   const status = intl.formatMessage({
     id: activity.running ? "chat.executionActivity.running" : "chat.executionActivity.completed",
   });
@@ -57,9 +62,19 @@ export function ExecutionActivityGroup({
                 : "size-4 shrink-0 transition-transform"
             }
           />
-          <span className="min-w-0 whitespace-normal">
-            {label}
-            <span className="ml-2 text-foreground-subtle">{counts}</span>
+          <span className="flex min-w-0 flex-wrap gap-x-1.5 text-foreground-subtle">
+            <span className="mr-0.5 whitespace-nowrap">{label}</span>
+            {summaries.map((summary, index) => (
+              // 类别和次数应作为一个短语换行，防止手机宽度把“搜索”拆成两行。
+              <span className="whitespace-nowrap" key={summary}>
+                {summary}
+                {index < summaries.length - 1 && (
+                  <span aria-hidden className="ml-1.5">
+                    ·
+                  </span>
+                )}
+              </span>
+            ))}
           </span>
           {activity.running ? (
             <Loader2Icon

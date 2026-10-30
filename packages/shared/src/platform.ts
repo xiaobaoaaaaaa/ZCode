@@ -698,7 +698,56 @@ export type ZCodeDataImportResult =
         | "copy-failed";
     };
 
+export const SIDE_PANE_WINDOW_PREFIX = "zcode-side-pane-";
+export const SIDE_PANE_VIEW_PREFIX = "zcode-pane-view-";
+
+export interface SidePaneViewLayout {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  visible: boolean;
+}
+
+export type SidePaneViewCommand =
+  | { key: string; action: "detach" | "dock" | "focus" | "capture" | "dispose" }
+  | { key: string; action: "title"; title: string }
+  | { key: string; action: "layout"; layout: SidePaneViewLayout }
+  | { key: string; action: "occlude"; occluded: boolean };
+
+/** 稳定原生宿主；container 只在本 renderer 使用，页面节点不跨 document 移动。 */
+export interface SidePaneViewHandle {
+  container: unknown;
+  setLayout(layout: SidePaneViewLayout): void;
+  detach(): Promise<void>;
+  dock(): Promise<void>;
+  focus(): void;
+  setTitle(title: string): void;
+  capture(): Promise<string | undefined>;
+  setOccluded(occluded: boolean): void;
+  dispose(): void;
+}
+
+/** 原窗口持有的辅助显示宿主；content 是 renderer DOM 引用，不经过 IPC。 */
+export interface SidePaneWindowHandle {
+  mount(content: unknown): void;
+  focus(): void;
+  setTitle(title: string): void;
+  close(): void;
+}
+
 export interface IPlatformService {
+  createSidePaneView?(request: {
+    key: string;
+    title: string;
+    onCloseRequested: () => void;
+  }): Promise<SidePaneViewHandle>;
+  /** Desktop-only；关闭请求由标签控制器先收回内容，再调用 handle.close。 */
+  openSidePaneWindow?(request: {
+    key: string;
+    title: string;
+    onCloseRequested: () => void;
+  }): Promise<SidePaneWindowHandle>;
   /** 本机数据副本，仅下次冷启动切换，来源和当前数据保持原样。 */
   importZCodeDirectory?(request: ZCodeDataImportRequest): Promise<ZCodeDataImportResult>;
   isImportedDataProfile?: boolean;

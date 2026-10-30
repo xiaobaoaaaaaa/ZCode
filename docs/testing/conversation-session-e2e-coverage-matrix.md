@@ -4293,3 +4293,11 @@ Linux Electron 重建后 run `desktop-e2e-20261014-120739-442`，TD01/03/04 1/1 
 2026-10-30 ME：M06k 改为 queue → guide；focused UT 24/24、fixture/typecheck/lint 通过。两次隔离 Electron 回放均止于 before-all（职业 Skip；其后模型选择按钮不可点击），发送断言未执行，维持 pending replay。artifact：`desktop-e2e-20261029-182852-461`。
 
 2026-10-30 ME 发布复验：修复 root ready 可见性及项目草稿准备后，Personal 完整源码构建的 case-local/default replay 均 2/2 通过（M06k/M06n）。使用现有 `ZCODE_E2E_CONTAINER=1` 的 X11/软件渲染参数，在本机 Linux 执行，没有执行 Docker 准入。证据：`desktop-e2e-20261030-014436-891`、`desktop-e2e-20261030-014549-251`。默认渲染路径的 pending 动画证据与限制见 `docs/desktop/startup-critical-path.md`。
+
+## SPW-004 子代理独立窗口（2026-10-30，pending）
+
+`conversation-session/manual-review/pending/conversation-session-side-pane-windows.test.ts`：真实 Agent runtime + case-local controlled child stream；检查 childSessionId 和标签身份、移出后的新文本、收回后的最终内容以及唯一 child provider 请求。2026-10-30 Linux X11 Electron 1/1 通过（`desktop-e2e-20261030-100857-859`）。case-local fixture 校验通过；保持 pending，未转正、未纳入 Docker。
+
+## SPW-005b Agent 浏览器独立窗口（2026-10-30，pending）
+
+`conversation-session/manual-review/pending/conversation-session-side-pane-browser-windows.test.ts`：真实 Agent Browser/CDP、同一 guest/内存/表单与唯一加载、移出后操作、过程截图及独立轮尾截图均通过；Linux X11 Electron 1/1（`desktop-e2e-20261030-101134-178`）。case-local fixture 校验通过，有终态输出标记不参与后续请求匹配的 warning。保持 pending，未转正或加入 Docker。完成历史与懒加载按现有组件交互展开/滚动，不能以图片未挂载误判截图后端失败。

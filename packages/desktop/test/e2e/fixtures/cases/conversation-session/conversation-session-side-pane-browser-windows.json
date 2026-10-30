@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "caseName": "conversation-session-side-pane-browser-windows",
+  "spec": "./test/e2e/conversation-session/conversation-session-side-pane-browser-windows.test.ts",
+  "providerFixtures": [
+    "./test/e2e/fixtures/upstream/common.json",
+    "./test/e2e/fixtures/upstream/conversation-session/conversation-session-side-pane-browser-windows.json"
+  ],
+  "fileFixtures": [],
+  "requests": [
+    {
+      "id": "spw-browser-0",
+      "description": "窗口浏览器标题",
+      "kind": "common",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "控制模型输出以验证真实 Browser guest、CDP、移动及截图链路，不模拟浏览器执行。"
+    },
+    {
+      "id": "spw-browser-1",
+      "description": "创建真实 Agent Browser 并留下页面现场",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "控制模型输出以验证真实 Browser guest、CDP、移动及截图链路，不模拟浏览器执行。"
+    },
+    {
+      "id": "spw-browser-2",
+      "description": "窗口移动后操作同一页并截图",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "控制模型输出以验证真实 Browser guest、CDP、移动及截图链路，不模拟浏览器执行。"
+    },
+    {
+      "id": "spw-browser-3",
+      "description": "结束回合验证自动截图",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "控制模型输出以验证真实 Browser guest、CDP、移动及截图链路，不模拟浏览器执行。"
+    }
+  ]
+}

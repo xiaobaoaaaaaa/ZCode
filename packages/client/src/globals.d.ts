@@ -77,6 +77,9 @@ declare global {
       consumeUserGesture(sandboxId: string): Promise<boolean>;
     };
     zcode: {
+      closeSidePaneWindow(key: string): void;
+      sidePaneViewCommand(command: import("@zcode/shared").SidePaneViewCommand): Promise<unknown>;
+      onSidePaneWindowCloseRequested(callback: (key: string) => void): () => void;
       connectRemote(
         options: RemoteTarget,
         requestId?: string,

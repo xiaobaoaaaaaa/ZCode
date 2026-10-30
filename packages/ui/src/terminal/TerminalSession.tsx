@@ -9,6 +9,7 @@ import type { IServiceAccessor } from "@zcode/services";
 import type { IDisposable } from "@zcode/rpc";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { logger } from "@/logger.js";
+import { SIDE_PANE_WINDOW_MOVED_EVENT } from "@/side-pane-windows/index.js";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -317,6 +318,22 @@ export function TerminalSession({
       requestFocus();
     }
   }, [isVisible, requestFocus, scheduleFitAndResize]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    const host = container?.closest("[data-side-pane-window-host]");
+    if (!host) return;
+    const handleMove = () => {
+      const term = termRef.current;
+      if (!term || !container) return;
+      // xterm 的 open 对已有实例仅重绑 owner window；直接搬 DOM 会遗留旧窗口的 DPR/绘制监听。
+      term.open(container);
+      scheduleFitAndResize("visible");
+      requestFocus();
+    };
+    host.addEventListener(SIDE_PANE_WINDOW_MOVED_EVENT, handleMove);
+    return () => host.removeEventListener(SIDE_PANE_WINDOW_MOVED_EVENT, handleMove);
+  }, [requestFocus, scheduleFitAndResize]);
 
   useEffect(() => {
     const wasResizing = isPanelResizingRef.current;

@@ -1,0 +1,150 @@
+{
+  "version": 1,
+  "caseName": "conversation-session-side-pane-windows",
+  "spec": "./test/e2e/conversation-session/conversation-session-side-pane-windows.test.ts",
+  "fixtures": [
+    {
+      "id": "spw-title",
+      "metadata": {
+        "kind": "common",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "标题不参与窗口迁移断言。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": [
+          "Generate a concise title",
+          "E2E_SPW_PARENT"
+        ]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": "{\"title\":\"Side pane windows\"}"
+      }
+    },
+    {
+      "id": "spw-agent",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-tool-use",
+        "source": "synthetic",
+        "syntheticReason": "固定一次真实 child 调用，以核对迁移不会重复创建 Agent。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "lastUserMessageIncludes": [
+          "E2E_SPW_PARENT"
+        ],
+        "bodyExcludes": [
+          "Generate a concise title",
+          "CRITICAL: Respond with TEXT ONLY"
+        ]
+      },
+      "response": {
+        "statusCode": 200,
+        "toolUse": {
+          "id": "toolu_spw_agent",
+          "name": "Agent",
+          "inputTokens": 32,
+          "input": {
+            "description": "E2E_SPW_AGENT",
+            "prompt": "E2E_SPW_CHILD: respond with E2E_SPW_CHILD_START and E2E_SPW_CHILD_DONE.",
+            "subagent_type": "general-purpose",
+            "run_in_background": false
+          }
+        }
+      }
+    },
+    {
+      "id": "spw-child",
+      "metadata": {
+        "kind": "subagent",
+        "timingPolicy": "controlled-stream",
+        "source": "synthetic",
+        "syntheticReason": "真实子代理先输出首段，移出完成后由测试释放末段，验证持续订阅而非历史快照。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "lastUserMessageIncludes": [
+          "E2E_SPW_CHILD:"
+        ],
+        "bodyExcludes": [
+          "Generate a concise title",
+          "CRITICAL: Respond with TEXT ONLY"
+        ]
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "content-type": "text/event-stream; charset=utf-8"
+        },
+        "releaseAfterChunks": 1,
+        "chunks": [
+          {
+            "offsetMs": 0,
+            "text": "event: message_start\ndata: {\"type\": \"message_start\", \"message\": {\"id\": \"spw-child\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"deepseek-v4-flash\", \"content\": [], \"stop_reason\": null, \"usage\": {\"input_tokens\": 32, \"output_tokens\": 0}}}\n\nevent: content_block_start\ndata: {\"type\": \"content_block_start\", \"index\": 0, \"content_block\": {\"type\": \"text\", \"text\": \"\"}}\n\nevent: content_block_delta\ndata: {\"type\": \"content_block_delta\", \"index\": 0, \"delta\": {\"type\": \"text_delta\", \"text\": \"E2E_SPW_CHILD_START\\n\"}}\n\n"
+          },
+          {
+            "offsetMs": 1,
+            "text": "event: content_block_delta\ndata: {\"type\": \"content_block_delta\", \"index\": 0, \"delta\": {\"type\": \"text_delta\", \"text\": \"E2E_SPW_CHILD_DONE\"}}\n\nevent: content_block_stop\ndata: {\"type\": \"content_block_stop\", \"index\": 0}\n\nevent: message_delta\ndata: {\"type\": \"message_delta\", \"delta\": {\"stop_reason\": \"end_turn\"}, \"usage\": {\"output_tokens\": 20}}\n\nevent: message_stop\ndata: {\"type\": \"message_stop\"}\n\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "spw-finish",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "固定父轮结束，便于清理真实 session。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": [
+          "E2E_SPW_PARENT",
+          "agentId: agent_"
+        ],
+        "bodyExcludes": [
+          "Generate a concise title",
+          "CRITICAL: Respond with TEXT ONLY"
+        ]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": "E2E_SPW_PARENT_DONE"
+      }
+    },
+    {
+      "id": "spw-compact",
+      "metadata": {
+        "kind": "common",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "测试环境的小上下文压缩不参与窗口断言。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": [
+          "E2E_SPW_PARENT",
+          "CRITICAL: Respond with TEXT ONLY"
+        ]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": "Keep the E2E_SPW_AGENT child and return E2E_SPW_PARENT_DONE once it finishes."
+      }
+    }
+  ]
+}

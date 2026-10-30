@@ -85,3 +85,16 @@
 - 2026-10-17 转正（用户确认 review）：ui-shell 移到 `ui-shell/side-pane-full-view.test.ts`；provider 用例经 `e2e:promote --reviewed --apply` 移到 `conversation-session/conversation-session-side-pane-full-view.test.ts`，`audit:conversation-session-coverage` 通过，正式路径 `e2e:fixture:check` 通过。新增断言：运行中占位「工作中 N 秒」与流式消息同值（008）、回答气泡弹出 / 切回仍在 / 点击展开 / × 关闭（007、008）。macOS Electron 正式路径：provider 显式回放 2/2（`desktop-e2e-20261016172121606-p45655-10a0c044cbc26349`）、默认回放 2/2、ui-shell 7/7、SPT 8/8。Docker 隔离运行与 preset 准入未执行（本机 Docker daemon 未启动）；Windows/Linux 未执行。
 - 转正时的运行时定位：正式回放下回答很快，整轮在一次渲染批次里结束，`data-running` 从未为 true；气泡改为「基线之后出现的已结束回合才弹出」，不再要求观察到运行中。
 - provider 用例需要 case-local 的标题与 compact 响应：manual-review 小上下文窗口每轮都会自动 compact，compact 失败会退避重试并把后续输入留在队列。
+
+## 标签独立窗口（SPW，2026-10-30，pending）
+
+| Case          | 状态                                               | 验证入口                                                                                  |
+| ------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| SPW-001 / 003 | Linux passed（native close / hide）；destroy 为 UT | ui-shell/manual-review/pending/side-pane-windows.test.ts                                  |
+| SPW-002       | Linux X11 原生拖出/拖回 passed；排序/Escape 待补   | 同上                                                                                      |
+| SPW-004       | Linux passed                                       | conversation-session/manual-review/pending/conversation-session-side-pane-windows.test.ts |
+| SPW-005a / 005b | Linux X11 passed，human / Agent 同页状态保留与截图 | ui-shell/manual-review/pending/side-pane-browser-windows.test.ts；conversation-session/manual-review/pending/conversation-session-side-pane-browser-windows.test.ts |
+| SPW-006       | unit passed（含 StrictMode）                       | packages/ui/test/sidePaneWindowController.test.ts；useSidePaneWindows.test.ts             |
+| SPW-007       | Linux passed；Web/mobile 未执行                    | 独立窗口弹层、中英 × 亮暗、360px 布局                                                     |
+
+新候选保持 pending，不加入正式或 Docker 套件。UI 5/5 通过：`desktop-e2e-20261030-101009-426`；human browser 1/1：`desktop-e2e-20261030-100739-825`；Agent browser 1/1：`desktop-e2e-20261030-101134-178`；定向 UT 12 文件 / 258 项、根 typecheck、lint（96 项既有 warning）及架构检查通过。完整限制与定位记录见 `docs/ui/side-pane-windows.md`。

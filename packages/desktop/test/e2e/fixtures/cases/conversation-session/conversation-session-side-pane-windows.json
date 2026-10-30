@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "caseName": "conversation-session-side-pane-windows",
+  "spec": "./test/e2e/conversation-session/conversation-session-side-pane-windows.test.ts",
+  "providerFixtures": [
+    "./test/e2e/fixtures/upstream/common.json",
+    "./test/e2e/fixtures/upstream/conversation-session/conversation-session-side-pane-windows.json"
+  ],
+  "fileFixtures": [],
+  "requests": [
+    {
+      "id": "spw-title",
+      "kind": "common",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "标题不参与窗口迁移断言。"
+    },
+    {
+      "id": "spw-agent",
+      "kind": "main",
+      "timingPolicy": "fast-tool-use",
+      "source": "synthetic",
+      "syntheticReason": "固定一次真实 child 调用，以核对迁移不会重复创建 Agent。"
+    },
+    {
+      "id": "spw-child",
+      "kind": "subagent",
+      "timingPolicy": "controlled-stream",
+      "source": "synthetic",
+      "syntheticReason": "真实子代理先输出首段，移出完成后由测试释放末段，验证持续订阅而非历史快照。"
+    },
+    {
+      "id": "spw-finish",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "固定父轮结束，便于清理真实 session。"
+    },
+    {
+      "id": "spw-compact",
+      "kind": "common",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "测试环境的小上下文压缩不参与窗口断言。"
+    }
+  ]
+}

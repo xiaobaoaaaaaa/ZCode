@@ -23,6 +23,7 @@ interface GuestWebContentsForScreenshotActivity {
 export function createDesktopBrowserScreenshotSurfaceCoordinator(options: {
   fromId(windowId: number): BrowserWindowForScreenshotSurface | null;
   fromWebContentsId(webContentsId: number): GuestWebContentsForScreenshotActivity | null;
+  resolvePresentation?: ConstructorParameters<typeof DesktopBrowserScreenshotActivityController>[0]["resolvePresentation"];
   log?(message: string): void;
   warn?(message: string): void;
   timeoutMs?: number;
@@ -33,6 +34,7 @@ export function createDesktopBrowserScreenshotSurfaceCoordinator(options: {
   const activityController = new DesktopBrowserScreenshotActivityController({
     fromId: options.fromId,
     fromWebContentsId: options.fromWebContentsId,
+    resolvePresentation: options.resolvePresentation,
     allowTransparentWindowBootstrap:
       options.allowTransparentWindowBootstrap ??
       (process.platform === "darwin" || process.platform === "win32"),

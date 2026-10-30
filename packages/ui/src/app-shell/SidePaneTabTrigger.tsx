@@ -57,6 +57,10 @@ export function SortableSidePaneTabTrigger({
   onCloseOtherTabs,
   onCloseAllTabs,
   canCloseOtherTabs,
+  onDetachTab,
+  detachTabLabel,
+  onDockTab,
+  dockTabLabel,
 }: {
   tab: WorkspaceSidePaneTab;
   title: string;
@@ -71,6 +75,10 @@ export function SortableSidePaneTabTrigger({
   onCloseOtherTabs: (tabId: string) => void;
   onCloseAllTabs: () => void;
   canCloseOtherTabs: boolean;
+  onDetachTab?: (tabId: string) => void;
+  detachTabLabel?: string;
+  onDockTab?: (tabId: string) => void;
+  dockTabLabel?: string;
 }) {
   const wasDraggingRef = useRef(false);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -192,6 +200,12 @@ export function SortableSidePaneTabTrigger({
         <ContextMenuTrigger asChild>{tabTrigger}</ContextMenuTrigger>
       </SidePaneTabTitleTooltip>
       <ContextMenuContent className="w-44">
+        {onDetachTab ? (
+          <ContextMenuItem onSelect={() => onDetachTab(tab.id)}>{detachTabLabel}</ContextMenuItem>
+        ) : null}
+        {onDockTab ? (
+          <ContextMenuItem onSelect={() => onDockTab(tab.id)}>{dockTabLabel}</ContextMenuItem>
+        ) : null}
         <ContextMenuItem onSelect={() => onCloseTab(tab.id)}>{closeTabMenuLabel}</ContextMenuItem>
         <ContextMenuItem disabled={!canCloseOtherTabs} onSelect={() => onCloseOtherTabs(tab.id)}>
           {closeOtherTabsLabel}

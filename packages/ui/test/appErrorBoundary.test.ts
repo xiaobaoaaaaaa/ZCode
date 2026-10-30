@@ -1,4 +1,5 @@
 import { createElement } from "react";
+import { runInNewContext } from "node:vm";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppErrorBoundary, ScopedErrorBoundary } from "@/ErrorBoundary.js";
@@ -24,6 +25,14 @@ afterEach(() => {
 });
 
 describe("AppErrorBoundary", () => {
+  it("保留独立窗口 realm 的异常内容", () => {
+    const error = runInNewContext('new TypeError("foreign document failure")') as Error;
+    expect(error instanceof Error).toBe(false);
+    const state = ScopedErrorBoundary.getDerivedStateFromError(error);
+    expect(state.error?.message).toBe(error.message);
+    expect(state.error?.stack).toBe(error.stack);
+    expect(state.error?.name).toBe("TypeError");
+  });
   it("出错后会渲染 fallback，而不是返回空白内容", () => {
     const boundary = new AppErrorBoundary({
       children: createElement("div", null, "ok"),

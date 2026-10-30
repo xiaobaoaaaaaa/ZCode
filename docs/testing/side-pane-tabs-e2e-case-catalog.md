@@ -188,3 +188,20 @@ SPT-E2E-009 补充：末标签关闭后面板收起且无补建；重新展开�
 - 完整视图切换不得重新挂载 SessionPane，不得写入面板占比或侧栏宽度持久化。
 - 浮窗与对话 tab 共用同一份草稿。
 - 面板 tab 的 webview / 终端实例在 surface 切换时保持挂载。
+
+## 独立窗口（SPW，2026-10-30）
+
+产品规则见 [side-pane-windows](../ui/side-pane-windows.md)。SPW-001～007 均已接受；SPW-005 按用户确认的页面现场保留规则验证，详见下文。
+
+- SPW-001/003：真实终端设置 shell 变量并输出进程 ID；从右键移出、输入新命令、关闭辅助窗口收回，再输出变量和进程 ID。断言进程、标签 ID、历史与输入连续性；原生窗口数量增减。
+- SPW-002：同窗排序不移出，拖出客户区移出，辅助窗口标题拖回原侧栏；未知来源拖放不改变本窗标签，取消不移动。
+- SPW-004：原 childSessionId 的流式子代理输出在移出、收回中持续更新，不产生新 child。
+- SPW-006：窗口创建失败、重复点击、创建期间收回或卸载、StrictMode 再挂载，以有控制的 Promise 单测验证事务。
+- SPW-007：终端右键菜单在辅助 document 内；两种主题、两种语言、窄窗口；普通 Web 不暴露原生窗口入口。
+
+剪枝：显示迁移不改变 provider/model、CommandInbox 或 mobile replay，相关组合保持既有所有者不变量。浏览器状态保留、插件沙箱独立宿主等尚无验收结论，不计为覆盖。
+
+### SPW-005 保留浏览器页面现场（2026-10-30 confirmed）
+
+用户明确选择必须保留页面现场。SPW-005a human 和 SPW-005b agent 为 accepted：首次创建后不改变 guest ID、document、JS token、未提交输入、Canvas、滚动和历史；移出/收回不能触发刷新或 CDP replacement，真实在途请求和 Agent 操作继续。同步覆盖原窗口覆盖层、权限路由和关闭 ACK；允许刷新方案 pruned，因为违反用户要求。
+SPW-005b 的 provider fixture 使用正常上下文窗口；自动 compact 会替换工具历史，与本例的同页操作、过程截图及轮尾截图断言无关，予以剪枝，另由 compact 用例覆盖。

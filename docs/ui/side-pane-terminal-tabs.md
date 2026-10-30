@@ -16,7 +16,7 @@ Workspace 现在有底部 Terminal 面板，也有右侧 side pane tabs。用户
 - 每个 side pane Terminal tab 对应一个独立终端实例，内部不再嵌套 terminal tabs，也不提供第二层新建终端按钮。
 - side pane Terminal tab 复用底层 `TerminalSession` 能力，因此仍支持 xterm 主题、链接打开和复制粘贴行为。
 - 底部 Terminal 面板保持原有行为，不和 side pane Terminal tab 共享终端 session 状态。
-- 关闭某个 side pane Terminal tab 会卸载该 tab 内部的 `TerminalSession`，并释放对应终端进程；切换到其他 side pane tab 或收起 side pane 时保持挂载，不中断正在运行的命令。
+- 关闭某个 side pane Terminal tab 通过 `sidePaneTerminalSessionRegistry.release` 释放对应终端进程。组件卸载仅把显示节点移入暂存容器；切换工作区、切换标签或收起 side pane 不终止 PTY，也不清空 xterm 历史。
 
 ## 兼容边界
 
