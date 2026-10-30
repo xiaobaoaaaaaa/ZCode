@@ -1832,3 +1832,6 @@ SubagentRunRequest.modelSelection → runner 执行 profile 副本及 registry �
 ModelFactory → 既有 child session/model-change 事件。ListModels 解除工作流专属灰度，保持 deferred。
 检查 schema/provider 文案、错误无启动、前后台、SendMessage、父/兄弟隔离及执行绑定拒绝；
 不新增权限、UI/V4 字段、存储迁移或模型请求旁路。规格和 SAM01–06 见 07-subagent.md。
+## Personal 用户数据根
+
+独立 Desktop 用 `ZCODE_PROFILE_ROOT_DIR` 定位用户级配置与全局工作流档案，合同见 [导入与独立根](../imported-desktop-profile.md)。ListSavedWorkflows / RunWorkflow / SaveWorkflow 的全局查找与写入沿用同一 store，仅替换用户根；项目级覆盖、参数、结果、权限和历史格式不变。用户 skills/commands/instructions 同步跟随该根。验证官方根中的同名文件不被自动读取，Personal 根与项目根仍按原优先级工作。

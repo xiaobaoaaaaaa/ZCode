@@ -17,6 +17,8 @@ supportedArchitectures:
   libc:
     - current
     - glibc
+    # Linux 也收集已登记的 musl 可选包，避免跨平台声明生成误报 override 过期。
+    - musl
 allowBuilds:
   cpu-features: true
   edgedriver: true

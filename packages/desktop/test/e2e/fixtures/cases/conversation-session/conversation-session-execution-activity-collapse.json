@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "caseName": "conversation-session-execution-activity-collapse",
+  "spec": "./test/e2e/conversation-session/conversation-session-execution-activity-collapse.test.ts",
+  "providerFixtures": [
+    "./test/e2e/fixtures/upstream/common.json",
+    "./test/e2e/fixtures/upstream/conversation-session/conversation-session-execution-activity-collapse.json"
+  ],
+  "fileFixtures": [
+    {
+      "path": ".zcode-e2e/conversation-session-execution-activity-collapse",
+      "source": "created-by-spec",
+      "description": "测试独占的 Read/Write 文件。"
+    }
+  ],
+  "requests": [
+    {
+      "id": "activity-read",
+      "kind": "main",
+      "source": "synthetic",
+      "timingPolicy": "tool-use",
+      "syntheticReason": "固定流式阶段并由 UI 断言释放；工具仍真实执行，以验证追加、展开状态、正文边界和文件详情。"
+    },
+    {
+      "id": "activity-append",
+      "kind": "main",
+      "source": "synthetic",
+      "timingPolicy": "controlled-stream",
+      "syntheticReason": "固定流式阶段并由 UI 断言释放；工具仍真实执行，以验证追加、展开状态、正文边界和文件详情。"
+    },
+    {
+      "id": "activity-boundary",
+      "kind": "main",
+      "source": "synthetic",
+      "timingPolicy": "controlled-stream",
+      "syntheticReason": "固定流式阶段并由 UI 断言释放；工具仍真实执行，以验证追加、展开状态、正文边界和文件详情。"
+    },
+    {
+      "id": "activity-finish",
+      "kind": "main",
+      "source": "synthetic",
+      "timingPolicy": "controlled-stream",
+      "syntheticReason": "固定流式阶段并由 UI 断言释放；工具仍真实执行，以验证追加、展开状态、正文边界和文件详情。"
+    },
+    {
+      "id": "activity-title",
+      "kind": "common",
+      "source": "synthetic",
+      "timingPolicy": "fast-text",
+      "syntheticReason": "标题与折叠断言无关。"
+    }
+  ]
+}

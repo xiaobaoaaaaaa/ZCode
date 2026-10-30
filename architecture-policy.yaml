@@ -733,6 +733,58 @@ modules:
       ui: .
     owner: conversation
 
+  # data-import：由 architecture:adopt 登记
+  - id: data-import
+    roots:
+      - packages/services/src/data-import
+    managed: true
+    requires: [shared]
+    publicEntrypoints:
+      - packages/services/src/data-import/index.ts
+      - packages/services/src/data-import/contract.ts
+      - packages/services/src/data-import/bootstrap.ts
+    layers:
+      adapters: .
+    owner: desktop-settings
+  # data-import-ui：由 architecture:adopt 登记
+  - id: data-import-ui
+    roots:
+      - packages/ui/src/settings/data-import
+    managed: true
+    requires: [shared, ui]
+    publicEntrypoints:
+      - packages/ui/src/settings/data-import/index.ts
+      - packages/ui/src/settings/data-import/contract.ts
+    layers:
+      ui: .
+    owner: desktop-settings
+
+  # execution-activity：由 architecture:adopt 登记
+  - id: execution-activity
+    roots:
+      - packages/ui/src/execution-activity
+    managed: true
+    requires: [ui]
+    publicEntrypoints:
+      - packages/ui/src/execution-activity/index.ts
+      - packages/ui/src/execution-activity/contract.ts
+    layers:
+      ui: .
+    owner: conversation
+
+  # conversation-continuation：中断后的共享输入区继续入口
+  - id: conversation-continuation
+    roots:
+      - packages/ui/src/conversation-continuation
+    managed: true
+    requires: [shared, ui]
+    publicEntrypoints:
+      - packages/ui/src/conversation-continuation/index.ts
+      - packages/ui/src/conversation-continuation/contract.ts
+    layers:
+      ui: .
+    owner: conversation
+
 global:
   # 临时时间戳（2026-09-10）：unmanaged-new-file 只约束此日期之后首次入库的文件。
   # 基于领先 staging 很多的分支开工时，merge-base 之前的"新增"文件不应被追溯。

@@ -1152,10 +1152,54 @@ describe("ConversationTurnGroup assistant history status", () => {
       }),
     );
 
-    expect(tailHtml).toContain('data-tool-call-id="tool-10"');
+    // 运行中的单项从收起状态开始；Explore 的单项不建父组规则仍由投影单测覆盖。
+    expect(tailHtml).toContain('data-execution-activity="10"');
+    expect(tailHtml).toContain('aria-expanded="false"');
     expect(tailHtml).not.toContain('data-tool-call-id="explore:tool-10"');
     expect(tailHtml).not.toContain("animated-gradient-text");
     expect(boundedHtml).not.toContain("animated-gradient-text");
+  });
+
+  it.each([false, true])(
+    "collapses mixed running activity around visible text (remote=%s)",
+    (compactForRemoteControl) => {
+      const rows = [
+        reasoningRow(),
+        toolCallRow(4, "Read", { file_path: "seed.txt" }),
+        assistantTextRow(5, { text: "正文始终可见" }),
+        toolCallRow(6, "Write", { file_path: "result.txt", content: "hello" }),
+        toolCallRow(7, "Bash", { command: "pwd" }, { status: "running" }),
+      ];
+      const [unit] = buildConversationTurnRenderUnits([
+        turnHeader({ state: "running" }),
+        userInputRow(2),
+        ...rows,
+      ]);
+      const html = renderUnit(unit!, { messageStreamShowReasoning: true, compactForRemoteControl });
+      expect(html.match(/data-testid="execution-activity-trigger"/g)).toHaveLength(2);
+      expect(html).toContain("1 段思考 · 1 次工具调用");
+      expect(html).toContain("2 次工具调用 · 执行中");
+      expect(html).toContain("正文始终可见");
+      expect(html).not.toContain('data-tool-call-id="tool-4"');
+      expect(html).not.toContain('data-tool-call-id="tool-6"');
+      expect(html).toContain('data-execution-activity="3"');
+      expect(html).toContain('data-execution-activity="6"');
+    },
+  );
+
+  it("leaves a failed tool visible between closed activity groups", () => {
+    const [unit] = buildConversationTurnRenderUnits([
+      turnHeader({ state: "running" }),
+      userInputRow(2),
+      reasoningRow(),
+      toolCallRow(4, "Bash", { command: "exit 1" }, { status: "error" }),
+      toolCallRow(5, "Read", { file_path: "seed.txt" }),
+    ]);
+    const html = renderUnit(unit!, { messageStreamShowReasoning: true, locale: "en-US" });
+    expect(html.match(/data-testid="execution-activity-trigger"/g)).toHaveLength(2);
+    expect(html).toContain("Activity · Thoughts: 1");
+    expect(html).toContain('data-tool-call-id="tool-4"');
+    expect(html).not.toContain('data-tool-call-id="tool-5"');
   });
 
   it("labels a completed turn as worked with the final duration", () => {

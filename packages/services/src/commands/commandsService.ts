@@ -1,3 +1,4 @@
+import { getZCodeUserRootDir, resolveImportedZCodePath } from "../paths.js";
 /* eslint-disable max-lines -- commandsService 需要集中处理目录来源优先级、读写和命令解析，拆分会削弱读取顺序的一致性 */
 import { access, lstat, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -82,11 +83,13 @@ function getCommandSourceDescriptor(
 
 function getUserCommandsRoot(agentSource?: CommandAgentSource): string {
   const descriptor = getCommandSourceDescriptor(agentSource);
-  return join(resolveUserHomeDir(), ...descriptor.userDirectorySegments);
+  return descriptor.userDirectorySegments[0] === ".zcode"
+    ? join(getZCodeUserRootDir(), ...descriptor.userDirectorySegments.slice(1))
+    : join(resolveUserHomeDir(), ...descriptor.userDirectorySegments);
 }
 
 function getUserCliConfigPath(): string {
-  return join(resolveUserHomeDir(), ".zcode", "cli", "config.json");
+  return join(getZCodeUserRootDir(), "cli", "config.json");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -218,6 +221,7 @@ function readPluginConfigFromConfig(config: Record<string, unknown>): PluginConf
 }
 
 function resolveConfigPath(path: string): string {
+  path = resolveImportedZCodePath(path);
   const expanded = path.startsWith(HOME_PREFIX)
     ? join(resolveUserHomeDir(), path.slice(HOME_PREFIX.length))
     : path;
@@ -417,7 +421,9 @@ async function resolvePluginCommandRootDescriptors(): Promise<PluginCommandRootD
 }
 
 function getUserCommandsRootForDescriptor(descriptor: CommandAgentSourceDescriptor): string {
-  return join(resolveUserHomeDir(), ...descriptor.userDirectorySegments);
+  return descriptor.userDirectorySegments[0] === ".zcode"
+    ? join(getZCodeUserRootDir(), ...descriptor.userDirectorySegments.slice(1))
+    : join(resolveUserHomeDir(), ...descriptor.userDirectorySegments);
 }
 
 function getCommandsRootForStorage(params: {

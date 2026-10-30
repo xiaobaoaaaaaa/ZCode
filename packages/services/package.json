@@ -6,6 +6,8 @@
     "#src/*": "./src/*"
   },
   "exports": {
+    "./data-import": "./src/data-import/index.ts",
+    "./data-import/bootstrap": "./src/data-import/bootstrap.ts",
     "./storage-startup": "./src/project-storage/startup-entry.ts",
     ".": "./src/index.ts",
     "./cua-permission-broker": "./src/cua-permission-broker/index.ts",

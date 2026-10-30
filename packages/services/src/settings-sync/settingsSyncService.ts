@@ -1,3 +1,4 @@
+import { getZCodeUserRootDir } from "../paths.js";
 /* eslint-disable max-lines -- settings-sync 需要集中维护外部 skills/commands/plugins/MCP 扫描、去重和导入状态机，后续按资源类别拆分 */
 import type {
   McpServerConfig,
@@ -416,7 +417,7 @@ function getWorkspaceZcodeSkillRoot(workspacePath: string): string {
 }
 
 function getUserZcodeSkillRoot(): string {
-  return join(resolveUserHomeDir(), ".zcode", "skills");
+  return join(getZCodeUserRootDir(), "skills");
 }
 
 function getWorkspaceZcodeCommandRoot(workspacePath: string): string {
@@ -424,7 +425,7 @@ function getWorkspaceZcodeCommandRoot(workspacePath: string): string {
 }
 
 function getUserZcodeCommandRoot(): string {
-  return join(resolveUserHomeDir(), ".zcode", "commands");
+  return join(getZCodeUserRootDir(), "commands");
 }
 
 function getWorkspaceZcodePluginRoot(workspacePath: string): string {
@@ -432,11 +433,11 @@ function getWorkspaceZcodePluginRoot(workspacePath: string): string {
 }
 
 function getUserZcodePluginRoot(): string {
-  return join(resolveUserHomeDir(), ".zcode", "plugins");
+  return join(getZCodeUserRootDir(), "plugins");
 }
 
 function getUserZcodeCliConfigPath(): string {
-  return join(resolveUserHomeDir(), ".zcode", "cli", "config.json");
+  return join(getZCodeUserRootDir(), "cli", "config.json");
 }
 
 function getWorkspaceZcodeConfigPath(workspacePath: string): string {
@@ -448,7 +449,7 @@ function getClaudeUserAgentsFileSourcePath(): string {
 }
 
 function getUserZcodeAgentsFilePath(): string {
-  return join(resolveUserHomeDir(), ".zcode", "AGENTS.md");
+  return join(getZCodeUserRootDir(), "AGENTS.md");
 }
 
 function resolveTargetRootForScope(

@@ -14,6 +14,8 @@ export function createDesktopPlatform(options: {
     createLocalMediaPreviewUrl: buildLocalMediaPreviewUrl,
     isLocalDevelopmentRuntime: options.isLocalDevelopmentRuntime,
     selectDirectory: () => window.zcode.selectDirectory(),
+    isImportedDataProfile: window.zcode.isImportedDataProfile,
+    importZCodeDirectory: (request) => window.zcode.importZCodeDirectory(request),
     selectDirectories: () => window.zcode.selectDirectories(),
     selectFile: () => window.zcode.selectFile(),
     selectFiles: () => window.zcode.selectFiles?.() ?? Promise.resolve([]),

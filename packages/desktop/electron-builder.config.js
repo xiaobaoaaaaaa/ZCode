@@ -22,7 +22,10 @@ import {
   resolveDesktopProductIdentity,
 } from "./scripts/desktop-product-identity.mjs";
 import { createWindowsPowerShellSecurityArgs } from "./scripts/powershell-command.mjs";
-import { isSharpRequiredByComputerUse, verifyStagedSharp } from "./scripts/sharp-package-assets.mjs";
+import {
+  isSharpRequiredByComputerUse,
+  verifyStagedSharp,
+} from "./scripts/sharp-package-assets.mjs";
 import { isRealComputerUseProducerInstalled } from "./scripts/computer-use-producer.mjs";
 import { verifyStagedKoffi } from "./scripts/koffi-package-assets.mjs";
 import {
@@ -246,7 +249,9 @@ const PACKAGING_PRUNE_PATTERNS = [
 
 function buildDesktopArtifactName(platformName, extension = "${ext}") {
   // 测试环境产物必须和正式安装包文件名区分，避免上传、下载或人工验收时混用。
-  return `\${productName}-\${version}-${platformName}-\${arch}${desktopArtifactEnvSuffix}.${extension}`;
+  const artifactProductName =
+    desktopProductIdentity.flavor === "personal" ? "ZCode-Personal" : "${productName}";
+  return `${artifactProductName}-\${version}-${platformName}-\${arch}${desktopArtifactEnvSuffix}.${extension}`;
 }
 
 function runAsarCommand(args) {
@@ -809,9 +814,9 @@ export default {
   protocols: [
     {
       // 协议处理器的展示名之前使用小写 scheme，打包产物里的协议描述无法体现产品名。
-      // 展示名跟随安装包身份；scheme 仍保持 zcode，因此两个应用中最后注册者会成为默认 handler。
+      // 展示名和 Personal scheme 跟随安装身份，避免覆盖官方 zcode 协议处理器。
       name: desktopProductIdentity.productName,
-      schemes: ["zcode"],
+      schemes: [desktopProductIdentity.flavor === "personal" ? "zcode-personal" : "zcode"],
     },
   ],
   mac: {
@@ -890,6 +895,8 @@ export default {
     depends: PACMAN_RUNTIME_DEPENDENCIES,
     // Electron Builder 默认把 pacman target 命名为 .pacman；Arch 原生包的标准扩展名是 .pkg.tar.zst。
     artifactName: buildDesktopArtifactName("linux", "pkg.tar.zst"),
+    // FPM 路径默认传 xz，不能只改扩展名；后置参数显式选择 zstd，并避开 compression schema 限制。
+    fpm: ["--pacman-compression", "zstd"],
   },
   rpm: {
     // 与 deb 同一约束：生产版与 Preview 必须是两个独立 rpm 包，否则 dnf 会把另一 flavor 当成升级替换。

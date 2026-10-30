@@ -1,4 +1,5 @@
 import type { SubagentRow, ToolCallRow } from "@zcode/shared/zcode-protocol-v4";
+import type { ExecutionActivityDescriptor } from "@/execution-activity/contract.js";
 import {
   isExecuteToolCall,
   isExploreToolCall,
@@ -57,6 +58,66 @@ export const ENABLE_EXPLORE_TOOL_CALL_GROUPING = true;
 export { ENABLE_CUA_TOOL_CALL_GROUPING } from "@/v4/conversationCuaGroups.js";
 export const ENABLE_TERMINAL_TOOL_CALL_GROUPING = true;
 export const ENABLE_CHANGES_TOOL_CALL_GROUPING = false;
+
+/** 描述已有展示项，不改变其内层工具分组、可见性或操作。 */
+export function describeAssistantWorkActivity(
+  item: ConversationAssistantWorkRenderItem,
+): ExecutionActivityDescriptor | null {
+  if (item.kind === "row" && item.row.kind === "reasoning") {
+    return item.row.state === "interrupted"
+      ? null
+      : {
+          key: String(item.row.rowId),
+          reasoningCount: 1,
+          toolCount: 0,
+          running: item.row.state === "streaming",
+        };
+  }
+  const rows =
+    item.kind === "row" && item.row.kind === "toolCall"
+      ? [item.row]
+      : item.kind === "exploreGroup" || item.kind === "executeGroup" || item.kind === "changesGroup"
+        ? item.rows
+        : null;
+  if (!rows?.length || !rows.every(canCollapseExecutionTool)) return null;
+  return {
+    key: String(rows[0]!.rowId),
+    reasoningCount: 0,
+    toolCount: rows.length,
+    running: rows.some((row) => row.status === "running" || row.status === "inputStreaming"),
+  };
+}
+
+const COLLAPSIBLE_TOOL_FAMILIES = new Set([
+  "file-read",
+  "file-write",
+  "shell",
+  "search",
+  "web-fetch",
+  "node-repl",
+  "skill",
+  "session-context",
+  "unknown",
+]);
+function canCollapseExecutionTool(row: ToolCallRow): boolean {
+  // 待用户处理和失败项必须跳出新增折叠层，不能等用户展开才发现阻塞原因。
+  if (
+    row.status === "pendingApproval" ||
+    row.status === "error" ||
+    row.status === "cancelled" ||
+    row.approvalInteractionId ||
+    row.error
+  )
+    return false;
+  const display = row.output?.display ?? row.display;
+  if (display && display.kind !== "file_diff" && display.kind !== "mcp_tool") return false;
+  if (display?.kind === "mcp_tool" && (display.ui || display.unavailable)) return false;
+  if (["EnterPlanMode", "CronCreate", "CronUpdate", "OffPeakCreate"].includes(row.toolName))
+    return false;
+  return COLLAPSIBLE_TOOL_FAMILIES.has(
+    resolveToolCallIdentity(toolCallRowToLegacyNode(row).toolCall).family,
+  );
+}
 
 export interface ConversationAssistantWorkRenderOptions {
   stageTailIsRunning?: boolean;

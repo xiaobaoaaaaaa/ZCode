@@ -1,5 +1,6 @@
-const DEEP_LINK_SCHEME = "zcode";
-const DEEP_LINK_RE = /\bzcode:(?:\/\/|\/)?[^\s"'<>]+/i;
+import { ZCODE_PROTOCOL_SCHEME } from "@zcode/shared/env";
+const DEEP_LINK_SCHEME = ZCODE_PROTOCOL_SCHEME;
+const DEEP_LINK_RE = new RegExp(`\\b${DEEP_LINK_SCHEME}:(?:\\/\\/|\\/)?[^\\s"'<>]+`, "i");
 const OAUTH_CALLBACK_HOSTS = new Set(["oauth"]);
 const PAYMENT_CALLBACK_HOST = "payment";
 const WORKSPACE_OPEN_HOST = "workspace";

@@ -1,3 +1,4 @@
+import { getZCodeUserRootDir } from "../paths.js";
 /* eslint-disable max-lines -- plugin 同步需要集中维护候选扫描、归档安全、远端判重和配置写入，拆分会增加远端同步回归面。 */
 import { createHash, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
@@ -12,7 +13,7 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import type {
   PluginSyncCandidate,
@@ -212,16 +213,12 @@ export function createPluginSyncService(options?: {
   };
 }
 
-function resolveUserHomeDir(): string {
-  return process.env.HOME?.trim() || process.env.USERPROFILE?.trim() || homedir();
-}
-
 function getUserZcodeConfigPath(): string {
-  return join(resolveUserHomeDir(), ".zcode", "cli", "config.json");
+  return join(getZCodeUserRootDir(), "cli", "config.json");
 }
 
 function getUserZcodePluginRoot(): string {
-  return join(resolveUserHomeDir(), ".zcode", "plugins");
+  return join(getZCodeUserRootDir(), "plugins");
 }
 
 async function collectLocalUserPluginCandidates(): Promise<PluginSyncCandidate[]> {

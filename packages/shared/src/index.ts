@@ -70,6 +70,7 @@ export {
 export {
   ZCODE_ENV,
   ZCODE_PRODUCT_FLAVOR,
+  ZCODE_PRODUCT_NAME,
   ZCODE_APP_VERSION_ENV,
   ZCODE_BUILD_COMMIT_ID_ENV,
   RUNTIME_ZCODE_DEBUG,
@@ -235,6 +236,8 @@ export type {
   EmbeddedBrowserSitePermissionUpdateRequest,
   EmbeddedBrowserSitePermissionsSnapshot,
   IPlatformService,
+  ZCodeDataImportRequest,
+  ZCodeDataImportResult,
   OpenInEditorRemoteTarget,
   OpenInEditorOptions,
   PostUpdateReleaseNotesPayload,

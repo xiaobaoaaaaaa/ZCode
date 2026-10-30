@@ -1,3 +1,4 @@
+import { ZCODE_DATA_DIR_NAME } from "@zcode/shared/env";
 import { isAuxiliarySessionKind } from "@zcode/shared";
 import { createBotTopicAdmission } from "#src/zcode-agent/botTopicAdmission.js";
 import {
@@ -239,7 +240,7 @@ function formatZCodeAgentLogDate(now: Date): string {
 
 function resolveZCodeAgentCurrentLogFilePath(now = new Date()): string {
   const configuredLogDir = process.env.ZCODE_LOG_DIR?.trim();
-  const logDir = configuredLogDir || join(homedir(), ".zcode", "cli", "log");
+  const logDir = configuredLogDir || join(homedir(), ZCODE_DATA_DIR_NAME, "cli", "log");
   return join(logDir, `zcode-${formatZCodeAgentLogDate(now)}.jsonl`);
 }
 

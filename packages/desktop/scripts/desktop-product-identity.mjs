@@ -23,9 +23,19 @@ const PREVIEW_IDENTITY = Object.freeze({
   cuaHelperInstallVariant: "preview",
 });
 
+const PERSONAL_IDENTITY = Object.freeze({
+  flavor: "personal",
+  appId: "dev.zcode.app.personal",
+  productName: "ZCode Personal",
+  linuxExecutableName: "zcode-personal",
+  linuxPackageName: "zcode-personal",
+  cuaHelperInstallVariant: null,
+});
+
 export const desktopProductIdentities = Object.freeze({
   production: PRODUCTION_IDENTITY,
   preview: PREVIEW_IDENTITY,
+  personal: PERSONAL_IDENTITY,
 });
 
 function normalizeDesktopZCodeEnv(env) {
@@ -57,6 +67,15 @@ export function isPreviewIdentityRequested(env = process.env) {
  * 未知 `ZCODE_ENV` 继续按 test 处理，和共享层 normalizeZCodeEnv 的 fail-safe 默认值一致。
  */
 export function resolveDesktopProductFlavor(env = process.env) {
+  const personal = env.ZCODE_PERSONAL_IDENTITY?.trim() ?? "";
+  if (!["", "0", "1"].includes(personal)) {
+    throw new Error("invalid ZCODE_PERSONAL_IDENTITY; expected 1 or 0");
+  }
+  if (personal === "1") {
+    if (isPreviewIdentityRequested(env))
+      throw new Error("Personal and Preview identities are mutually exclusive");
+    return "personal";
+  }
   if (isPreviewIdentityRequested(env)) {
     return "preview";
   }
@@ -86,7 +105,7 @@ export function resolveWindowsAppUserModelIdForFlavor(flavor, runtime = { isPack
   if (runtime.isPackaged === false) {
     return "cn.aminer.zcode";
   }
-  return desktopProductIdentities[flavor === "preview" ? "preview" : "production"].appId;
+  return desktopProductIdentities[flavor]?.appId ?? PRODUCTION_IDENTITY.appId;
 }
 
 export function resolveWindowsAppUserModelId(env = process.env, runtime = { isPackaged: true }) {

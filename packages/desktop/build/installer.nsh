@@ -471,9 +471,17 @@
     IfFileExists "$R9\.zcode\*.*" 0 +2
       StrCpy $R2 "$R9\.zcode"
     StrCmp $R2 "" 0 zcodeFindNestedDataDirDone
-    IfFileExists "$R9\.zcode" 0 zcodeFindNestedDataDirListChildren
+    IfFileExists "$R9\.zcode" 0 zcodeFindPersonalDataDir
       StrCpy $R2 "$R9\.zcode"
     StrCmp $R2 "" 0 zcodeFindNestedDataDirDone
+
+    zcodeFindPersonalDataDir:
+      IfFileExists "$R9\.zcode-personal\*.*" 0 +2
+        StrCpy $R2 "$R9\.zcode-personal"
+      StrCmp $R2 "" 0 zcodeFindNestedDataDirDone
+      IfFileExists "$R9\.zcode-personal" 0 zcodeFindNestedDataDirListChildren
+        StrCpy $R2 "$R9\.zcode-personal"
+      StrCmp $R2 "" 0 zcodeFindNestedDataDirDone
 
     zcodeFindNestedDataDirListChildren:
       FindFirst $0 $1 "$R9\*"

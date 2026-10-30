@@ -1,4 +1,8 @@
-# ZCode
+# ZCode Personal
+
+基于 [官方 ZCode](https://github.com/zai-org/ZCode) 维护的个人适配版。从 `3.16.2-personal.3` 起使用独立安装身份和 `~/.zcode-personal` 数据目录，可与官方版并存；首次启动为空，需要旧数据时从设置页导入副本。
+
+[下载个人版](https://github.com/xiaobaoaaaaaa/ZCode/releases) · [个人开发与官方同步](docs/personal-development.md) · [独立版路径与身份](docs/desktop/personal-edition.md)
 
 <div align="center">
   <img src="public/logo/icons/1024x1024.png" alt="ZCode" width="128" height="128" />

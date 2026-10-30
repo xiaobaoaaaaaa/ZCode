@@ -112,7 +112,17 @@ function commandRootsForBase(
   // 合并而不是 fallback：兼容 `.agents` 命令和原生 `.zcode` 命令需要同时可见。
   // 同一级别 `.zcode` 先扫描，命令同名时仍按“先到先赢”处理。
   return [
-    root(join(baseDirectory, ZCODE_DIR, COMMANDS_DIR), scope, "zcode", nextPriority()),
+    root(
+      join(
+        scope === "user"
+          ? process.env.ZCODE_PROFILE_ROOT_DIR || join(process.env.ZCODE_PROFILE_BASE_DIR || baseDirectory, ZCODE_DIR)
+          : join(baseDirectory, ZCODE_DIR),
+        COMMANDS_DIR,
+      ),
+      scope,
+      "zcode",
+      nextPriority(),
+    ),
     root(join(baseDirectory, AGENTS_DIR, COMMANDS_DIR), scope, "agents", nextPriority()),
   ];
 }

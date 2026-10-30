@@ -1,7 +1,13 @@
 import { decorateRequestSecurityLogArgs } from "./request-security-edition/index.js";
 /* eslint-disable max-lines -- 桌面平台 IPC 集中装配，拆散会让权限边界更难审计；行数随平台能力增长。 */
 import { BrowserWindow, dialog, ipcMain, nativeTheme } from "electron";
-import { readZCodeStdioTapDevState } from "@zcode/services/node";
+import {
+  getZCodeDataRootDir,
+  readZCodeStdioTapDevState,
+  validateDataBaseDirTarget,
+} from "@zcode/services/node";
+import { createDataImporter } from "@zcode/services/data-import";
+import { homedir } from "node:os";
 import {
   DesktopCommandIds,
   appSettingsPatchSchema,
@@ -114,6 +120,24 @@ export function registerPlatformIpcHandlers(options: {
   /** Browser tab 关闭、挂起、恢复与跨重启 shell IPC。 */
   browserViewResidencyHandlers?: BrowserViewResidencyIpcHandlers;
 }) {
+  const importer = createDataImporter({
+    bootstrapHome: process.env.ZCODE_DESKTOP_HOME_DIR?.trim() || homedir(),
+    currentDataRoot: getZCodeDataRootDir(),
+  });
+  ipcMain.handle(PlatformChannels.ImportZCodeDirectory, async (_event, request: unknown) => {
+    if (!request || typeof request !== "object") return { ok: false, error: "unsafe-path" };
+    const input = request as { sourceDirectory?: unknown; destinationParent?: unknown };
+    if (
+      typeof input.sourceDirectory !== "string" ||
+      typeof input.destinationParent !== "string" ||
+      !validateDataBaseDirTarget(input.destinationParent).ok
+    )
+      return { ok: false, error: "unsafe-path" };
+    return importer.importDirectory({
+      sourceDirectory: input.sourceDirectory,
+      destinationParent: input.destinationParent,
+    });
+  });
   ipcMain.handle(PlatformChannels.SelectDirectory, async () => {
     const result = await dialog.showOpenDialog({
       properties: ["openDirectory", "createDirectory"],

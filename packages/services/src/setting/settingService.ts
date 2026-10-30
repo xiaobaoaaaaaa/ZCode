@@ -1,3 +1,4 @@
+import { ZCODE_DATA_DIR_NAME } from "@zcode/shared/env";
 import { readFile, mkdir, rename } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
@@ -45,6 +46,7 @@ function resolveUserHomeDir() {
   // 独立桌面 Dev 实例已设置自己的 home，设置服务却仍写真实 HOME，
   // 导致启动迁移和外观操作污染其他实例。与 Electron 的显式 home 覆盖保持一致。
   const envHome =
+    process.env.ZCODE_PROFILE_BASE_DIR?.trim() ||
     process.env.ZCODE_DESKTOP_HOME_DIR?.trim() ||
     process.env.HOME?.trim() ||
     process.env.USERPROFILE?.trim();
@@ -225,7 +227,7 @@ export function createSettingServiceWithMigrations(): {
 } {
   // 原因：每次 IO 动态读 HOME 会让旧异步投影写进后来实例的目录。
   // 在实例创建时取值，既支持测试/Host 注入，也让读取、文件锁与替换始终同源。
-  const settingsFile = join(resolveUserHomeDir(), ".zcode", "v2", "setting.json");
+  const settingsFile = join(resolveUserHomeDir(), ZCODE_DATA_DIR_NAME, "v2", "setting.json");
   const getSettingsFile = () => settingsFile;
   const getSettingsDir = () => dirname(settingsFile);
   const readSettingsWithMeta = () => readSettingsWithMetaAt(settingsFile);
@@ -367,6 +369,8 @@ export function createSettingServiceWithMigrations(): {
     },
 
     async updateDataBaseDir(newDir: string | undefined): Promise<void> {
+      if (process.env.ZCODE_PROFILE_BASE_DIR)
+        throw new Error("Imported profiles must be moved with full directory import");
       const currentBaseDir = getDataBaseDir();
       const targetBaseDir = newDir?.trim() || homedir();
       const validation = validateDataBaseDirTarget(targetBaseDir);

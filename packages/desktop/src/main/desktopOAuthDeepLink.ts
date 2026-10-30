@@ -1,3 +1,4 @@
+import { ZCODE_PROTOCOL_SCHEME } from "@zcode/shared/env";
 /* oxlint-disable eslint(max-lines) -- Deep Link 路由必须在同一模块内保持协议校验和投递原子性。 */
 import { statSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
@@ -402,7 +403,7 @@ export function registerDeepLinkProtocol(
   },
   options: { iconPath?: string } = {},
 ) {
-  const scheme = "zcode";
+  const scheme = ZCODE_PROTOCOL_SCHEME;
 
   // 外部 URL 必须位于 -- 后；否则 Windows 引号拆分可把 URL 内容变成 Electron 启动参数。
   // Inspector 早于应用 JS 和单实例锁启动，不能依赖后续 handleDeepLink 校验拦截。
