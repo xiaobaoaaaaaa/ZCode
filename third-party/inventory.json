@@ -433,7 +433,7 @@
     "docs/knip/docs/src/styles/theme-light.css": "e2e85900fd43b5b563f56b9ce7e2a09f07d7420a78e80f0133efffeb8fce2aa0",
     "docs/knip/docs/src/util/post.ts": "6d7c45bd29035a73f1b67d24524760c7e317f367d32216de2c9a240dda7a40d1",
     "docs/knip/docs/tsconfig.json": "662b1f10a5e572b49a45669e4be9ee46c22f987dcf277c204948777b367df1cd",
-    "package.json": "4758cb672136595d06f1036f65bb4e476d81f1e023b56dcc780303c32e3bc70b",
+    "package.json": "5c1d92a121356b8c4c1a189ec4fee0a76c9595f1ea3310cfca4d93c0b4761593",
     "packages/client/package.json": "e76f441549130dc3e5e68072a36b6cb9044e19a6625f1e813f19a4def2b1b689",
     "packages/desktop/package.json": "f5b5d39b55ec490fbb04fb05bb62c48fc102294d4d96ecde1a66317d7fe5b7a1",
     "packages/desktop/src/renderer/public/material-icons/3d.svg": "9527b849f0fba57ca7640e2717b3a19cb5f5e046712cbbd8b75d73af338c68fb",
@@ -1678,7 +1678,7 @@
     "packages/ui/src/components/ai-elements/voice-selector.tsx": "3ae6d7c94cfdede860dbba67066492085405f9e4f8d13363e0fa289bb4726d4a",
     "packages/ui/src/components/ai-elements/web-preview.tsx": "3df26b9bc7c55034a148f67e2a899f15b1a592a6fcf7cccd54e469c0aeb5b9ec",
     "packages/ui/src/components/ui/accordion.tsx": "4a72f846da91bdeac1dbba849572132b98c8b96f0b03e611f46d0f3e41791947",
-    "packages/ui/src/components/ui/alert-dialog.tsx": "3dd074ddbfcefdad6a6c231b6cf055bbcd5fce40bf8feecc6950b60d9ab53b81",
+    "packages/ui/src/components/ui/alert-dialog.tsx": "445a3e01639d867241de90ee4dc81115cd10c34fa49a776e34b9aa740b086c3c",
     "packages/ui/src/components/ui/alert.tsx": "5f29338fc9b767994b39849edeac71ee91dc1fd4a875252b40c5cf9001b1c0a7",
     "packages/ui/src/components/ui/avatar.tsx": "5d87a3860936de1795099bc995ca64b2d5a9179caa74385b4e5de5fd3ee59725",
     "packages/ui/src/components/ui/badge.tsx": "d4966b2604bc7acf38bd3aecc899b08a6aec8b62552f680d4e1fd4616d2198b9",
@@ -1691,22 +1691,22 @@
     "packages/ui/src/components/ui/code-viewer.tsx": "dfccd2feaccc62af84f3e92dc5b8e25e7025b6c64cbd16f177586b1dc763affe",
     "packages/ui/src/components/ui/collapsible.tsx": "fcb5125c2c0e824e8b75e3b9c164011bac7a4c602ff83cf0937b71620ee77d92",
     "packages/ui/src/components/ui/command.tsx": "7c754bc80704163ce505d08d961a5a4b3e57107e7d53ea319483a896d448cbdb",
-    "packages/ui/src/components/ui/context-menu.tsx": "3820461fd68ca7a345fc919ab356bdefbbead23abb3ac0f4e8d46898f7522a6f",
-    "packages/ui/src/components/ui/dialog.tsx": "fb2decab75993205ec5670acbd5b8b7dfc9b1518d3acb457ddde7edd1984d44e",
+    "packages/ui/src/components/ui/context-menu.tsx": "20494ade60dbf21716e7c63a26c71d674015f67947b28486176bb5602062d9f6",
+    "packages/ui/src/components/ui/dialog.tsx": "bf2363e87106b4787666a67282212c0c552ed700d9bca35fd98b59464b79b230",
     "packages/ui/src/components/ui/diff-viewer.tsx": "f02208b316e6dc4043ed1794455422bc74cdd521285fcac5a2c0d589c2eb9af2",
-    "packages/ui/src/components/ui/dropdown-menu.tsx": "61fb51b98cf76207dfe5e86e6baf6e2d5ef0f77698377b2c332066a4b9e2da60",
+    "packages/ui/src/components/ui/dropdown-menu.tsx": "598ad410fa58893274a5271d1d49093c9172ecc9320a20ea88a0243217c12e43",
     "packages/ui/src/components/ui/flip-metric-value.tsx": "ce2d6cf063003e1023191b0fa4e3eb9b365e04a14eb0d498b897326600bf4071",
     "packages/ui/src/components/ui/floating-particles.tsx": "88250e9104721c35f6119e9ffadac4c9795c798976cf06c0e4f4e584e8195fd2",
     "packages/ui/src/components/ui/GlmMonochromeIcon.tsx": "f1691224d23be4359e1a79bcd81b9dd5ee19c0177b3a4bf750332c620b98ae5c",
     "packages/ui/src/components/ui/highlighted-lightweight-diff-preview.tsx": "c04bb6009683ab74cb72ff8f1e1157ffbdd06be4a46dc3c725c63e0bc43fea72",
-    "packages/ui/src/components/ui/hover-card.tsx": "d202699fb339c78ba96d4ca1816ba8e46d6b27dc1963f441cdafa0155ce5e804",
+    "packages/ui/src/components/ui/hover-card.tsx": "637277ca1148feefa25bc017fe1db364889e3957fea68b67927b6901ecd43a75",
     "packages/ui/src/components/ui/input-group.tsx": "72e8c0775e55525efe49dfa42ecba7b9244836a78c31be0dd576d52640d4c3c9",
     "packages/ui/src/components/ui/input.tsx": "946d37bdf07c81e70ad13242b904c27618d5d09f7c17a74f6b6c8cb613fa93dc",
     "packages/ui/src/components/ui/kbd.tsx": "f8bd1d5a51f991d60781f62a8bd7f1db06a237f2a7a7bb39f0127bd1ba067066",
     "packages/ui/src/components/ui/label.tsx": "717bd1167a7c8c136abfe0b3e23e8cfcb38abbe51b04c74d6d01ba1ea0b53fa5",
     "packages/ui/src/components/ui/lightweight-diff-preview.tsx": "7d1ff2a02815d988f5ffd2d6549848920c98488a4dba43f67ba9d81a3da49d01",
     "packages/ui/src/components/ui/pdf-viewer.tsx": "19ba82ab97a84599bb99178de85a4d5c6a89da6924ba55a0dc14f33286187fdc",
-    "packages/ui/src/components/ui/popover.tsx": "e23c9238865ba7e85965ebed89e7328cfbdbbdcc2264156c775d51e9e264b484",
+    "packages/ui/src/components/ui/popover.tsx": "627acab0c99804a405357734a4a901b2a1875b9a7a9f03d95b94b677247ec76b",
     "packages/ui/src/components/ui/pptx-preview-viewer.tsx": "64d7ed9e83cad0e98ba56ff2c49be2db335aedca4230b207cba5a383a15cb93d",
     "packages/ui/src/components/ui/pptx-selection-action-bar.tsx": "6e7187b7f527e4a97df117cc0df85d2dd8f4408d7415aec2e4907db39a331efd",
     "packages/ui/src/components/ui/progress.tsx": "ba88ffa75ad78eaa23519c7af84e11679ca2b8e4508c57759d769462811c0ec5",
@@ -1715,7 +1715,7 @@
     "packages/ui/src/components/ui/resizable.tsx": "4387041d74cfcd71ce2fa12a78462ed4b5cdb4c634d878726f34dadadc8ebeec",
     "packages/ui/src/components/ui/scroll-area.tsx": "83999d597a4a417aea402e833884826539b9aa1bd1ec966aa2f6dab9a97afb3c",
     "packages/ui/src/components/ui/scroll-fade-viewport.tsx": "50e5984232b6a7d59e872aab4ebb36ae837e2865e3a770adbc234b61c2531da1",
-    "packages/ui/src/components/ui/select.tsx": "718c222c5acdfa149f4a61da3d6756a4ca5ef1ba14b2ebafb7a5306c3a616beb",
+    "packages/ui/src/components/ui/select.tsx": "2d5af36b9ac61cae78e00f22b5ea98de6a0652cd451d8c7af5ce10df45ab1b45",
     "packages/ui/src/components/ui/separator.tsx": "31ade0b9a0eca6689226c94d479352416ef076859980a976422a8af17879dee2",
     "packages/ui/src/components/ui/smooth-metric-value.tsx": "d26a10fbad01c343e415d560c94d76bef64f810cbe388c2c7af03906f31e9f29",
     "packages/ui/src/components/ui/spinner.tsx": "96bef1c5ef7e582de503aac8402b55f3539cea37bd2c186a12a4f2cb7605468e",
@@ -1723,7 +1723,7 @@
     "packages/ui/src/components/ui/tabs.tsx": "adc59a0469c80118e9d60c08bf0222d55664ef95e6c522496b5c201011b347f0",
     "packages/ui/src/components/ui/textarea.tsx": "a839574ce1301fbaa9ba917fdb980900eb9118bffa7c6c4e469f3293b122ed30",
     "packages/ui/src/components/ui/toast.tsx": "e8db1fb2da2fec35c99146a75698aa071b354d67c1211c8774145791b96ee51f",
-    "packages/ui/src/components/ui/tooltip.tsx": "b385da0f882ef4a44c101051107a670c42f7b347b86ef8ca0dba40369ed34d3b",
+    "packages/ui/src/components/ui/tooltip.tsx": "6062eb4b4d2c61d95fd7c96f374f96abb74a2f263edf9cabb9de4de66bb7e8c0",
     "packages/ui/src/components/ui/usePdfZoomOverlay.ts": "c8c91b003ce2fded32c7a2369dc6eac43aa4b9dc9c830a0f5ceccb21d366b610",
     "packages/ui/src/components/ui/ZCodeAboutLogo.tsx": "1e5b7c2e8a9dc98a3c597cbe34122521319eaeb89825e4c41641e77715d1407a",
     "packages/ui/src/lib/builtinSkillI18n.ts": "c4df1dae0eaf5d65cc2cbf28ff162993f0d2bb1c482e8cb52a5e222f7778ab12",
@@ -19804,7 +19804,7 @@
         },
         {
           "file": "packages/ui/src/components/ui/alert-dialog.tsx",
-          "sha256": "3dd074ddbfcefdad6a6c231b6cf055bbcd5fce40bf8feecc6950b60d9ab53b81"
+          "sha256": "445a3e01639d867241de90ee4dc81115cd10c34fa49a776e34b9aa740b086c3c"
         },
         {
           "file": "packages/ui/src/components/ui/alert.tsx",
@@ -19856,11 +19856,11 @@
         },
         {
           "file": "packages/ui/src/components/ui/context-menu.tsx",
-          "sha256": "3820461fd68ca7a345fc919ab356bdefbbead23abb3ac0f4e8d46898f7522a6f"
+          "sha256": "20494ade60dbf21716e7c63a26c71d674015f67947b28486176bb5602062d9f6"
         },
         {
           "file": "packages/ui/src/components/ui/dialog.tsx",
-          "sha256": "fb2decab75993205ec5670acbd5b8b7dfc9b1518d3acb457ddde7edd1984d44e"
+          "sha256": "bf2363e87106b4787666a67282212c0c552ed700d9bca35fd98b59464b79b230"
         },
         {
           "file": "packages/ui/src/components/ui/diff-viewer.tsx",
@@ -19868,7 +19868,7 @@
         },
         {
           "file": "packages/ui/src/components/ui/dropdown-menu.tsx",
-          "sha256": "61fb51b98cf76207dfe5e86e6baf6e2d5ef0f77698377b2c332066a4b9e2da60"
+          "sha256": "598ad410fa58893274a5271d1d49093c9172ecc9320a20ea88a0243217c12e43"
         },
         {
           "file": "packages/ui/src/components/ui/flip-metric-value.tsx",
@@ -19884,7 +19884,7 @@
         },
         {
           "file": "packages/ui/src/components/ui/hover-card.tsx",
-          "sha256": "d202699fb339c78ba96d4ca1816ba8e46d6b27dc1963f441cdafa0155ce5e804"
+          "sha256": "637277ca1148feefa25bc017fe1db364889e3957fea68b67927b6901ecd43a75"
         },
         {
           "file": "packages/ui/src/components/ui/input-group.tsx",
@@ -19912,7 +19912,7 @@
         },
         {
           "file": "packages/ui/src/components/ui/popover.tsx",
-          "sha256": "e23c9238865ba7e85965ebed89e7328cfbdbbdcc2264156c775d51e9e264b484"
+          "sha256": "627acab0c99804a405357734a4a901b2a1875b9a7a9f03d95b94b677247ec76b"
         },
         {
           "file": "packages/ui/src/components/ui/pptx-preview-viewer.tsx",
@@ -19944,7 +19944,7 @@
         },
         {
           "file": "packages/ui/src/components/ui/select.tsx",
-          "sha256": "718c222c5acdfa149f4a61da3d6756a4ca5ef1ba14b2ebafb7a5306c3a616beb"
+          "sha256": "2d5af36b9ac61cae78e00f22b5ea98de6a0652cd451d8c7af5ce10df45ab1b45"
         },
         {
           "file": "packages/ui/src/components/ui/separator.tsx",
@@ -19976,7 +19976,7 @@
         },
         {
           "file": "packages/ui/src/components/ui/tooltip.tsx",
-          "sha256": "b385da0f882ef4a44c101051107a670c42f7b347b86ef8ca0dba40369ed34d3b"
+          "sha256": "6062eb4b4d2c61d95fd7c96f374f96abb74a2f263edf9cabb9de4de66bb7e8c0"
         },
         {
           "file": "packages/ui/src/components/ui/usePdfZoomOverlay.ts",
