@@ -9,15 +9,6 @@ import {
 } from "@zcode/shared/test-ids";
 import { Key } from "webdriverio";
 import {
-  INCOMING_MESSAGE_MODES,
-  prepareIncomingMessageCapability,
-} from "../helpers/incoming-message-capability.js";
-import { assertIncomingMessage } from "../helpers/incoming-message-evidence.js";
-import {
-  E2E_READONLY_TOOL_FILE_CONTENT,
-  ensureReadonlyToolFixtureFile,
-} from "../helpers/conversation-session-readonly-tool.js";
-import {
   DEFAULT_WORKSPACE,
   clearAppData,
   clickTestIdByDom,
@@ -25,26 +16,21 @@ import {
   waitForWorkspaceApp,
 } from "../helpers/desktop-app.js";
 import {
-  countUpstreamRequestsContaining,
-  getUpstreamRequestEvidence,
-  waitForUpstreamRequest,
-  expectNoUpstreamRequestForTextWithin,
   waitForUpstreamRequestContaining,
+  expectNoUpstreamRequestForTextWithin,
 } from "../helpers/conversation-session-network.js";
 import { getQueueItems, waitForQueueContaining } from "../helpers/conversation-session-queue.js";
 import {
   clickV4Stop,
   getV4ConversationState,
-  getV4Messages,
   prepareV4ConversationE2E,
   sendV4Prompt,
   setV4ComposerText,
-  startNewV4Draft,
   waitForV4ComposerText,
   waitForV4ConversationState,
-  waitForV4UserMessageContaining,
 } from "../helpers/v4-conversation.js";
 import { sel } from "../helpers/selectors.js";
+import { startDraftFromProject } from "../helpers/project-sidebar.js";
 
 const TEST_TIMEOUT_MS = 180000;
 const primaryModifierKey = process.platform === "darwin" ? Key.Command : Key.Control;
@@ -52,13 +38,23 @@ const primaryModifierKey = process.platform === "darwin" ? Key.Command : Key.Con
 describe("会话区修饰键单条 delivery E2E", () => {
   before(async function () {
     this.timeout(TEST_TIMEOUT_MS);
+    await waitForWorkspaceApp(DEFAULT_WORKSPACE, 30000);
+    await browser.waitUntil(
+      () => browser.execute(() => document.body.classList.contains("zcode-startup-ready")),
+      { timeout: 10000, timeoutMsg: "启动壳未完成 ready 切换" },
+    );
+    // Linux Electron 曾在 ready 后卡住 opacity transition；不通过截图或额外等待触发绘制。
+    expect(
+      await browser.execute(() => getComputedStyle(document.getElementById("root")!).opacity),
+    ).toBe("1");
     await prepareV4ConversationE2E();
     expect((await readSettings()).zcodeInteractionBehavior).toBe("queue");
   });
 
   beforeEach(async function () {
     this.timeout(TEST_TIMEOUT_MS);
-    await startNewV4Draft();
+    // 全局新建是未归类草稿；本用例的返回断言绑定固定项目，必须从该项目创建。
+    await startDraftFromProject(DEFAULT_WORKSPACE);
   });
 
   afterEach(async () => {
@@ -70,75 +66,46 @@ describe("会话区修饰键单条 delivery E2E", () => {
     await clearAppData();
   });
 
-  it("M06k：running 且尚无输出时 Cmd/Ctrl+Enter 直接抢占，不经过 QueueItem", async () => {
+  it("M06k：queue 下 Enter 入队，Ctrl/Cmd+Enter 引导当前任务且不抢占", async () => {
     const runId = Date.now();
     await startPreOutputTurn(`E2E_MODIFIED_KEY_BASE_${runId}`);
-    const marker = `E2E_MODIFIED_KEY_${runId}`;
+    const original = await getV4ConversationState();
+    const queuedMarker = `E2E_MODIFIED_KEY_QUEUED_${runId}`;
+    await setV4ComposerText(queuedMarker);
+    await $(sel(TID_V4_COMPOSER_INPUT)).click();
+    await browser.keys(Key.Enter);
+    await waitForQueueContaining(queuedMarker);
+
+    const marker = `E2E_MODIFIED_KEY_GUIDED_${runId}`;
     await setV4ComposerText(marker);
-
     await submitWithModifiedEnter();
-
-    await waitForV4ComposerText("", "pre-output 快捷键提交后 composer 没有立即清空", 3000);
-    expect((await getQueueItems()).some((item) => item.content.includes(marker))).toBe(false);
-    await waitForUpstreamRequestContaining(marker, 45000);
-    await waitForV4UserMessageContaining(marker);
-    expect((await getQueueItems()).some((item) => item.content.includes(marker))).toBe(false);
-    expect(await countUpstreamRequestsContaining(marker)).toBe(1);
+    await waitForV4ComposerText("", "组合键引导后 composer 未清空", 3000);
+    await browser.waitUntil(
+      () =>
+        browser.execute(
+          (text) =>
+            document
+              .querySelector('[data-v4-pending-guide-list="true"]')
+              ?.textContent?.includes(text) ?? false,
+          marker,
+        ),
+      { timeout: 15000, timeoutMsg: "组合键消息没有进入当前任务的待引导列表" },
+    );
+    const queue = await getQueueItems();
+    expect(queue.filter((item) => item.content.includes(queuedMarker))).toHaveLength(1);
+    expect(queue.some((item) => item.content.includes(marker))).toBe(false);
+    // 基础 provider 仍在等待响应；guide 必须等待安全边界，不能偷偷 stop/startNow。
+    await expectNoUpstreamRequestForTextWithin(marker, 1500);
+    const current = await getV4ConversationState();
+    expect(current.activeInputId).toBe(original.activeInputId);
+    expect(current.state).toBe("streaming");
+    expect(current.stopRequested).toBe(false);
+    expect((await readSettings()).zcodeInteractionBehavior).toBe("queue");
   });
-
-  for (const { label, mcs } of INCOMING_MESSAGE_MODES) {
-    it(`M06k ${label}：工具结果后 Cmd/Ctrl+Enter 抢占，human reminder 全文与角色正确`, async function () {
-      this.timeout(TEST_TIMEOUT_MS);
-      await prepareIncomingMessageCapability(mcs, "queue");
-      await ensureReadonlyToolFixtureFile();
-      const runId = Date.now();
-      const baseMarker = `E2E_MODIFIED_TOOL_BASE_${runId}`;
-      const marker = `E2E_MODIFIED_TOOL_SELECTED_${runId}`;
-      await sendV4Prompt(`${baseMarker}: Read the readonly fixture and keep working.`);
-      await waitForUpstreamRequest(
-        { includes: [baseMarker, E2E_READONLY_TOOL_FILE_CONTENT] },
-        "抢占前没有完整 Read 结果",
-        30000,
-      );
-      await waitForV4ConversationState(
-        (snapshot) => snapshot.state === "streaming",
-        "Read 后没有保持 running",
-        15000,
-      );
-      await setV4ComposerText(marker);
-      await submitWithModifiedEnter();
-      await waitForV4ComposerText("", "立即发送未清空 composer", 3000);
-      await waitForUpstreamRequestContaining(marker, 45000);
-      await waitForV4UserMessageContaining(marker);
-      const evidence = await getUpstreamRequestEvidence({
-        includes: [marker],
-        excludes: ["Generate a concise title"],
-      });
-      expect(evidence).toHaveLength(1);
-      const wire = await assertIncomingMessage(evidence[0]!.requestJson, {
-        presentation: "user_steer",
-        marker,
-        body: marker,
-        role: mcs ? "system" : "user",
-        evidenceLabel: `send-now-tool-${label}`,
-      });
-      expect(JSON.stringify(wire.messages.slice(0, wire.index + 1))).toContain(
-        '"type":"tool_result"',
-      );
-      expect((await getQueueItems()).some((item) => item.content.includes(marker))).toBe(false);
-      const userRows = (await getV4Messages("user")).filter((message) =>
-        message.text.includes(marker),
-      );
-      expect(userRows).toHaveLength(1);
-      expect(
-        await $(`[data-row-id="${userRows[0]!.id}"] [data-v4-user-input-bubble]`).getText(),
-      ).toBe(marker);
-    });
-  }
 
   it("M06n：guide running 下 Cmd/Ctrl+Enter 只反向进入 future queue", async () => {
     await setInteractionBehavior("guide");
-    await startNewV4Draft();
+    await startDraftFromProject(DEFAULT_WORKSPACE);
     const runId = Date.now();
     await startPreOutputTurn(`E2E_MODIFIED_GUIDE_BASE_${runId}`);
     const marker = `E2E_MODIFIED_GUIDE_QUEUE_${runId}`;

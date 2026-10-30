@@ -15,9 +15,9 @@
 
       #root {
         opacity: 0;
-        transition: opacity 0.16s ease;
       }
 
+      /* ready 后必须立即可交互；Electron 的 opacity transition 可能停在 pending，导致根节点永久透明。 */
       body.zcode-startup-ready #root {
         opacity: 1;
       }

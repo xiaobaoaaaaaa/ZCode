@@ -1,6 +1,11 @@
 import { requestSecurityMessagesEnUS } from "@/request-security-edition/messages.js";
 /** English translations */
 const enUS: Record<string, string> = {
+  "settings.globalSearch.title": "Search settings…",
+  "settings.globalSearch.hint":
+    "Search settings. Use the arrow keys to choose a result and Enter to open it.",
+  "settings.globalSearch.empty": "No matching settings",
+  "settings.globalSearch.clear": "Clear search",
   "preview.image.copy": "Copy image",
   "preview.image.actions": "Image actions",
   "preview.image.added": "Added to chat",

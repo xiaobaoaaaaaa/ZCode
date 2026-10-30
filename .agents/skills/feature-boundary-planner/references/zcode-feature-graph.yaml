@@ -17,6 +17,42 @@ rules:
     - "evidence-only"
 
 nodes:
+  - id: "capability.followup-modified-delivery"
+    kind: "capability"
+    label: "Enter and modifier submit swap guide and queue"
+    aliases: ["Ctrl 回车", "引导队列互换", "单条反向投递"]
+    docs: ["docs/ui/chat-message-queue.md"]
+    codeSeeds:
+      - {
+          file: "packages/ui/src/v4/composer/followupModeSettings.ts",
+          symbol: "resolveOppositeFollowupDelivery",
+        }
+      - { file: "packages/ui/src/v4/ConversationComposer.tsx", symbol: "ConversationComposer" }
+      - { file: "packages/ui/src/LexicalChatInput.tsx", symbol: "LexicalChatInput" }
+    invariants:
+      - "Enter follows the session followupMode; Ctrl/Cmd+Enter and modifier-click swap guide and queue for one submission without changing the persisted default."
+      - "The modified action never requests startNow preemption; CLI CommandInbox remains the sole admission owner."
+      - "IME, explicit newline bindings, submit gates, workspace routing and mobile replayable boundaries remain unchanged."
+  - id: "capability.settings-global-search"
+    kind: "capability"
+    label: "Settings global search and anchor navigation"
+    aliases: ["设置搜索", "搜索设置", "全局设置搜索"]
+    docs: ["docs/ui/settings-global-search.md"]
+    codeSeeds:
+      - { file: "packages/ui/src/SettingsPage.tsx", symbol: "SettingsPage" }
+      - {
+          file: "packages/ui/src/settings-search/SettingsGlobalSearch.tsx",
+          symbol: "SettingsGlobalSearch",
+        }
+      - { file: "packages/ui/src/settings-search/catalog.ts", symbol: "createSettingsSearchIndex" }
+      - {
+          file: "packages/ui/src/settings-search/useSettingsSearchDestination.ts",
+          symbol: "useSettingsSearchDestination",
+        }
+    invariants:
+      - "SettingsPage owns section navigation and its existing preference write; search owns only temporary query and focus destination."
+      - "Only current-platform visible sections and fields are indexed; bilingual search uses static metadata, never user configuration values."
+      - "Selecting a result focuses its mounted row or section heading without modifying settings; existing section list searches remain independent."
   - id: "capability.tool-search"
     kind: "capability"
     label: "Provider-aware deferred ToolSearch"

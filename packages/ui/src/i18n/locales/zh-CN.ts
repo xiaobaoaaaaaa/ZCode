@@ -1,6 +1,10 @@
 import { requestSecurityMessagesZhCN } from "@/request-security-edition/messages.js";
 /** 中文翻译 */
 const zhCN: Record<string, string> = {
+  "settings.globalSearch.title": "搜索设置…",
+  "settings.globalSearch.hint": "搜索设置项，使用上下方向键选择并按 Enter 打开。",
+  "settings.globalSearch.empty": "未找到匹配的设置",
+  "settings.globalSearch.clear": "清空搜索",
   "preview.image.copy": "复制图片",
   "preview.image.actions": "图片操作",
   "preview.image.added": "已添加到聊天",

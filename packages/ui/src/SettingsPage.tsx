@@ -1,3 +1,8 @@
+import {
+  SettingsGlobalSearch,
+  useSettingsSearchDestination,
+  type SettingsSearchResult,
+} from "@/settings-search/contract.js";
 import { SettingsMachinesProvider } from "@/settings/SettingsMachine.js";
 import { getWorkspaceSourceServerId } from "@/conversation-workspace-target/sourceIdentity.js";
 import { RemoteConnectionNavigationDot } from "@/remote-connection/RemoteConnectionNavigationDot.js";
@@ -347,6 +352,12 @@ export function SettingsPage({
     writeLastSettingsSectionPreference(visibleInitialSection);
     return visibleInitialSection;
   });
+  const [settingsSearchTarget, setSettingsSearchTarget] = useState<SettingsSearchResult | null>(
+    null,
+  );
+  const settingsSearchContentRef = useSettingsSearchDestination(
+    settingsSearchTarget?.section === activeSection ? settingsSearchTarget : null,
+  );
   const [targetSourceServerId, setTargetSourceServerId] = useState(
     consumePendingSettingsSourceServerId,
   );
@@ -671,6 +682,7 @@ export function SettingsPage({
   const requestOnboardingDialog = () => setNewUserOnboardingOpen(true);
   const setActiveSettingsSection = useCallback(
     (section: SettingsSectionId, fallbackSection: SettingsSectionId = activeSection) => {
+      setSettingsSearchTarget(null);
       const resolvedSection = resolveSettingsSection(section, fallbackSection);
       setActiveSection(resolvedSection);
       writeLastSettingsSectionPreference(resolvedSection);
@@ -682,6 +694,19 @@ export function SettingsPage({
       setActiveSettingsSection("general");
     }
   }, [activeSection, isDesktop, setActiveSettingsSection]);
+  const handleSettingsSectionNavigation = (id: SettingsSectionId) => {
+    runUserAction({
+      input: { featureId: "settings.navigation", action: "open_section", trigger: "button" },
+      operation: () => {
+        setPluginNavigationOrigin(undefined);
+        setTargetSourceServerId(undefined);
+        setSettingsSectionNavigationVersion((version) => version + 1);
+        setActiveSettingsSection(id);
+      },
+      completed: { resultSource: "local_commit", sectionId: id },
+      failureStage: "navigation_commit",
+    });
+  };
   const handleOpenCodingPlanUpgradeSettings = useCallback(
     (
       providerId: string,
@@ -1581,6 +1606,20 @@ export function SettingsPage({
                 ) : null}
               </div>
 
+              <div className="px-3 pb-3 [app-region:no-drag]">
+                <SettingsGlobalSearch
+                  options={{
+                    isDesktop: Boolean(isDesktop),
+                    isMacDesktop: Boolean(isMacDesktop),
+                    isWindowsDesktop: Boolean(isWindowsDesktop),
+                    hostPlatform,
+                  }}
+                  onSelect={(result) => {
+                    handleSettingsSectionNavigation(result.section);
+                    setSettingsSearchTarget(result);
+                  }}
+                />
+              </div>
               <nav
                 aria-label={intl.formatMessage({ id: "settings.navLabel" })}
                 className="flex-1 overflow-y-auto px-2 pb-3"
@@ -1623,23 +1662,7 @@ export function SettingsPage({
                                 aria-current={isActive ? "page" : undefined}
                                 data-testid={testId(TID_SETTINGS_SECTION_NAV, id)}
                                 data-settings-section-nav={id}
-                                onClick={() => {
-                                  runUserAction({
-                                    input: {
-                                      featureId: "settings.navigation",
-                                      action: "open_section",
-                                      trigger: "button",
-                                    },
-                                    operation: () => {
-                                      setPluginNavigationOrigin(undefined);
-                                      setTargetSourceServerId(undefined);
-                                      setSettingsSectionNavigationVersion((version) => version + 1);
-                                      setActiveSettingsSection(id);
-                                    },
-                                    completed: { resultSource: "local_commit", sectionId: id },
-                                    failureStage: "navigation_commit",
-                                  });
-                                }}
+                                onClick={() => handleSettingsSectionNavigation(id)}
                               >
                                 <span className="flex min-w-0 flex-1 items-center gap-2">
                                   <span className="truncate text-ui-base text-foreground">
@@ -1721,6 +1744,7 @@ export function SettingsPage({
               )}
             />
             <div
+              ref={settingsSearchContentRef}
               data-settings-panel-frame="true"
               className={cn(
                 "relative flex flex-col min-h-0 h-full border border-border bg-background",
@@ -1782,7 +1806,12 @@ export function SettingsPage({
                         )}
                       >
                         {/* 归档设置迁入后也需要公共页头，不能再因列表自带标题而隐藏页面标题。 */}
-                        <div>
+                        <div
+                          data-settings-search-id={`section:${activeSection}`}
+                          tabIndex={-1}
+                          aria-label={activeSectionLabel}
+                          className="rounded-lg data-[settings-search-highlight=true]:bg-accent focus-visible:outline focus-visible:outline-brand"
+                        >
                           <div className="flex flex-wrap items-center justify-between gap-3">
                             <div className="flex min-w-0 flex-wrap items-center gap-3">
                               {showActiveSectionTitle ? (

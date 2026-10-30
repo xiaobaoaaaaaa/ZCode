@@ -1,5 +1,32 @@
 # Desktop 启动关键路径优化
 
+## 2026-10-30：启动完成后立即可交互
+
+HTML 启动壳是可见性状态的唯一所有者；React ready 与 logo 完成仍沿用现有信号。
+两者齐备后添加 `zcode-startup-ready`，应用根节点必须立即不透明，不能等待额外的 CSS
+transition 帧才能接收真实点击。loading 遮罩可以淡出，但 ready 时立即禁用其指针事件。
+更新状态窗口直接进入相同的可见状态；不改变 Host 或会话准备条件。
+
+```text
+React ready ─┐
+             ├─ HTML 启动壳 → startup-ready → root 立即可见且可点击
+logo done ───┘                           └→ loading 淡出并移除
+```
+
+根因证据：Linux Electron 回放中 body 已 ready，root 的 opacity transition 仍为
+pending、currentTime=0、startTime=null；2.5 秒后 opacity 仍为 0，截图触发绘制后才变为 1。
+因此延长元素等待或截图预热会掩盖问题。验收使用未执行截图的真实 Electron 启动流程，
+断言 ready 后 root opacity=1，再执行模型选择与真实键盘发送。
+
+修饰键用例固定从项目入口创建草稿，使设置页返回后的 workspace 断言与准备条件一致。
+全局新建仍是未归类草稿，测试不改变这项产品语义。
+
+补充环境证据：移除 root transition 后其 opacity 立即为 1；本机默认 Electron 渲染路径下
+侧栏 Collapsible 的 CSS animation 仍停在 pending，祖先 opacity=0，导致项目行不可见。
+使用仓库已有 `ZCODE_E2E_CONTAINER=1` 的 X11/软件渲染参数后真实操作通过，未注入样式、
+强行结束动画或通过截图推进时钟。该开关在本地仅复用运行参数，本次没有执行 Docker 准入。
+底层窗口系统为何不推进动画尚未证实，不归因于业务状态或 provider 请求。
+
 ## 背景与基线
 
 2026-08-05 对生产版冷启动日志和运行时 mark 的采样显示：
@@ -188,11 +215,11 @@ workspace/session 数据，至少各跑 3 次改前/改后冷启动，报告中�
 和数据库 clone，按 baseline/optimized 交替执行各 5 次；未清空操作系统文件缓存，因此这里的“冷启动”
 指冷进程启动，不把不可控的整机冷缓存作为前提。
 
-| 指标 | 改前中位数 | 改后中位数 | 变化 |
-| --- | ---: | ---: | ---: |
-| T0 到输入框可用（T6） | 5,441ms | 3,249ms | -2,193ms（快 40.3%） |
-| Local Host 初始化 | 2,707ms | 17ms | -2,690ms（快 99.4%） |
-| React commit 后 startup gate | 3,278ms | 579ms | -2,699ms（快 82.3%） |
+| 指标                         | 改前中位数 | 改后中位数 |                 变化 |
+| ---------------------------- | ---------: | ---------: | -------------------: |
+| T0 到输入框可用（T6）        |    5,441ms |    3,249ms | -2,193ms（快 40.3%） |
+| Local Host 初始化            |    2,707ms |       17ms | -2,690ms（快 99.4%） |
+| React commit 后 startup gate |    3,278ms |      579ms | -2,699ms（快 82.3%） |
 
 新的单次异步 login shell snapshot 本身中位数仍约 `1,626ms`，但它在 Main 模块初始化时启动，和
 Electron ready、窗口及 renderer 加载重叠；5 轮中都在 Local Host 创建前完成，所以不再进入 Host

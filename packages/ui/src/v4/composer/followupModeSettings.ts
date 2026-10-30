@@ -10,9 +10,9 @@ export function resolveAppFollowupMode(
 
 export function resolveOppositeFollowupDelivery(
   mode: SessionConfigState["followupMode"],
-): "startNow" | "queue" {
-  // queue 模式的修饰键发送曾被解释成 guide；“立即发送”实际是队列既有的抢占语义。
-  return mode === "guide" ? "queue" : "startNow";
+): "guide" | "queue" {
+  // 组合键应交换引导/队列；旧 startNow 会抢占当前执行，违背单条反向投递的产品规则。
+  return mode === "guide" ? "queue" : "guide";
 }
 
 export function shouldEnableModifiedEnterSubmit({
@@ -62,9 +62,9 @@ export function isPrimaryFollowupModifierPressed({
 }
 
 export interface FollowupModifierTooltip {
-  delivery: "startNow" | "queue";
+  delivery: "guide" | "queue";
   shortcut: string;
-  titleId: "chat.followup.sendNow" | "chat.followup.addToQueue";
+  titleId: "chat.followup.guideCurrent" | "chat.followup.addToQueue";
 }
 
 export function resolveFollowupModifierTooltip({
@@ -85,6 +85,6 @@ export function resolveFollowupModifierTooltip({
   return {
     delivery,
     shortcut: isApplePlatform ? "⌘ + Enter" : "Ctrl + Enter",
-    titleId: delivery === "startNow" ? "chat.followup.sendNow" : "chat.followup.addToQueue",
+    titleId: delivery === "guide" ? "chat.followup.guideCurrent" : "chat.followup.addToQueue",
   };
 }

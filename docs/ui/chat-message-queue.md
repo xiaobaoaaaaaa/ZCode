@@ -18,13 +18,13 @@ running 时，普通 `sendText` 与 `sendGoalCommand` 都由 CLI admission 决�
 
 ## 操作
 
-| 用户动作 | V4 command         | 权威结果                         |
-| -------- | ------------------ | -------------------------------- |
-| 删除     | `deleteQueueItem`  | projection 移除 queue item       |
+| 用户动作 | V4 command         | 权威结果                                      |
+| -------- | ------------------ | --------------------------------------------- |
+| 删除     | `deleteQueueItem`  | projection 移除 queue item                    |
 | 撤回编辑 | `deleteQueueItem`  | projection 移除后，仅发起端恢复 composer 草稿 |
-| 立即发送 | `sendQueuedNow`    | CLI 按 stop barrier/优先规则消费 |
-| 排序     | `reorderQueueItem` | projection 返回新顺序            |
-| 自动续跑 | `setAutoDrain`     | snapshot 更新 auto-drain 状态    |
+| 立即发送 | `sendQueuedNow`    | CLI 按 stop barrier/优先规则消费              |
+| 排序     | `reorderQueueItem` | projection 返回新顺序                         |
+| 自动续跑 | `setAutoDrain`     | snapshot 更新 auto-drain 状态                 |
 
 UI 可对点击做短暂 pending/disabled 反馈，但不能只改本地数组。刷新、切 pane、桌面与手机同时在线时，均以 snapshot/delta 为准。
 
@@ -67,3 +67,46 @@ restore request 必须幂等。目标已被消费或被另一端删除时，`del
 - Schema：`packages/shared/src/zcode-protocol-v4/command.ts`、`snapshot.ts`
 - CLI handlers：`apps/zcode-cli/packages/bootstrap/src/zcode-protocol-v4/commands/handlers/queue.ts`
 - UI：`packages/ui/src/v4/SessionPane.tsx`
+
+## Enter 与修饰键的单条投递（2026-10-30）
+
+普通 Enter/点击沿用当前 `followupMode`；Ctrl+Enter（macOS 兼容 Cmd+Enter）以及按住平台主修饰键点击，对本条消息交换 `guide` / `queue`：
+
+| 默认模式 | Enter | Ctrl/Cmd+Enter |
+| -------- | ----- | -------------- |
+| 引导     | guide | queue          |
+| 队列     | queue | guide          |
+
+组合键不修改设置或 session 的默认模式；按钮提示随单条投递显示“引导当前任务”或“加入队列”。
+本规则替代旧的 queue → startNow 抢占映射。“立即发送”仍由队列的显式操作提供。
+空闲/新草稿仍按 CLI admission 正常开始；Shift+Enter、IME、空输入、禁用和自定义换行键保持现有门禁。
+手机 Web 远控移动输入视口继续保留 Enter 换行；桌面窄窗口不改变键盘语义。
+
+```mermaid
+sequenceDiagram
+  participant E as Lexical 键盘入口
+  participant C as Composer（临时草稿）
+  participant P as SessionPane / Host 路由
+  participant R as CLI CommandInbox（唯一 admission owner）
+  E->>C: Enter / Ctrl+Enter + 当前正文
+  C->>C: snapshot.followupMode → 默认 / 单条相反 delivery
+  C->>P: sendText(requestedDelivery, commandId, workspaceIdentity)
+  P->>R: 沿既有 owner/lease 上行
+  R-->>C: ACK + 权威 guide/queue projection
+```
+
+影响范围：Lexical → ConversationComposer → followupModeSettings（must-inspect）；按钮提示、App 偏好同步、快捷键改绑与手机门禁（should-inspect）。
+输入正文仍由 Composer 持有，默认模式由 App 设置同步到 CLI；不新建 accepted queue 或写入路径。
+本地/远程 workspace 保持 identity 路由；desktop-continuous 与 web-remote-replayable 继续使用同一 admission 的不同交付链路。
+codegraph 不可用，以这些源码种子追踪两层调用。用户已明确双向互换，未定义项无；剪枝网络故障和后台任务排列，不修改 runtime 状态机。
+
+验收：M06k（queue + running + Ctrl/Cmd+Enter → guide，不抢占，已有普通 queue 保留），M06n（guide → future queue），M06o/p（idle、桌面窄窗口与手机边界）复用原案例 ID。
+增加双向默认键/组合键、Shift+Enter、IME、空输入、禁用与 tooltip 的组件/单测覆盖；桌面 ME 规格与 fixture 同步更新，历史“抢占”回放证据不代表新语义已验证。
+
+### 本次验证
+
+- 24 项相关单测通过，包括真实 Lexical Enter/Ctrl/Meta 事件、两种默认模式、Shift/IME 门禁、提示和设置同步。
+- `pnpm typecheck`、`pnpm --filter @zcode/desktop typecheck:e2e`、`pnpm architecture:check --changed` 通过；`pnpm lint` 为 0 错误、96 条既有警告。
+- ME 的 case-local fixture 检查通过，包含“待引导”和已有 future queue 均不得提前发起请求的 `maxMatches=0` 断言。
+- 最终 Personal 源码的 Electron case-local 与默认回放均 2/2 通过，覆盖 M06k/M06n；使用现有 `ZCODE_E2E_CONTAINER=1` 的 X11/软件渲染参数，未执行 Docker 准入。
+- 证据：`packages/desktop/.e2e-artifacts/desktop-e2e-20261030-014436-891/summary.md`、`desktop-e2e-20261030-014549-251/summary.md`。此前启动/侧栏 pending 动画和草稿归属问题的调查见 `docs/desktop/startup-critical-path.md`。

@@ -107,12 +107,14 @@ export function ThemePreviewCard({
 }
 
 export function SettingsRow({
+  searchId,
   label,
   description,
   control,
   detail,
   controlLayout = "default",
 }: {
+  searchId?: string;
   label: ReactNode;
   description?: ReactNode;
   control: ReactNode;
@@ -120,7 +122,11 @@ export function SettingsRow({
   controlLayout?: "default" | "wide";
 }) {
   return (
-    <div className="border-t border-border px-4 py-3 first:border-t-0">
+    <div
+      data-settings-search-id={searchId}
+      tabIndex={searchId ? -1 : undefined}
+      className="border-t border-border px-4 py-3 first:border-t-0 data-[settings-search-highlight=true]:bg-accent focus-visible:outline focus-visible:outline-brand"
+    >
       <div
         className={cn(
           "grid items-center gap-4",

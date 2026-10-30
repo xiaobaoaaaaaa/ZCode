@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment jsdom
+import { createElement } from "react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
+  LexicalChatInput,
+  type LexicalChatInputHandle,
   shouldResetLexicalEditorAfterSubmit,
   shouldSubmitLexicalEnter,
   shouldSubmitLexicalModifiedEnter,
@@ -16,6 +21,78 @@ import {
   resolveChatEnterSubmits,
   shouldAvoidIosInputFocusZoom,
 } from "@/lib/mobileTextInput.js";
+
+// 保留真实 Lexical 键盘链路；只隔离本测试不使用的目录服务与会话上下文。
+vi.mock("@/SlashCommandPlugin.js", () => ({ SlashCommandPlugin: () => null }));
+vi.mock("@/v4/activeTaskProvider.js", () => ({ useChatViewActiveTaskProvider: () => null }));
+vi.mock("@/hooks/useSettingService.js", () => ({ useSettings: () => ({ settings: {} }) }));
+afterEach(cleanup);
+
+describe("follow-up keyboard delivery", () => {
+  const rangeRect = Object.getOwnPropertyDescriptor(Range.prototype, "getBoundingClientRect");
+  beforeAll(() => {
+    // jsdom 不实现 Range 布局；Lexical 提交选区需要这个浏览器几何接口。
+    Object.defineProperty(Range.prototype, "getBoundingClientRect", {
+      configurable: true,
+      value: () => new DOMRect(0, 0, 0, 0),
+    });
+  });
+  afterAll(() => {
+    if (rangeRect) Object.defineProperty(Range.prototype, "getBoundingClientRect", rangeRect);
+    else Reflect.deleteProperty(Range.prototype, "getBoundingClientRect");
+  });
+  for (const mode of ["guide", "queue"] as const) {
+    it(`${mode}: Enter uses the default and Ctrl/Meta+Enter uses the opposite without changing it`, async () => {
+      const api = { current: null as LexicalChatInputHandle | null };
+      const submit = vi.fn();
+      render(
+        createElement(LexicalChatInput, {
+          workspacePath: "/keyboard-test",
+          taskId: null,
+          enableMentionPanel: false,
+          editorApiRef: api,
+          onSubmit: (text) => {
+            submit(text, mode);
+          },
+          onModifiedSubmit: (text) => {
+            submit(text, resolveOppositeFollowupDelivery(mode));
+          },
+        }),
+      );
+      const input = screen.getByRole("textbox");
+      for (const modifier of ["none", "ctrl", "meta", "none"] as const) {
+        await act(async () => {
+          api.current!.appendText(`message-${modifier}`);
+        });
+        fireEvent.keyDown(input, {
+          key: "Enter",
+          code: "Enter",
+          keyCode: 13,
+          ctrlKey: modifier === "ctrl",
+          metaKey: modifier === "meta",
+        });
+        expect(submit).toHaveBeenLastCalledWith(
+          `message-${modifier}`,
+          modifier === "none" ? mode : mode === "guide" ? "queue" : "guide",
+        );
+        await act(async () => {});
+      }
+      expect(submit).toHaveBeenCalledTimes(4);
+      for (const event of [
+        { shiftKey: true },
+        { shiftKey: true, ctrlKey: true },
+        { isComposing: true, ctrlKey: true },
+      ]) {
+        await act(async () => {
+          api.current!.clear();
+          api.current!.appendText("draft");
+        });
+        fireEvent.keyDown(input, { key: "Enter", code: "Enter", keyCode: 13, ...event });
+      }
+      expect(submit).toHaveBeenCalledTimes(4);
+    });
+  }
+});
 
 describe("mobile text input zoom guard", () => {
   it("keeps modified submit on desktop drafts and Windows coarse-pointer viewports", () => {
@@ -49,8 +126,8 @@ describe("mobile text input zoom guard", () => {
     ).toBe(false);
   });
 
-  it("resolves Cmd/Ctrl+Enter as send-now for queue and queue for guide", () => {
-    expect(resolveOppositeFollowupDelivery("queue")).toBe("startNow");
+  it("resolves Cmd/Ctrl+Enter as guide for queue and queue for guide", () => {
+    expect(resolveOppositeFollowupDelivery("queue")).toBe("guide");
     expect(resolveOppositeFollowupDelivery("guide")).toBe("queue");
     expect(
       shouldSubmitLexicalModifiedEnter({
@@ -115,9 +192,9 @@ describe("mobile text input zoom guard", () => {
         isApplePlatform: true,
       }),
     ).toEqual({
-      delivery: "startNow",
+      delivery: "guide",
       shortcut: "⌘ + Enter",
-      titleId: "chat.followup.sendNow",
+      titleId: "chat.followup.guideCurrent",
     });
     expect(
       resolveFollowupModifierTooltip({

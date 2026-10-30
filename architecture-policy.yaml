@@ -784,6 +784,19 @@ modules:
     layers:
       ui: .
     owner: conversation
+  # settings-search：由 architecture:adopt 登记
+  - id: settings-search
+    roots:
+      - packages/ui/src/settings-search
+      - packages/ui/test/settings-search
+      - packages/ui/test/browser/manual-review/pending/settings-search
+    managed: true
+    requires: [ui]
+    publicEntrypoints:
+      - packages/ui/src/settings-search/contract.ts
+    layers:
+      ui: .
+    owner: desktop-settings
 
 global:
   # 临时时间戳（2026-09-10）：unmanaged-new-file 只约束此日期之后首次入库的文件。

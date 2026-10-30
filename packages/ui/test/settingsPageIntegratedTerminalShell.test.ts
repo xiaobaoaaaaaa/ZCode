@@ -1,6 +1,19 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { SettingsSearchResult } from "../src/settings-search/contract.js";
+
+const settingsSearchCapture = vi.hoisted(() => ({
+  onSelect: undefined as ((result: SettingsSearchResult) => void) | undefined,
+}));
+// 本文件隔离设置页的导航/服务所有权；搜索目录和 DOM 定位由 settings-search 的独立测试覆盖。
+vi.mock("@/settings-search/contract.js", () => ({
+  SettingsGlobalSearch: ({ onSelect }: { onSelect: (result: SettingsSearchResult) => void }) => {
+    settingsSearchCapture.onSelect = onSelect;
+    return null;
+  },
+  useSettingsSearchDestination: () => ({ current: null }),
+}));
 
 const selectedSection = vi.hoisted(() => ({ value: "general" }));
 vi.mock("@/components/ui/toast.js", () => ({ toast: vi.fn() }));
@@ -340,6 +353,7 @@ describe("SettingsPage integrated terminal shell", () => {
     localServices.settingService.get.mockReset().mockResolvedValue({});
     remoteServices.settingService.get.mockReset().mockResolvedValue({});
     generalSectionCapture.props = undefined;
+    settingsSearchCapture.onSelect = undefined;
     settingsPageConfigCalls.length = 0;
     sharedSettingsState.value = undefined;
     sourceServerManagementState.value = undefined;
@@ -385,6 +399,28 @@ describe("SettingsPage integrated terminal shell", () => {
     expect(html).toContain('aria-labelledby="settings-sidebar-group-basics"');
     expect(html).toContain('id="settings-sidebar-group-basics"');
   }, 90_000);
+
+  it("commits search selection through settings navigation without updating settings values", async () => {
+    const { SettingsPage } = await import("../src/SettingsPage.js");
+    const { writeLastSettingsSectionPreference } = await import("@/lib/settingsNavigation.js");
+    renderToStaticMarkup(createElement(SettingsPage, {}));
+    const destination: SettingsSearchResult = {
+      id: "settings.uiFontSize",
+      section: "appearance",
+      title: "UI font size",
+      sectionTitle: "Appearance",
+      description: "",
+      searchText: "",
+      titleText: "",
+      sectionOnly: false,
+    };
+    settingsSearchCapture.onSelect!(destination);
+    expect(writeLastSettingsSectionPreference).toHaveBeenLastCalledWith("appearance");
+    expect(stateUpdates).toContain("appearance");
+    expect(stateUpdates).toContain(destination);
+    expect(localServices.settingService.update).not.toHaveBeenCalled();
+    expect(remoteServices.settingService.update).not.toHaveBeenCalled();
+  });
 
   it("defaults ToolSearch off and saves the selected mode through shared settings", async () => {
     const { SettingsPage } = await import("../src/SettingsPage.js");
