@@ -69,7 +69,8 @@ jobs:
       - name: Install frozen dependencies
         run: |
           node scripts/assert-node-version.mjs
-          pnpm install --frozen-lockfile
+          # pnpm hoisted 副本写入会与补丁 chdir/嵌套目标竞争；串行构建保留完整安装脚本。
+          pnpm install --frozen-lockfile --child-concurrency=1
       - name: Validate release tooling and baseline
         if: matrix.target == 'linux-x64'
         run: |

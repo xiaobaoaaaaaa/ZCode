@@ -24,7 +24,11 @@ gh release edit v<version> --draft=false --prerelease=false --latest
 | Linux ARM64 | ubuntu-22.04-arm | AppImage、DEB、RPM、Arch 包 |
 
 所有目标使用 Node 24.14.0、pnpm 10.33.2 和冻结锁文件，调用官方的运行资源准备、
-bootstrap 构建和 bundle 入口。Linux 使用原生 fpm，避免 ARM64 runner 执行 x64 工具。
+bootstrap 构建和 bundle 入口。安装阶段使用 `--child-concurrency=1`，串行执行依赖构建、
+补丁应用及 hoisted 副本写入；保留安装脚本和所有校验，避免 pnpm 10.33.2 的相对目标路径与
+补丁 `chdir`、嵌套目标并发写入发生竞争。来源为发布日志中的 `_tmp_* → esbuild` 重命名失败、
+当前 pnpm 实现与 [上游记录](https://github.com/pnpm/pnpm/issues/13627)；日志未能区分两类竞争。
+Linux 使用原生 fpm，避免 ARM64 runner 执行 x64 工具。
 依赖收集同时包含 glibc 与 musl 可选包，使 Linux 生成的第三方声明覆盖与 macOS/Windows
 相同的已登记平台包；实际发行包仍由上游原生依赖裁剪规则选择对应目标。
 macOS 使用 ad-hoc 签名，不代表 Developer ID 签名或公证；Windows 不使用 Authenticode。
