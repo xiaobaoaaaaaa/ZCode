@@ -135,7 +135,7 @@ void (async () => {
   let mobile = false;
   // 回归真实模型输出：从正文解析进入卡片，直接挂 GenUiCard 无法发现 directive 未识别。
   let mode: "normal" | "wide" = "wide";
-  let summaryMode: "only" | "mixed" | "ordinary" | null = null;
+  let summaryMode: "only" | "mixed" | "ordinary" | "recover" | null = null;
   let compact = false;
   const renderReply = (phase: "streaming" | "complete" | "hidden") =>
     reactRoot.render(

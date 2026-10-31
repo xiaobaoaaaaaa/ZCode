@@ -83,6 +83,7 @@ export function ConversationFileSummaryPanel({
     result: V4ConversationFileChangesResult | null;
   } | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [detailsRetry, setDetailsRetry] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [preview, setPreview] = useState<V4ConversationFileRewindPreviewResult | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -139,7 +140,10 @@ export function ConversationFileSummaryPanel({
   const needsDetails = open || filtersSources;
 
   useEffect(() => {
-    if (!needsDetails || !context.fetchFileChanges || !target) return;
+    if (!needsDetails || !context.fetchFileChanges || !target) {
+      setLoadingDetails(false);
+      return;
+    }
 
     let disposed = false;
     // 运行中的 fileChanges 是某个 projection revision 的局部结果；turn
@@ -173,6 +177,7 @@ export function ConversationFileSummaryPanel({
     };
   }, [
     cachePolicy,
+    detailsRetry,
     context.fetchFileChanges,
     fileChangesState,
     needsDetails,
@@ -291,11 +296,23 @@ export function ConversationFileSummaryPanel({
                   id: "chat.changeSummary.rewindDialog.loading",
                 })}
               </div>
-            ) : details && items.length === 0 ? (
+            ) : items.length === 0 ? (
+              // 请求失败或 target 尚不可用时 details 为 null；只判断 details 会渲染空数组，
+              // 导致展开后完全空白。显示明确状态，并复用当前查询入口让用户恢复。
               <div className="px-2 py-1.5 text-ui-base text-foreground-subtle">
                 {intl.formatMessage({
                   id: "chat.changeSummary.diffUnavailable",
                 })}
+                {context.fetchFileChanges && target ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDetailsRetry((value) => value + 1)}
+                  >
+                    {intl.formatMessage({ id: "common.retry" })}
+                  </Button>
+                ) : null}
               </div>
             ) : (
               items.map((item) => {

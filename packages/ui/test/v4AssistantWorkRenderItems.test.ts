@@ -37,6 +37,78 @@ describe("execution activity projection", () => {
     expect(describeAssistantWorkActivity(item)?.toolCounts).toEqual({ [category!]: 1 });
   });
 
+  it.each(["row", "output"] as const)("keeps structured Bash output folded (%s)", (channel) => {
+    const display = {
+      kind: "bash_output" as const,
+      output: "TERMINAL_HEAD",
+      truncated: true,
+      outputPath: "/tmp/output.txt",
+    };
+    const before = toolCall(1, "Bash", { command: "node script.js" }, { status: "running" });
+    const after = {
+      ...before,
+      status: "success" as const,
+      ...(channel === "row" ? { display } : { output: { display } }),
+    };
+    for (const row of [before, after]) {
+      const groups = groupExecutionActivities(
+        buildRenderItems([row, reasoning(2)]),
+        describeAssistantWorkActivity,
+      );
+      expect(groups).toMatchObject([
+        { kind: "activity", key: "1", reasoningCount: 1, toolCounts: { terminal: 1 } },
+      ]);
+      expect(groups).toHaveLength(1);
+    }
+  });
+
+  it.each(["WebFetch", "Bash", "Write"])("isolates only the boundary within %s groups", (name) => {
+    for (const enabled of [true, false]) {
+      for (const boundary of [
+        { status: "error" as const },
+        { status: "cancelled" as const },
+        { status: "pendingApproval" as const },
+        { approvalInteractionId: "approval" },
+      ]) {
+        const rows = [1, 2, 3, 4, 5].map((id) =>
+          toolCall(
+            id,
+            name,
+            {
+              command: "node script.js",
+              url: "https://example.com",
+              file_path: "a.ts",
+              content: "ok",
+            },
+            id === 3 ? boundary : {},
+          ),
+        );
+        const items = buildRenderItems(rows, SHOW_ALL_REASONING, {
+          collapseActivities: true,
+          enableExploreGrouping: enabled,
+          enableTerminalGrouping: enabled,
+          enableChangesGrouping: enabled,
+        });
+        const groups = groupExecutionActivities(items, describeAssistantWorkActivity);
+        expect(groups).toMatchObject([
+          { kind: "activity", key: "1" },
+          { kind: "item", item: { kind: "row", row: { rowId: 3 } } },
+          { kind: "activity", key: "4" },
+        ]);
+        expect(groups).toHaveLength(3);
+        const recovered = groupExecutionActivities(
+          buildRenderItems(
+            rows.map((row) => ({ ...row, status: "success", approvalInteractionId: undefined })),
+            SHOW_ALL_REASONING,
+            { collapseActivities: true },
+          ),
+          describeAssistantWorkActivity,
+        );
+        expect(recovered).toHaveLength(1);
+      }
+    }
+  });
+
   it("does not mistake ordinary image generation or a browser mention for browser automation", () => {
     const row = toolCall(
       1,

@@ -183,6 +183,39 @@ afterEach(() => {
 });
 
 describe("ConversationFileSummaryPanel", () => {
+  it.each(["rejected", "missing-target", "missing-reader"])(
+    "展开明细 %s 时显示不可用而不是空白",
+    async (failure) => {
+      const container = installMinimalDom();
+      const root = createRoot(container);
+      const fetchFileChanges = vi.fn(async () => {
+        throw new Error("proto.staleRevision");
+      });
+      await act(async () =>
+        root.render(
+          createElement(
+            ZCodeIntlProvider,
+            { initialLocale: "zh-CN" },
+            createElement(ConversationFileSummaryPanel, {
+              header: header(failure === "missing-target" ? { entityId: undefined } : {}),
+              context: {
+                workspacePath: "/workspace",
+                theme: "system",
+                codePreviewSettings: DEFAULT_CODE_PREVIEW_SETTINGS,
+                ...(failure !== "missing-reader" ? { fetchFileChanges } : {}),
+              },
+            }),
+          ),
+        ),
+      );
+      await act(async () => collapsibleOpenChanges.at(-1)?.(true));
+      expect(collectText(container)).toContain("暂时无法预览这份 Diff。");
+      if (failure === "rejected") expect(collectText(container)).toContain("重试");
+      else expect(fetchFileChanges).not.toHaveBeenCalled();
+      await act(async () => root.unmount());
+    },
+  );
+
   it.each([false, true])(
     "visualize 混合摘要只统计普通文件，compact=%s",
     async (compactForRemoteControl) => {

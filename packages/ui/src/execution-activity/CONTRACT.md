@@ -8,4 +8,4 @@
 每条工具调用只落入一个类别；组件按固定顺序显示非零类别。聚合器复制并合并计数，不修改输入映射。
 类别变化只更新摘要，不作为分组边界或身份的一部分；工具语义的识别归 V4 调用方所有。
 
-V4 renderer 先完成已有的 reasoning 可见性和 Explore/Execute/Changes 分组，再为运行中片段提供描述符。错误、授权、交互和插件 UI 由调用方声明边界。结束后的整轮历史保持原有行为。详见 `docs/ui/execution-activity-collapse.md`。
+V4 renderer 先完成已有的 reasoning 可见性；运行中按原始工具行隔离错误、授权、交互和插件 UI 等边界，再构建 Explore/Execute/Changes 分组并提供描述符，避免一个边界子项带出整组正常工具。结束后的整轮历史保持原有分组行为。详见 `docs/ui/execution-activity-collapse.md`。

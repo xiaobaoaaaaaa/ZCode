@@ -1222,6 +1222,40 @@ describe("ConversationTurnGroup assistant history status", () => {
     },
   );
 
+  it.each([false, true])(
+    "keeps structured terminal output and successful siblings folded (remote=%s)",
+    (compactForRemoteControl) => {
+      const [unit] = buildConversationTurnRenderUnits([
+        turnHeader({ state: "running" }),
+        userInputRow(2),
+        reasoningRow(),
+        toolCallRow(
+          4,
+          "Bash",
+          { command: "node script.js" },
+          {
+            output: {
+              display: {
+                kind: "bash_output",
+                output: "LONG_OUTPUT",
+                truncated: true,
+                outputPath: "/tmp/output.txt",
+              },
+            },
+          },
+        ),
+        toolCallRow(5, "Bash", { command: "exit 1" }, { status: "error" }),
+        toolCallRow(6, "Bash", { command: "node -v" }),
+      ]);
+      const html = renderUnit(unit!, { compactForRemoteControl, messageStreamShowReasoning: true });
+      expect(html.match(/data-testid="execution-activity-trigger"/g)).toHaveLength(2);
+      expect(html).toContain('data-tool-call-id="tool-5"');
+      expect(html).not.toContain('data-tool-call-id="tool-4"');
+      expect(html).not.toContain('data-tool-call-id="tool-6"');
+      expect(html).not.toContain("LONG_OUTPUT");
+    },
+  );
+
   it("leaves a failed tool visible between closed activity groups", () => {
     const [unit] = buildConversationTurnRenderUnits([
       turnHeader({ state: "running" }),

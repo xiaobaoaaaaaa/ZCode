@@ -13,7 +13,7 @@ export function FileSummaryFixture({
 }: {
   path: string;
   root: string;
-  mode: "only" | "mixed" | "ordinary";
+  mode: "only" | "mixed" | "ordinary" | "recover";
   compact: boolean;
 }) {
   const row = useMemo<AssistantTextRow>(
@@ -26,32 +26,42 @@ export function FileSummaryFixture({
       kind: "assistantText",
       state: "complete",
       text:
-        mode === "ordinary"
-          ? `${root}/demo.html`
-          : `::visualize${JSON.stringify({ path })}\n[可视化](${path})${mode === "mixed" ? `\n${root}/demo.html` : ""}`,
+        mode === "recover"
+          ? "File summary recovery"
+          : mode === "ordinary"
+            ? `${root}/demo.html`
+            : `::visualize${JSON.stringify({ path })}\n[可视化](${path})${mode === "mixed" ? `\n${root}/demo.html` : ""}`,
     }),
     [mode, path, root],
   );
   const rows = useMemo(() => [row], [row]);
-  const context = useMemo(
-    () => ({
+  const context = useMemo(() => {
+    let failNext = mode === "recover";
+    return {
       workspacePath: root,
       workspaceIdentity: "ssh:fixture:/workspace",
       workspaceRemoteSessionId: "remote-1",
       theme: "system" as const,
       codePreviewSettings: DEFAULT_CODE_PREVIEW_SETTINGS,
       compactForRemoteControl: compact,
-      fetchFileChanges: async () => ({
-        items: [
-          ...(mode !== "ordinary" ? [{ path, additions: 70, deletions: 1, patches: [] }] : []),
-          ...(mode !== "only"
-            ? [{ path: `${root}/demo.html`, additions: 7, deletions: 2, patches: [] }]
-            : []),
-        ],
-      }),
-    }),
-    [compact, mode, path, root],
-  );
+      fetchFileChanges: async () => {
+        if (failNext) {
+          failNext = false;
+          throw new Error("proto.staleRevision");
+        }
+        return {
+          items: [
+            ...(mode !== "ordinary" && mode !== "recover"
+              ? [{ path, additions: 70, deletions: 1, patches: [] }]
+              : []),
+            ...(mode !== "only"
+              ? [{ path: `${root}/demo.html`, additions: 7, deletions: 2, patches: [] }]
+              : []),
+          ],
+        };
+      },
+    };
+  }, [compact, mode, path, root]);
   const header: TurnHeaderRow = {
     rowId: 1,
     entityId: "summary-header",
