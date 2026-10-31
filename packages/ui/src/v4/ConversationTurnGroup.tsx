@@ -435,6 +435,7 @@ function ConversationAssistantWorkItems({
         },
         {
           stageTailIsRunning,
+          collapseActivities,
           enableCuaGrouping: ENABLE_CUA_TOOL_CALL_GROUPING,
           enableExploreGrouping:
             context.toolGroupingExploreEnabled ?? ENABLE_EXPLORE_TOOL_CALL_GROUPING,
@@ -445,6 +446,7 @@ function ConversationAssistantWorkItems({
         },
       ),
     [
+      collapseActivities,
       context.toolGroupingChangesEnabled,
       context.toolGroupingExploreEnabled,
       context.toolGroupingTerminalEnabled,

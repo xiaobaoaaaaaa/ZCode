@@ -64,6 +64,30 @@ Write/Edit 等文件工具
 
 ### 投影边界
 
+#### 明细读取失败的恢复（2026-10-31）
+
+摘要数字不等于已加载明细。展开后必须显示加载中、文件列表或明确的不可用提示，
+不能在请求失败（包括 stale authority）、查询入口未就绪或 target 缺失时留下空白。
+请求失败和空结果允许用户在面板内重试；没有查询能力/target 时显示不可用，不伪造文件列表。
+重试复用 SessionPane 的查询入口与缓存失效规则，不新增状态事实或自动无限重试。
+切换 target/会话后，旧请求仍由既有 disposed/requestKey 规则隔离。
+
+```text
+展开/重试 → 面板请求当前 target → SessionPane 缓存与查询 → CLI 文件事实
+                                     └→ stale authority：原有 lease resync
+            ← 加载中 / 明细 / 不可用＋可重试
+```
+
+共享面板用于主会话和子智能体侧栏；桌面与手机共用上述恢复语义。
+验收覆盖首次失败后重试成功、无 target/无查询能力、空结果、切换目标时忽略旧结果；
+现有 Electron 文件摘要交互场景补充首次失败后的展开和恢复。
+
+验证记录：新增三类空白分支测试在修复前失败，修复后通过。真实 Electron 文件摘要
+夹具在 1100/390 宽度、深浅主题均验证首次失败后的重试恢复；独立运行该检查通过。
+完整 Gen UI 夹具在文件摘要检查之后的剪贴板检查失败，不能记为整套通过。
+截图对应请求的失败原因缺少运行时证据；已确认并修复的是 null 明细被渲染为空列表的
+UI 缺口，没有将截图归因于某个未经证实的网络、权限或版本问题。
+
 - `turnHeader.fileChanges` 只承载轻量摘要：文件数、总新增行、总删除行，以及后续需要的撤销状态；不要把完整 patch 或 before/after content 放进 replayable snapshot。
 - 文件明细、readonly diff patch、preview safe/unsafe 列表按需从 host/core 查询；展开面板或点击撤销时再读取 checkpoint artifact。
 - `CheckpointCreated` 的 event store 是运行时内存账本；checkpoint payload 还必须写入既有

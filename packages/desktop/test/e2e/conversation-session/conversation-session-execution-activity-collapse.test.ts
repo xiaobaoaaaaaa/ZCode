@@ -120,6 +120,26 @@ describe("Execution activity collapse", () => {
       },
     );
     expect((await readGroups())[0]).toMatchObject({ key: first.key, expanded: true });
+    await browser.waitUntil(
+      async () => Boolean(await getLatestUpstreamToolResultByToolCallId("toolu_activity_bash")),
+      { timeout: 30000 },
+    );
+    expect((await readGroups())[0]).toMatchObject({ key: first.key, expanded: true });
+    expect(await readGroups()).toHaveLength(1);
+    await browser.$('[data-testid="tool-summary-trigger-toolu_activity_bash"]').click();
+    await browser.waitUntil(
+      () =>
+        browser.execute(() => {
+          const tool = document.querySelector('[data-tool-call-id="toolu_activity_bash"]');
+          return Boolean(
+            tool?.closest("[data-execution-activity]") &&
+            tool
+              .querySelector('[data-testid="bash-result-output"]')
+              ?.textContent?.includes("ACTIVITY_LONG_OUTPUT"),
+          );
+        }),
+      { timeout: 15000, timeoutMsg: "长终端输出没有保留在展开的执行过程内" },
+    );
     await toggleLatestConversationToolGroup("Explore", true);
     await browser.$('[data-tool-call-id="toolu_activity_read_a"]').waitForExist();
     await browser.$('[data-tool-call-id="toolu_activity_read_b"]').waitForExist();
@@ -156,6 +176,8 @@ describe("Execution activity collapse", () => {
     );
     await toggleByKeyboard();
     await browser.waitUntil(async () => (await readGroups())[0]?.expanded === false);
+    // Radix 收起动画完成后才卸载 children；等待实际不可见/卸载，不用 aria 切换代替完成态。
+    await browser.$('[data-tool-call-id="toolu_activity_bash"]').waitForExist({ reverse: true });
     await captureLayouts();
 
     // 本例验证前台图片交互；先恢复测试窗口，避免宿主桌面遮挡导致真实截图无合成 surface。

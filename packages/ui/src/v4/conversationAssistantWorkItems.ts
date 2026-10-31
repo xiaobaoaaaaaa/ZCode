@@ -161,7 +161,13 @@ function canCollapseExecutionTool(row: ToolCallRow, family: ToolCallPresentation
   // 整条日志跳出折叠并拆组。仅轮尾最终截图独立外显，过程图和 app 身份保留在原组内。
   if (display?.kind === "node_repl_images") {
     if (display.source === "browser_turn_end") return false;
-  } else if (display && display.kind !== "file_diff" && display.kind !== "mcp_tool") {
+  } else if (
+    display &&
+    display.kind !== "file_diff" &&
+    display.kind !== "mcp_tool" &&
+    // Bash 长输出携带截断和完整文件入口，仍是普通执行结果，不能因此跳出折叠。
+    display.kind !== "bash_output"
+  ) {
     return false;
   }
   if (display?.kind === "mcp_tool" && (display.ui || display.unavailable)) return false;
@@ -172,6 +178,7 @@ function canCollapseExecutionTool(row: ToolCallRow, family: ToolCallPresentation
 
 export interface ConversationAssistantWorkRenderOptions {
   stageTailIsRunning?: boolean;
+  collapseActivities?: boolean;
   enableCuaGrouping?: boolean;
   enableExploreGrouping?: boolean;
   enableTerminalGrouping?: boolean;
@@ -410,6 +417,15 @@ export function buildAssistantWorkRenderItems(
     enableCuaGrouping,
     options?.stageTailIsRunning === true,
   );
+  // 先按原始行隔离需外显的边界，避免一个失败/待授权子项把整个内层组带出折叠。
+  // 仅运行中的过程折叠使用此规则，已结束历史继续保留原有工具组。
+  const isActivityBoundary = (row: AssistantWorkRow) =>
+    options?.collapseActivities === true &&
+    isToolCallRow(row) &&
+    !canCollapseExecutionTool(
+      row,
+      resolveToolCallIdentity(toolCallRowToLegacyNode(row).toolCall).family,
+    );
   let index = 0;
 
   while (index < preparedRows.length) {
@@ -444,6 +460,12 @@ export function buildAssistantWorkRenderItems(
       }
     }
 
+    if (isActivityBoundary(row)) {
+      items.push({ kind: "row", key: `row:${row.rowId}`, row });
+      index += 1;
+      continue;
+    }
+
     const isExploreRow = isExploreToolCallRow(row);
     if (!isExploreRow) {
       if (enableChangesGrouping && isChangesToolCallRow(row)) {
@@ -451,7 +473,13 @@ export function buildAssistantWorkRenderItems(
         index += 1;
         while (index < preparedRows.length) {
           const nextRow = preparedRows[index];
-          if (!nextRow || nextRow.kind === "cuaGroup" || !isChangesToolCallRow(nextRow)) break;
+          if (
+            !nextRow ||
+            nextRow.kind === "cuaGroup" ||
+            !isChangesToolCallRow(nextRow) ||
+            isActivityBoundary(nextRow)
+          )
+            break;
           groupRows.push(nextRow);
           index += 1;
         }
@@ -474,7 +502,12 @@ export function buildAssistantWorkRenderItems(
         index += 1;
         while (index < preparedRows.length) {
           const nextRow = preparedRows[index];
-          if (!nextRow || nextRow.kind === "cuaGroup" || !isExecuteToolCallRow(nextRow)) {
+          if (
+            !nextRow ||
+            nextRow.kind === "cuaGroup" ||
+            !isExecuteToolCallRow(nextRow) ||
+            isActivityBoundary(nextRow)
+          ) {
             break;
           }
           groupRows.push(nextRow);
@@ -517,7 +550,12 @@ export function buildAssistantWorkRenderItems(
     index += 1;
     while (index < preparedRows.length) {
       const nextRow = preparedRows[index];
-      if (!nextRow || nextRow.kind === "cuaGroup" || !isExploreToolCallRow(nextRow)) {
+      if (
+        !nextRow ||
+        nextRow.kind === "cuaGroup" ||
+        !isExploreToolCallRow(nextRow) ||
+        isActivityBoundary(nextRow)
+      ) {
         break;
       }
       groupRows.push(nextRow);

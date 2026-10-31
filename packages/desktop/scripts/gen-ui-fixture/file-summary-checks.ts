@@ -14,6 +14,26 @@ export async function checkFileSummary(
       await win.webContents.executeJavaScript(
         `document.documentElement.className=${JSON.stringify(theme === "dark" ? "dark theme-zai-dark" : "theme-zai-light")}; document.body.className='bg-background text-foreground'`,
       );
+      await win.webContents.executeJavaScript("window.showFileSummary('recover')");
+      await waitHost(`Boolean(document.querySelector('#file-summary-panel button'))`);
+      await win.webContents.executeJavaScript(
+        "document.querySelector('#file-summary-panel button').click()",
+      );
+      await waitHost(
+        `document.querySelector('#file-summary-panel')?.textContent.includes('Retry')`,
+      );
+      await win.webContents.executeJavaScript(
+        "Array.from(document.querySelectorAll('#file-summary-panel button')).find(button => button.textContent === 'Retry').click()",
+      );
+      await waitHost(
+        `document.querySelector('#file-summary-panel')?.textContent.includes('demo.html')`,
+      );
+      assert.equal(
+        await win.webContents.executeJavaScript(
+          "document.querySelector('#file-summary-panel').textContent.includes('Retry')",
+        ),
+        false,
+      );
       // 先证明普通 HTML 可以正常出现，再验证 visualize 去重，避免空组件假阳性。
       await win.webContents.executeJavaScript("window.showFileSummary('ordinary')");
       await waitHost(
