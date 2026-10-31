@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { devNull, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 import { afterEach, test } from "vitest";
@@ -16,13 +16,17 @@ afterEach(async () => {
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "telemetry-fields-"));
   roots.push(root);
+  // Windows 的 os.devNull 是设备路径，Git 配置读取拒绝该路径，导致用例尚未执行即失败。
+  // 使用真实空文件隔离全局配置，兼容所有平台且不放宽字段合同断言。
+  const emptyGitConfig = join(root, "empty.gitconfig");
+  await writeFile(emptyGitConfig, "");
   const git = (...args: string[]) =>
     exec("git", args, {
       cwd: root,
       env: {
         ...process.env,
         GIT_CONFIG_NOSYSTEM: "1",
-        GIT_CONFIG_GLOBAL: devNull,
+        GIT_CONFIG_GLOBAL: emptyGitConfig,
         GIT_AUTHOR_NAME: "Test",
         GIT_AUTHOR_EMAIL: "test@example.com",
         GIT_COMMITTER_NAME: "Test",

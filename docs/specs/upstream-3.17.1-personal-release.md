@@ -21,3 +21,5 @@
 中断继续按钮以权威 admission 结果锁定本次继续；正文事务已结算后，即使附件交接失败，也不能恢复按钮并重复提交。浏览器侧栏的 workspace/remote scope 继续由 tab 保存并经 BrowserUseSidePaneContent 传递。
 
 Desktop main/host 使用 server 的公开远端接口；TypeScript 工程引用必须包含 server，复用其声明产物，不在 Desktop 上下文重新检查 server 源码。
+
+工程验收中的临时 Git 仓库必须在 Windows/macOS/Linux 使用独立空配置文件，不能依赖 Node 的设备空路径被 Git 识别；保持原有遥测字段断言不变。
