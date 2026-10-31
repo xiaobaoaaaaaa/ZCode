@@ -1276,6 +1276,10 @@ function ConversationBackgroundResultWork({
                 rows={unit.assistantHistoryRows}
                 context={context}
                 assistantCodeCommentProjectionEnabled={assistantCodeCommentProjectionEnabled}
+                // 后台通知会独立唤醒一轮；此入口漏传开关时，全部思考和工具绕过过程折叠。
+                // 使用本轮权威 running 状态，完成后仍交给外层历史折叠，不重开先前主轮。
+                collapseActivities={unit.isRunning}
+                stageTailIsRunning={unit.isRunning && !latestAssistantTextRow && !hasFollowing}
               />
             </div>
           ) : null}
@@ -1301,6 +1305,8 @@ function ConversationBackgroundResultWork({
           rows={unit.assistantFollowingRows}
           context={context}
           assistantCodeCommentProjectionEnabled={assistantCodeCommentProjectionEnabled}
+          collapseActivities={unit.isRunning}
+          stageTailIsRunning={unit.isRunning}
         />
       ) : null}
       <TurnChatLoadingSlot

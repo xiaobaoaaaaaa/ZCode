@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "caseName": "conversation-session-background-activity-collapse",
+  "spec": "./test/e2e/conversation-session/conversation-session-background-activity-collapse.test.ts",
+  "providerFixtures": [
+    "./test/e2e/fixtures/upstream/common.json",
+    "./test/e2e/fixtures/upstream/conversation-session/conversation-session-background-activity-collapse.json"
+  ],
+  "fileFixtures": [],
+  "requests": [
+    {
+      "id": "bg-activity-launch",
+      "kind": "main",
+      "source": "synthetic",
+      "timingPolicy": "fast-text",
+      "syntheticReason": "受控子响应在主轮结束后释放；真实后台通知和 Bash 执行验证折叠入口、流式追加和完成态。"
+    },
+    {
+      "id": "bg-activity-child",
+      "kind": "subagent",
+      "source": "synthetic",
+      "timingPolicy": "controlled-stream",
+      "syntheticReason": "受控子响应在主轮结束后释放；真实后台通知和 Bash 执行验证折叠入口、流式追加和完成态。"
+    },
+    {
+      "id": "bg-activity-parent-done",
+      "kind": "main",
+      "source": "synthetic",
+      "timingPolicy": "fast-text",
+      "syntheticReason": "受控子响应在主轮结束后释放；真实后台通知和 Bash 执行验证折叠入口、流式追加和完成态。"
+    },
+    {
+      "id": "bg-activity-wake",
+      "kind": "main",
+      "source": "synthetic",
+      "timingPolicy": "tool-use",
+      "syntheticReason": "受控子响应在主轮结束后释放；真实后台通知和 Bash 执行验证折叠入口、流式追加和完成态。"
+    },
+    {
+      "id": "bg-activity-append",
+      "kind": "main",
+      "source": "synthetic",
+      "timingPolicy": "controlled-stream",
+      "syntheticReason": "受控子响应在主轮结束后释放；真实后台通知和 Bash 执行验证折叠入口、流式追加和完成态。"
+    },
+    {
+      "id": "bg-activity-finish",
+      "kind": "main",
+      "source": "synthetic",
+      "timingPolicy": "controlled-stream",
+      "syntheticReason": "受控子响应在主轮结束后释放；真实后台通知和 Bash 执行验证折叠入口、流式追加和完成态。"
+    },
+    {
+      "id": "bg-activity-title",
+      "kind": "common",
+      "source": "synthetic",
+      "timingPolicy": "fast-text",
+      "syntheticReason": "受控子响应在主轮结束后释放；真实后台通知和 Bash 执行验证折叠入口、流式追加和完成态。"
+    }
+  ]
+}

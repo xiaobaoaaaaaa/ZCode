@@ -62,6 +62,42 @@ CLI 工具结果 → 原有 V4 ToolCallRow → UI display 分类 → 同一执�
 
 ## 所有者与边界
 
+### 后台结果自动唤醒（2026-10-31）
+
+后台 Agent/Bash 完成通知在主会话空闲时会启动 `backgroundResult` 轮，不要求用户发送 guide 或停止后继续。
+已从问题会话核对：截图中的助手消息属于 `source=background_task` 输入启动的轮；CLI 将其投影为
+`backgroundResult`。独立后台渲染分支遗漏 `collapseActivities`，默认 false，导致该轮所有思考和普通工具
+绕过过程折叠；此前 `bash_output` 分类修复不能覆盖这一调用入口遗漏。
+
+后台唤醒轮在 `unit.isRunning` 时必须启用与普通轮相同的连续过程分组，包含 history 和 following 两条入口；
+当前工作段尾部的内层工具组接收同一个运行状态。后台身份标题、workflow 通知卡、正文、交互及异常边界保持外显。
+完成后仍使用原有“已工作”整轮历史，最终正文独立可见；不改变 CLI 生命周期或重开已结束主轮。
+
+```mermaid
+sequenceDiagram
+  participant C as CLI/runtime（轮次事实）
+  participant P as V4 projection
+  participant U as 共享 UI
+  C->>P: 后台完成通知，开启 backgroundResult 轮
+  P->>U: turnHeader running + 思考/工具行
+  U->>U: unit.isRunning 启用执行过程折叠
+  C->>P: completedSuccess + 最终回复
+  P->>U: 终态快照/连续更新
+  U->>U: 沿用完成态历史，最终回复外显
+```
+
+Desktop continuous 与 Web/mobile replayable 共用上述渲染，不改变协议和状态所有者。
+验收 `EA-BG-01`：真实后台 Agent 在主轮结束后完成，自动唤醒轮产生思考及多次 Bash；初始默认收起，
+展开后日志可读，追加不重置展开，重新收起不漏出；后台标题/正文边界外显，完成后保留最终回复及可展开历史。
+不把子会话面板的普通 agent 轮、guide 多段和完整远控重连组合重复纳入此入口修复。
+
+2026-11-01 验证核对：未修改生产代码时，真实桌面回放已执行后台通知和 Bash，DOM 无过程分组，
+在目标断言失败（`desktop-e2e-20261031152029173-p122191-e235ad7d4ba9949a`）。补齐两个调用入口后，
+同一用例 1/1 通过（`desktop-e2e-20261031152348444-p124800-cc905a26f20e7d45`）；展开/收起截图、
+追加后的分组身份及手动状态、最终回复和完成态历史均已核对。根类型、E2E 类型与架构检查通过；
+Lint 为 0 errors / 83 条既有 warnings。夹具校验通过，三个 warning 分别是通用标题匹配器无专属标记、
+日志与正文输出标记不参与后续请求匹配。候选保持 pending，不恢复已退役 App 单测。
+
 ### 分类摘要（2026-10-30）
 
 用户确认保留一个执行过程折叠组；摘要按操作类别显示次数，例如“读取 2 · 编辑 1 · 终端 1 · 浏览器 3”。

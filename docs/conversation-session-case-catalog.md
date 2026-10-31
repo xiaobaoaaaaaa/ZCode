@@ -5536,6 +5536,10 @@ SAM01–06 的前置、动作、断言与证据见 [影响与验收](subagent-in
 
 2026-10-30：M06k 根据用户需求改为 queue → guide，取代旧的 startNow 抢占；M06n 仍为 guide → queue。规格见 `docs/ui/chat-message-queue.md`，2026-09-12 的 M06k 抢占回放只作为历史记录。
 
+## 后台唤醒过程折叠（EA-BG-01，2026-10-31）
+
+已接受：主轮结束后真实后台 Agent 完成，通知自动启动 backgroundResult 轮；该轮思考与多次 Bash 默认进入执行过程，手动展开后追加不重置状态，重新收起隐藏工具；标题与正文边界在组外，完成后最终回复与整轮历史沿用原规则。回放只控制 provider 输出，后台通知、工具执行和 UI 使用真实链路；不需要 guide 或停止继续。Web/mobile 复用渲染规则，不把桌面回放宣称为完整远控恢复验证。
+
 ## 子代理独立窗口（SPW-004，2026-10-30）
 
 已接受：Desktop 中运行中的 child 由现有摘要入口打开侧边标签，移至独立原生窗口，继续接收输出，再收回。断言 child/root/workspace 身份、主会话和标签 ID 不变，provider 子请求只有一次，窗口移动不调用新 Agent。由受控 child 文本流证明迁移前后持续更新；不扩展会话写入、Host attachment、Web/mobile 或远程恢复合同。

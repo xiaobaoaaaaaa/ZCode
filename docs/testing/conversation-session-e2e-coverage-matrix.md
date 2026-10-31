@@ -6020,6 +6020,10 @@ SAM01–06 的前置、动作、断言与证据见 [影响与验收](../subagent
 
 2026-10-30 ME 发布复验：修复 root ready 可见性及项目草稿准备后，Personal 完整源码构建的 case-local/default replay 均 2/2 通过（M06k/M06n）。使用现有 `ZCODE_E2E_CONTAINER=1` 的 X11/软件渲染参数，在本机 Linux 执行，没有执行 Docker 准入。证据：`desktop-e2e-20261030-014436-891`、`desktop-e2e-20261030-014549-251`。默认渲染路径的 pending 动画证据与限制见 `docs/desktop/startup-critical-path.md`。
 
+## EA-BG-01 后台唤醒过程折叠（2026-10-31，pending）
+
+状态：partial（桌面候选通过，保持 pending）。用例 `conversation-session/manual-review/pending/conversation-session-background-activity-collapse.test.ts`；case-local controlled-stream 回放，真实后台 Agent 通知和 Bash。未修复版本在“后台唤醒轮未启用执行过程折叠”处失败（`desktop-e2e-20261031152029173-p122191-e235ad7d4ba9949a`）；修复后 1/1 通过（`desktop-e2e-20261031152348444-p124800-cc905a26f20e7d45`），验证运行中默认收起、展开日志、追加保持手动状态、正文/标题边界与完成后的历史。展开和收起截图已核对；不晋级正式或 Docker 用例，不宣称完整手机远控链路验证。
+
 ## SPW-004 子代理独立窗口（2026-10-30，pending）
 
 `conversation-session/manual-review/pending/conversation-session-side-pane-windows.test.ts`：真实 Agent runtime + case-local controlled child stream；检查 childSessionId 和标签身份、移出后的新文本、收回后的最终内容以及唯一 child provider 请求。2026-10-30 Linux X11 Electron 1/1 通过（`desktop-e2e-20261030-100857-859`）。case-local fixture 校验通过；保持 pending，未转正、未纳入 Docker。
