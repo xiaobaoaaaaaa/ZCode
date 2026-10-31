@@ -184,9 +184,9 @@ publisher(parent) -> parent timeline/index/legacy delivery
 子会话不进入主任务索引，不能用 childSessionId 查询主任务项目归属来决定能否订阅。
 Host 使用同一 Agent 的只读 `session/list(sessionIds)` 查询持久化类型与父子关系；
 按下表确认辅助会话类型后沿父链找到主任务，再由现有项目服务校验项目、Host 和目录。
-子会话未单独保存 workspace identity 时，CLI 精确 ID 查询只在 child cwd 相同且持久化父链证明
-属于请求 workspace 后返回；显式的不同身份仍拒绝。普通列表继续排除 child，查询不回写身份或激活 runtime。
-每个会话必须与当前 attachment 的 workspace identity 和 cwd 相符；父关系缺失、成环或跨工作区时拒绝。
+子会话的执行 cwd 与主任务的绑定目录分开处理。CLI 以持久化父链证明归属：最近独立任务必须与
+请求 workspace 的 identity 和绑定目录一致；subagent_child 可位于该目录内部，其他辅助类型仍要求
+同目录。显式不同 identity、目录越界、缺失、已删除或成环父链拒绝。查询不回写旧记录或激活父 runtime。
 普通远端主任务仍必须有项目，不按 ID 前缀或旧索引行识别子会话，不补建子会话 task 行，也不扩大目录范围。
 
 | 持久化类型 | 项目解析 | 主列表 | 用户输入 |
@@ -251,3 +251,44 @@ workspace 的持久化身份（含隐藏类型），单批最多 64 个，includ
 输入被拒且没有输入落库，普通主任务、fork 和 Agent 派发正常；SAT29 覆盖历史索引污染收敛、
 workspace identity 隔离、远端失败保留及原始转录保留。协议层两种 clientMode 都验证；Electron
 E2E 通过真实 Agent 派发、CLI 重启、点击详情，断言只读 child 正文可见且左侧没有 child。
+
+### SAT31：主代理切换目录后的子代理（2026-11-01）
+
+主线程 Bash 成功 cd 到工作区子目录后，Agent 继承当时执行 cwd；子代理持久化 directory/path
+仍保存其真实绑定目录。CLI session store 是父关系与绑定目录的唯一所有者，Host 项目归属仍只查
+最近独立任务。新建和旧记录使用同一个只读解析入口，不迁移用户数据库、不补 child 主任务行。
+
+历史 subagent_child 缺少 workspace_id 时，以完整持久化父链与目录包含关系证明归属；
+路径必须按平台路径规则判断（不能用字符串前缀），拒绝兄弟前缀目录和 `..` 越界。显式 foreign
+identity 即使路径相同也拒绝；fork / workflow_parent 仍是独立边界。无 workspace 的内部冷查询
+从同一父链得到所属 workspace；请求中有 workspace 时必须与独立任务精确匹配。
+冷恢复保留 child ID、正文和实际执行目录，配置/项目路由使用所属主任务的 workspace。
+
+```mermaid
+sequenceDiagram
+  participant R as 主 runtime
+  participant S as CLI session store
+  participant H as Host 项目服务
+  participant U as Desktop continuous / Mobile replayable
+  R->>R: Bash cd 子目录，创建 Agent
+  R->>S: child 实际 cwd + parentID
+  U->>S: 重新查看 child（缓存回收或重启后）
+  S->>S: 完整父链 + identity + 目录边界校验
+  S->>H: child ID + directorySessionId + 所属 workspace
+  H-->>S: 主任务项目的目录配置
+  S-->>U: 恢复原 child 正文；不激活父任务、不改写历史
+```
+
+验收 SAT31：真实 SQLite 关闭重开，local/remote × 两种 delivery 模式；子目录 child 的显式
+metadata、resume、subscribe 与无 workspace 查询均可读；重复恢复只创建一个 runtime；父子记录
+不变。保留缺失、删除、成环、foreign identity、兄弟前缀目录及路径越界的拒绝。
+
+桌面回归扩展 `conversation-session-subagent-sidebar-isolation.test.ts`：真实 Bash 切换子目录后派发
+Agent，持久化断言 child 与 parent 的目录不同；热打开及完整 CLI 重启后再次打开均能读到原正文，
+child ID 不变且主任务列表仍隐藏 child。Provider fixture 只控制模型回复，不模拟 cd、派发或冷恢复。
+
+2026-11-01 验证：CLI 冷恢复文件 134/134 通过，含两次 SQLite 生命周期、两种 delivery、显式 resume
+与不带 workspace 的 subscribe、旧 Host 元数据合同及拒绝边界。只读核验问题历史的 19 个 child
+全部解析成功（15 个 cwd 与主任务不同），不改写数据库。上述桌面回归 1/1 通过，产物
+`packages/desktop/.e2e-artifacts/desktop-e2e-20261031173042257-p181702-2630221970fc7ad9/`。
+远端身份/恢复语义由 CLI 协议回归覆盖；未执行真实远端机器或实体手机冷恢复。

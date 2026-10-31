@@ -478,7 +478,9 @@ Host app 库：任务归属 + 项目当前 roots（唯一配置来源）
 子会话冷恢复补充（2026-10-22）：CLI 统一从持久化 `sessionKind / parentSessionId` 解析
 `directorySessionId`，沿四类 auxiliary 父链到最近的独立任务；interactive、fork、workflow_parent
 均停止继承。逐层校验 workspace identity 与 cwd，拒绝缺失、已删、成环或跨 workspace 的父链。
-历史 child 缺少 identity 时，仅允许同 cwd 的持久化父链证明归属。查询不激活父 runtime、不回写两库。
+2026-11-01 SAT31：subagent_child 的执行 cwd 可为所属主任务绑定目录内部的子目录，历史 child
+缺少 identity 时也由完整父链证明归属；其他辅助类型仍要求同 cwd。具体边界见
+`docs/subagent-session-side-tabs.md` 的 SAT31。查询不激活父 runtime、不回写两库。
 
 Host 在现有 runtime/capabilities 请求中声明 `hostCapabilities.sessionDirectorySource`；CLI
 确认同名能力后，才在显式 session/list 元数据和 runtime-materialization 回调中携带

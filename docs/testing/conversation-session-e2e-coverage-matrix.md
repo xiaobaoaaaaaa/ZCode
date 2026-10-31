@@ -6031,3 +6031,14 @@ SAM01–06 的前置、动作、断言与证据见 [影响与验收](../subagent
 ## SPW-005b Agent 浏览器独立窗口（2026-10-30，pending）
 
 `conversation-session/manual-review/pending/conversation-session-side-pane-browser-windows.test.ts`：真实 Agent Browser/CDP、同一 guest/内存/表单与唯一加载、移出后操作、过程截图及独立轮尾截图均通过；Linux X11 Electron 1/1（`desktop-e2e-20261030-101134-178`）。case-local fixture 校验通过，有终态输出标记不参与后续请求匹配的 warning。保持 pending，未转正或加入 Docker。完成历史与懒加载按现有组件交互展开/滚动，不能以图片未挂载误判截图后端失败。
+
+## SAT31 / EA-HISTORY-01（2026-11-01）
+
+已接受：主代理 cd 后创建 child，原 cwd 与持久父链保留；本地/远程两种 delivery 下重开历史成功，
+旧无 identity 记录兼容；缺失/已删/成环/跨身份/越界仍拒绝。CLI SQLite 冷恢复用例为执行证据。
+已接受：普通轮与后台轮完成后展开“已工作”、子代理 timelineOnly 与普通详情均保留连续过程组；
+正文/guide/错误边界独立，工具详情可开合。浏览器真实组件覆盖桌面/手机布局，桌面回放补完成态。
+验证：CLI SQLite 冷恢复 134/134；真实 cd → Agent → CLI 重启 → 打开详情桌面回放 1/1（`desktop-e2e-20261031173042257-p181702-2630221970fc7ad9`）。
+真实组件浏览器 12/12，普通完成态桌面回放 1/1（`desktop-e2e-20261031172914675-p177897-3c326c8932bf36a4`），
+后台完成态 1/1（`desktop-e2e-20261031172959233-p179219-f41bf2c7a0b90f37`）。
+后台及新增浏览器候选保持 pending-review，未晋升 CI/Docker；不将布局或 CLI 协议验证当作实体手机或远端 GUI 验证。

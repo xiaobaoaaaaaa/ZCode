@@ -3,7 +3,7 @@ import { once } from "node:events";
 import { join } from "node:path";
 import { WebSocket } from "ws";
 import { acquireFileLock } from "@zcode/shared/node";
-import { type WebRemoteControlStatus } from "@zcode/shared";
+import { type WebRemoteControlAppPayload, type WebRemoteControlStatus } from "@zcode/shared";
 import {
   TID_CONFIRM_DIALOG_CONFIRM,
   TID_LOGIN_TRIGGER,
@@ -21,6 +21,73 @@ async function remoteStatus() {
     return JSON.stringify(await bridge.getWebRemoteControlStatus());
   });
   return JSON.parse(serialized) as WebRemoteControlStatus;
+}
+
+async function assertRemotePageVersion(origin: string) {
+  const status = await remoteStatus();
+  if (!status.qrUrl) throw new Error("missing QR URL");
+  const pageUrl = new URL(status.qrUrl);
+  const { version } = JSON.parse(
+    await readFile(new URL("../../../../package.json", import.meta.url), "utf8"),
+  );
+  const expectedPageVersion = version.split("-personal.")[0];
+  expect(pageUrl.searchParams.get("app_version")).toBe(expectedPageVersion);
+  const headers = { Authorization: "Bearer mock-token", "Content-Type": "application/json" };
+  const devices = await (await fetch(`${origin}/api/v1/remote/device`, { headers })).json();
+  const device = devices.data.find(
+    (item: { device_sid: string }) => item.device_sid === pageUrl.searchParams.get("sid"),
+  );
+  expect(device?.meta.version).toBe(version);
+  const token = await (
+    await fetch(`${origin}/api/v1/remote/token`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ role: "terminal" }),
+    })
+  ).json();
+  const terminal = new WebSocket(
+    `${origin.replace("http:", "ws:")}/api/v1/remote/ws2?token=${token.data.token}`,
+  );
+  const messages: Array<{
+    type: string;
+    pair_status?: string;
+    payload?: WebRemoteControlAppPayload;
+  }> = [];
+  terminal.on("message", (raw) => messages.push(JSON.parse(raw.toString())));
+  try {
+    await once(terminal, "open");
+    terminal.send(JSON.stringify({ type: "auth_init", device_sid: device.device_sid }));
+    await browser.waitUntil(
+      async () =>
+        messages.some(
+          (message) => message.type === "auth_ack" && message.pair_status === "matched",
+        ),
+      { timeout: 10000 },
+    );
+    terminal.send(
+      JSON.stringify({
+        type: "data",
+        payload: {
+          zcode_type: "bootstrap-request",
+          requestId: "page-version",
+          terminalClientSessionId: "page-version-fixture",
+        },
+      }),
+    );
+    const response = () =>
+      messages.find((message) => message.payload?.zcode_type === "bootstrap-response")?.payload;
+    await browser.waitUntil(async () => Boolean(response()), { timeout: 10000 });
+    const payload = response();
+    if (payload?.zcode_type !== "bootstrap-response") throw new Error("missing bootstrap response");
+    // 只改二维码会被官方页面的版本握手再次导航回 Personal 404，必须核验真实 Main 回包。
+    expect(payload.result.desktopAppVersion).toBe(expectedPageVersion);
+  } finally {
+    if (terminal.readyState !== WebSocket.CLOSED) {
+      const closed = once(terminal, "close");
+      terminal.terminate();
+      await closed;
+    }
+  }
 }
 
 describe("桌面 OAuth 凭据完成事件", () => {
@@ -63,8 +130,12 @@ describe("桌面 OAuth 凭据完成事件", () => {
     await browser.waitUntil(async () => (await remoteStatus()).status === "running", {
       timeout: 40_000,
     });
+    await assertRemotePageVersion(origin);
     await openDialog();
-    const stop = $('[data-testid="web-remote-control-connection-card"] button');
+    // 配对后卡片还会出现“拉取手机日志”；不能把第一个按钮误当成关闭远控。
+    const stop = $(
+      '[data-testid="web-remote-control-connection-card"] button:not([data-testid="web-remote-control-pull-mobile-logs"])',
+    );
     await stop.waitForEnabled({ timeout: 10_000 });
     await stop.click();
     await browser.waitUntil(async () => (await remoteStatus()).status === "idle");

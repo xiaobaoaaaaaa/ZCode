@@ -165,6 +165,11 @@ export function matchesWebRemoteControlRoutePath(pathname: string, routePath: st
   return normalizeRoutePath(pathname) === normalizeRoutePath(routePath);
 }
 
+/** 官方页面按上游版本部署；二维码与 bootstrap 必须使用同一页面版本。 */
+export function resolveWebRemoteControlPageVersion(appVersion: string): string {
+  return appVersion.trim().replace(/^(\d+\.\d+\.\d+)-personal\.\d+(?:\+[0-9A-Za-z.-]+)?$/, "$1");
+}
+
 export function buildWebRemoteControlExternalQrUrl({
   baseUrl,
   deviceSid,
@@ -185,7 +190,9 @@ export function buildWebRemoteControlExternalQrUrl({
     url.searchParams.set("name", deviceName);
   }
   if (appVersion?.trim()) {
-    url.searchParams.set("app_version", appVersion);
+    // Personal 构建未发布到官方远控静态目录；完整版本会命中不存在的目录并直接 404。
+    // 只将 Personal 页面的路由版本映射到上游，其他预发布版本与设备注册版本保持原义。
+    url.searchParams.set("app_version", resolveWebRemoteControlPageVersion(appVersion));
   }
   return url.toString();
 }
@@ -734,7 +741,7 @@ export type WebRemoteControlWorkspaceBridge =
 
 export interface WebRemoteControlWindowBootstrapResult {
   windowControlSessionId: string;
-  /** 当前连接的桌面实际版本；旧桌面缺失时手机保留原 URL。 */
+  /** 当前桌面兼容的手机页面版本（Personal 使用上游版本）；旧桌面缺失时保留原 URL。 */
   desktopAppVersion?: string;
   workspaces: WebRemoteControlWorkspaceTarget[];
   initialViewState?: WebRemoteControlMobileViewState;

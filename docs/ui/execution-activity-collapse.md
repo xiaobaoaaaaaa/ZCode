@@ -1,8 +1,8 @@
-# 执行中的连续过程折叠
+# 连续执行过程折叠
 
 ## 行为
 
-运行中的工作段，将连续可见的思考、普通工具调用、文件读取/修改和终端操作显示为一个默认收起的“执行过程”分组。摘要按类别显示思考、读取、编辑、终端、浏览器等操作次数以及运行状态；单个过程项也从收起状态开始，后续流式追加到同一组，不重置用户已选择的展开状态。
+所有工作段（运行中、完成后历史和子代理详情），将连续可见的思考、普通工具调用、文件读取/修改和终端操作显示为一个默认收起的“执行过程”分组。摘要按类别显示思考、读取、编辑、终端、浏览器等操作次数以及运行状态；单个过程项也从收起状态开始，后续流式追加到同一组，不重置用户已选择的展开状态。
 
 点击分组或使用键盘展开后，使用现有的 reasoning、ToolCallBlock、Explore/Execute/Changes 子分组和文件 Diff 展示；内部原有按钮和操作保持不变。已有的思考显示开关与工具分组设置继续决定展开后的内容。
 
@@ -13,12 +13,12 @@
 实际会话记录确认：成功的 Bash 返回 `bash_output` 后被展示类型白名单排除；
 连续 WebFetch 中的网络失败又使整个 Explore 组外显，连带暴露正常调用。
 `bash_output`（包括截断输出及完整输出文件入口）属于普通过程，结果到达前后保持折叠。
-错误、取消、待授权等边界按原始工具行判定，在运行中先隔离边界，再构建 Explore/Execute/Changes
-内层组；仅边界行外显，前后正常工具仍分别折叠，顺序和计数不变。已结束历史沿用原有分组。
+错误、取消、待授权等边界按原始工具行判定，先隔离边界，再构建 Explore/Execute/Changes
+内层组；仅边界行外显，前后正常工具仍分别折叠，顺序和计数不变。已结束历史展开后也使用同一连续过程分组。
 状态事实仍归 CLI，UI 仅纯投影；不改变协议或 Desktop continuous / Web replayable 的传输。
 
 ```text
-CLI 工具状态/结果 → V4 row → 运行中隔离边界行 → 内层工具分组 → 执行过程折叠
+CLI 工具状态/结果 → V4 row → 隔离边界行 → 内层工具分组 → 执行过程折叠
                               └→ 错误/待授权等原行外显
 ```
 
@@ -58,7 +58,7 @@ CLI 工具结果 → 原有 V4 ToolCallRow → UI display 分类 → 同一执�
 截图布局准备以窗口宽度、实际主题 class 和目标元素布局为就绪条件；不等待后台窗口可能
 不再提交的 `requestAnimationFrame`，也不通过截图推进时钟后再判断功能是否可操作。
 
-仅增加运行中展示的折叠层。完成、停止后的整轮“已工作/已停止”历史结构继续沿用现有行为，展开仍是原有明细。后台任务持续运行不重新打开已经结束的主轮。
+完成、停止后的整轮“已工作/已停止”历史外壳保留，展开后内部连续思考和普通工具仍进入“执行过程”；正文、用户插入消息与异常保持边界。后台任务持续运行不重新打开已经结束的主轮。
 
 ## 所有者与边界
 
@@ -69,7 +69,7 @@ CLI 工具结果 → 原有 V4 ToolCallRow → UI display 分类 → 同一执�
 `backgroundResult`。独立后台渲染分支遗漏 `collapseActivities`，默认 false，导致该轮所有思考和普通工具
 绕过过程折叠；此前 `bash_output` 分类修复不能覆盖这一调用入口遗漏。
 
-后台唤醒轮在 `unit.isRunning` 时必须启用与普通轮相同的连续过程分组，包含 history 和 following 两条入口；
+后台唤醒轮必须启用与普通轮相同的连续过程分组，包含 history 和 following 两条入口；
 当前工作段尾部的内层工具组接收同一个运行状态。后台身份标题、workflow 通知卡、正文、交互及异常边界保持外显。
 完成后仍使用原有“已工作”整轮历史，最终正文独立可见；不改变 CLI 生命周期或重开已结束主轮。
 
@@ -80,7 +80,7 @@ sequenceDiagram
   participant U as 共享 UI
   C->>P: 后台完成通知，开启 backgroundResult 轮
   P->>U: turnHeader running + 思考/工具行
-  U->>U: unit.isRunning 启用执行过程折叠
+  U->>U: 连续过程折叠，unit.isRunning 仅决定运行指示
   C->>P: completedSuccess + 最终回复
   P->>U: 终态快照/连续更新
   U->>U: 沿用完成态历史，最终回复外显
@@ -135,11 +135,11 @@ CLI/Host 仍持有执行事实，Desktop continuous 与手机 Web replayable 使
 - 流式追加、单项升级为 Explore/Execute 子分组和状态更新保持分组身份与手动展开状态。
 - 错误、待授权、插件 UI 和子任务入口保持可见；隐藏的 reasoning 不计数，也不改变已有可见性设置。
 - 收起后可用键盘展开；展开时能使用原有工具详情与文件 Diff。最终正文与结束后的历史展示正常。
-- 桌面和手机宽度、深浅主题及中英文均可用；定向单测、真实桌面流式 E2E、根类型/Lint/架构检查通过。
+- 桌面和手机宽度、深浅主题及中英文均可用；浏览器验收、真实桌面流式 E2E、根类型/Lint/架构检查通过。
 
 ## 验证入口
 
-- 定向单测：`packages/ui/src/execution-activity/contract.test.ts`、`v4AssistantWorkRenderItems.test.ts`、`v4ConversationTurnGroup.test.ts`、`v4ConversationTurnRenderUnits.test.ts`。
+- 浏览器验收：`packages/ui/test/browser/manual-review/pending/execution-history.test.mjs`。旧验证记录中的 App 业务单测已退役，不作为当前执行入口。
 - 桌面 E2E：`conversation-session-execution-activity-collapse.test.ts`，用受控 provider 流分阶段释放，Read/Write/Bash 在隔离工作区真实执行。覆盖键盘展开、单项升级为 Explore 后保持展开、文件 Diff、正文边界及完成后的历史。
 - 手机布局：共享组件在独立浏览器 390 × 844 触摸视口验证中英文和 Zai 深浅主题、无溢出、触摸展开/收起及追加后保留展开。该检查验证展示层，不代表测试了远控配对或重连链路。
 
@@ -151,3 +151,24 @@ CLI/Host 仍持有执行事实，Desktop continuous 与手机 Web replayable 使
 - 独立回放产物：`packages/desktop/.e2e-artifacts/desktop-e2e-20261030-062140-315/`；默认回放产物：`packages/desktop/.e2e-artifacts/desktop-e2e-20261030-062326-327/`。
 - 本地 Fedora Wayland 环境曾出现窗口被判为隐藏、截图准备超时或采集未返回；上述通过记录使用隔离 Xvfb/X11、软件渲染，并非 Docker 准入或后台截图行为验证。
 - 根 `pnpm typecheck`、桌面 `typecheck:e2e`、架构检查与 fixture 检查通过；`pnpm lint` 为 0 错误、96 条既有警告。
+
+## EA-HISTORY-01：完成态与子代理全入口（2026-11-01）
+
+已确认运行态布尔值被误用为分组能力开关，导致普通/后台轮完成后展开“已工作”时退化为散行；
+timelineOnly 入口还遗漏开关。所有 ConversationAssistantWorkItems 入口统一启用同一纯分组投影，
+运行状态只决定 spinner 和尾部工具组状态。正常主轮、子代理、后台唤醒轮、guide 分段与历史
+只读加载保持相同规则；不跨正文/用户消息/异常边界合并，不修改持久化和 CLI 轮次状态。
+
+验收：主轮完成后展开历史 → 过程仍默认收起 → 可展开工具详情并再次收起；子代理 timelineOnly
+历史、普通子代理轮和后台轮行为一致；用户/助手正文与错误在过程组外，思考开关和类别计数保留。
+浏览器验收覆盖桌面/手机宽度、中英文和深浅主题；真实桌面回放维护普通轮及后台唤醒轮完成态断言。
+
+验证：真实组件浏览器 12/12 通过（普通轮、后台轮、timelineOnly × 桌面/手机触屏 × 深浅主题，
+桌面中文、手机英文），覆盖外层历史展开、过程组开合、追加保留展开、异常/最终正文边界及无横向溢出。
+截图在折叠动画结束后采集并核对，产物 `packages/desktop/.e2e-artifacts/execution-history/`。
+普通轮桌面 E2E 1/1（`desktop-e2e-20261031172914675-p177897-3c326c8932bf36a4`）、后台唤醒轮
+1/1（`desktop-e2e-20261031172959233-p179219-f41bf2c7a0b90f37`）通过；后者保持 pending-review。
+首次桌面启动因默认 ChromeDriver patch 版本不存在失败，指定本机已有同 build 驱动后完成回放。
+根类型、受影响 CLI 包类型、E2E 类型与架构检查通过；根 Lint 84 warnings / 0 errors，CLI Lint
+72 warnings / 0 errors（另 7 项原样上游行数诊断）。CLI 总类型入口缺少 turbo，改用 bootstrap
+包级类型检查并成功完成桌面所需的完整 CLI 构建。没有进行实体手机配对或 Windows/macOS 原生验证。

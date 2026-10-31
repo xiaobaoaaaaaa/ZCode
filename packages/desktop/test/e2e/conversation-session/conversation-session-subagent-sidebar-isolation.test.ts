@@ -24,12 +24,12 @@ describe("子代理冷恢复主列表隔离", () => {
     await clearAppData();
   });
 
-  it("SAT27/SAT28: 真正派发 child 后冷启，详情可读且主列表保持隐藏", async function () {
+  it("SAT27/SAT28/SAT31: cd 后真正派发 child 再冷启，详情可读且主列表保持隐藏", async function () {
     this.timeout(240000);
     await prepareV4ConversationE2E();
     await ensureToolCrossProductFullAccessMode();
     await sendV4Prompt(
-      `${PARENT}: launch one general-purpose Agent to reply with E2E_SUBAGENT_SIDEBAR_CHILD_DONE, then report E2E_SUBAGENT_SIDEBAR_PARENT_DONE.`,
+      `${PARENT}: create and cd into e2e-child-cwd, then launch one general-purpose Agent to reply with E2E_SUBAGENT_SIDEBAR_CHILD_DONE, then report E2E_SUBAGENT_SIDEBAR_PARENT_DONE.`,
     );
     await waitForV4AssistantMessageContaining(PARENT_DONE, 90000);
     await waitForV4Pane((state) => !state.canStop, "父任务未完成", 30000);
@@ -57,9 +57,13 @@ function readChildId(parentId: string): string {
   });
   try {
     const row = db
-      .prepare("SELECT id FROM session WHERE parent_id = ? AND task_type = 'subagent_child'")
-      .get(parentId) as { id: string } | undefined;
+      .prepare(`SELECT child.id, child.directory, owner.directory AS ownerDirectory
+        FROM session child JOIN session owner ON child.parent_id = owner.id
+        WHERE child.parent_id = ? AND child.task_type = 'subagent_child'`)
+      .get(parentId) as { id: string; directory: string; ownerDirectory: string } | undefined;
     if (!row) throw new Error("Agent 没有持久化 subagent_child");
+    // 原用例同 cwd，无法发现 cd 后的历史被父链校验拒绝；必须证明真实工具改变了 child cwd。
+    expect(row.directory).toBe(join(row.ownerDirectory, "e2e-child-cwd"));
     return row.id;
   } finally {
     db.close();

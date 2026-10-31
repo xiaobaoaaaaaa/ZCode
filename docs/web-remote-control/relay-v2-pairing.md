@@ -68,6 +68,45 @@ Relay 不保有 task、workspace、stream 或已提交输入；桌面 `desktop-c
 
 `buildWebRemoteControlExternalQrUrl` 仅接受 V2 的 `sid`、`mid`、`name`、`app_version` 路由提示，均可选；输出清除 base URL 中残留的 `hash`/`t`。
 
+Personal 页面版本（2026-11-01）：`X.Y.Z-personal.N` 的二维码 `app_version` 使用
+对应上游 `X.Y.Z`，因官方静态站只部署上游版本。仅识别完整 personal 数字后缀（允许构建元数据），
+不删除 beta/rc 等其他预发布标识。base URL、sid/mid/name 保持原样；桌面版本、relay 设备注册、
+更新比较仍用完整 Personal 版本。bootstrap 的 `desktopAppVersion` 是既有客户端用于选择页面的
+兼容字段，也必须返回相同的上游页面版本，否则官方旧页面会在配对后跳回不存在的 Personal 目录。
+字段形状不变，页面版本由 shared 的同一个纯映射派生，不存第二份版本状态。
+更新桌面后，旧二维码可保留配对参数，只替换 app_version 后重开；旧桌面只手改 URL 仍会被握手跳回。
+验收使用真实 URL builder 检查 Personal/正式/beta/custom endpoint，并核对线上版本响应。
+
+```mermaid
+sequenceDiagram
+  participant D as Desktop Main
+  participant P as 官方手机页面
+  participant R as Relay
+  D->>D: 实际构建版本派生兼容页面版本
+  D-->>P: QR app_version = 兼容页面版本
+  D->>R: 登记实际构建版本
+  P->>D: bootstrap-request（已配对链路）
+  D-->>P: desktopAppVersion = 同一兼容页面版本
+  P->>P: 版本一致，继续初始化已有 attachment
+```
+
+`web-remote-control-session-events.test.ts` 通过隔离 relay 与真实 Desktop Main 检查二维码、设备登记
+和 bootstrap 的版本合同；不得把真实设备登记版本也降成上游版本。
+
+2026-11-01 验证：官方 `/remote/v4` 无版本参数返回 200；`app_version=3.17.1-personal.3`
+和 `3.16.2-personal.5` 返回 404，而 `3.17.1`、`3.16.2` 均返回 200（请求不含真实配对参数）。
+`node packages/desktop/scripts/personal-remote-page-smoke.mjs` 修复前在 Personal 路由断言失败，
+修复后 9 项通过，验证上游版本映射、参数保留、旧凭据参数清理和非 Personal 版本不变。
+验证限于二维码构造及页面入口；未执行实体手机 OAuth、配对或远控操作。
+
+补充配对握手回归：只修 QR 的桌面构建在真实 bootstrap 回包断言失败，期望 `3.17.1`、
+实收 `3.17.1-personal.3`（`desktop-e2e-20261031173457428-p185393-5a7e90421d930fd0`）。
+统一 shared 映射后，隔离 relay + 真实 Desktop Main 的版本断言及原 AUTH-08 两项均通过
+（`desktop-e2e-20261031173849611-p189227-8f2183ca8e9c44a7`），设备 meta 仍为完整构建版本。
+中间一次测试误点配对后出现的拉取日志按钮，已精确定位关闭按钮并等待测试 socket 释放后重跑。
+通用 `e2e:fixture:check` 不支持本例所在 auth-config 目录；沿用已有无 provider 请求 manifest。
+根 typecheck、Lint、架构检查及 E2E 类型检查通过；此回放不替代实体手机 OAuth 与公网 relay 验收。
+
 `parseWebRemoteControlExternalQrParams(params)` 仅返回 V2 参数，空白参数按缺省处理，无参数允许进入设备列表。带 `hash` 或 `t` 的旧链接返回 null，不存在 V1 overload 或解析回退。共享 V1 消息类型、proof 向量和心跳常量删除；心跳 helper 默认使用 V2 的 5 秒 ±1 秒。
 
 ## 共用假 relay

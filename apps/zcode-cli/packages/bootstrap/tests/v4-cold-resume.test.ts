@@ -1191,6 +1191,7 @@ describe("v4 冷恢复（集成：真 sqlite + server + binder）", () => {
       | "workflow_child"
       | "nested_workflow_child"
       | "selection_side_chat" = "interactive",
+    directory = WORKSPACE_PATH,
   ): Promise<void> {
     const store = await createSqliteSessionStore({ dbPath });
     try {
@@ -1201,8 +1202,8 @@ describe("v4 冷恢复（集成：真 sqlite + server + binder）", () => {
         projectID: "project_cold_resume" as ProjectId,
         ...(workspaceIdentity ? { workspaceID: workspaceIdentity } : {}),
         slug: "cold-resume-session",
-        directory: WORKSPACE_PATH,
-        path: WORKSPACE_PATH,
+        directory,
+        path: directory,
         title: "Cold resume session",
         version: "test-version",
         time: { created: 1, updated: 4 },
@@ -2479,15 +2480,28 @@ describe("v4 冷恢复（集成：真 sqlite + server + binder）", () => {
     "selection_side_chat",
     "nested_workflow_child",
   ] as const)("SAT30 %s", (childKind) => {
-    it.each(["desktop-continuous", "web-remote-replayable"] as const)(
-      "SAT30: restarted %s child carries its directory source through cold materialization",
-      async (clientMode) => {
+    it.each([
+      ["desktop-continuous", false, true],
+      ["web-remote-replayable", false, true],
+      ...(childKind === "subagent_child"
+        ? ([
+            ["desktop-continuous", true, true],
+            ["web-remote-replayable", true, true],
+            ["desktop-continuous", true, false],
+            ["web-remote-replayable", true, false],
+          ] as const)
+        : []),
+    ] as const)(
+      "SAT30/SAT31: restarted %s child (subdirectory=%s, remote=%s) retains directory ownership",
+      async (clientMode, subdirectory, remote) => {
         const dbPath = join(tempRoot, "directory-source.db");
-        await seedPersistedSession(dbPath, undefined, childKind);
+        const requestedWorkspace = remote ? remoteWorkspace : workspace;
+        const childDirectory = subdirectory ? `${WORKSPACE_PATH}/work/port` : WORKSPACE_PATH;
+        await seedPersistedSession(dbPath, undefined, childKind, childDirectory);
         const seed = await createSqliteSessionStore({ dbPath });
         await seed.createSession({
           id: PARENT_SESSION_ID,
-          workspaceID: REMOTE_WORKSPACE_IDENTITY,
+          ...(remote ? { workspaceID: REMOTE_WORKSPACE_IDENTITY } : {}),
           taskType: "interactive",
           projectID: "project" as ProjectId,
           slug: "parent",
@@ -2557,21 +2571,26 @@ describe("v4 冷恢复（集成：真 sqlite + server + binder）", () => {
             const metadata = await requestResult(server, {
               id: "directory-metadata",
               method: zcodeProtocolMethods.sessionList,
-              params: { workspace: remoteWorkspace, sessionIds: [SESSION_ID] },
+              params: { workspace: requestedWorkspace, sessionIds: [SESSION_ID] },
             });
             expect(apps).toEqual([]);
+            const persistedBefore = await store.getSession(SESSION_ID);
             if (lifetime === 1) {
               await requestResult(server, {
                 id: "explicit-resume",
                 method: zcodeProtocolMethods.sessionResume,
-                params: { workspace: remoteWorkspace, sessionId: SESSION_ID },
+                params: { workspace: requestedWorkspace, sessionId: SESSION_ID },
               });
             }
             input.write(
               JSON.stringify({
                 id: "directory-subscribe",
                 method: V4_METHODS.conversationSubscribe,
-                params: { ...subscribeParams(SESSION_ID), clientMode, workspace: remoteWorkspace },
+                params: {
+                  ...subscribeParams(SESSION_ID),
+                  clientMode,
+                  ...(subdirectory && lifetime === 0 ? {} : { workspace: requestedWorkspace }),
+                },
               }) + "\n",
             );
             await subscribed.promise;
@@ -2584,7 +2603,8 @@ describe("v4 冷恢复（集成：真 sqlite + server + binder）", () => {
                 directorySessionId: PARENT_SESSION_ID,
               }),
             ]);
-            if (lifetime === 1) expect(preferences[0]).toHaveProperty("workspace", remoteWorkspace);
+            if (lifetime === 1)
+              expect(preferences[0]).toHaveProperty("workspace", requestedWorkspace);
             else expect(preferences[0]).not.toHaveProperty("workspace");
 
             const frame = conversationTopicFrameSchema.parse(
@@ -2598,6 +2618,8 @@ describe("v4 冷恢复（集成：真 sqlite + server + binder）", () => {
             ).toBe(true);
             expect(apps).toHaveLength(1);
             expect(apps[0]?.sessionId).toBe(SESSION_ID);
+            expect(apps[0]?.runtimeConfig?.workingDirectory).toBe(childDirectory);
+            expect(await store.getSession(SESSION_ID)).toEqual(persistedBefore);
           } finally {
             input.end();
             await connection.waitForClose();
@@ -2613,6 +2635,9 @@ describe("v4 冷恢复（集成：真 sqlite + server + binder）", () => {
       "missing-parent",
       "deleted-parent",
       "foreign-cwd",
+      "child-subdirectory",
+      "child-prefix-sibling",
+      "child-traversal",
       "foreign-child",
       "cycle",
     ])(
@@ -2625,7 +2650,17 @@ describe("v4 冷恢复（集成：真 sqlite + server + binder）", () => {
             ? ("remote:server:other:/workspace/cold-resume" as WorkspaceId)
             : undefined,
           childKind,
+          scenario === "child-subdirectory"
+            ? `${WORKSPACE_PATH}/work/port`
+            : scenario === "child-prefix-sibling"
+              ? `${WORKSPACE_PATH}-other/port`
+              : scenario === "child-traversal"
+                ? `${WORKSPACE_PATH}/../outside`
+                : WORKSPACE_PATH,
         );
+        const valid =
+          scenario === "valid" ||
+          (scenario === "child-subdirectory" && childKind === "subagent_child");
         const options: ZCodeAppOptions[] = [];
         const { server, store } = await bootRestartedServer(dbPath, [], undefined, options);
         try {
@@ -2649,21 +2684,30 @@ describe("v4 冷恢复（集成：真 sqlite + server + binder）", () => {
               version: "test",
             });
           }
+          if (scenario === "deleted-parent") await store.softDeleteSession?.(PARENT_SESSION_ID, 2);
+          // 旧 Host 未协商目录来源时也不能在找到父节点后跳过此前积累的 child 边界校验。
+          const legacy = (await requestResult(server, {
+            id: "legacy-metadata",
+            method: zcodeProtocolMethods.sessionList,
+            params: { workspace: remoteWorkspace, sessionIds: [SESSION_ID] },
+          })) as { sessions: Array<{ sessionId: string }> };
+          expect(legacy.sessions.map((session) => session.sessionId)).toEqual(
+            valid ? [SESSION_ID] : [],
+          );
           await requestResult(server, {
             id: "directory-capability",
             method: zcodeProtocolMethods.runtimeCapabilities,
             params: { hostCapabilities: { sessionDirectorySource: true } },
           });
-          if (scenario === "deleted-parent") await store.softDeleteSession?.(PARENT_SESSION_ID, 2);
           const explicit = (await requestResult(server, {
             id: "legacy-child",
             method: zcodeProtocolMethods.sessionList,
             params: { workspace: remoteWorkspace, sessionIds: [SESSION_ID] },
           })) as { sessions: Array<{ sessionId: string; workspace: unknown }> };
           expect(explicit.sessions.map((session) => session.sessionId)).toEqual(
-            scenario === "valid" ? [SESSION_ID] : [],
+            valid ? [SESSION_ID] : [],
           );
-          if (scenario === "valid") {
+          if (valid) {
             expect(explicit.sessions[0]).toMatchObject({
               workspace: remoteWorkspace,
               directorySessionId: PARENT_SESSION_ID,

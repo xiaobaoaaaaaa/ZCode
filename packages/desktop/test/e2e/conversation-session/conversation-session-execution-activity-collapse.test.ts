@@ -278,8 +278,12 @@ describe("Execution activity collapse", () => {
     await waitForV4Pane((snapshot) => !snapshot.canStop, "执行没有结束", 30000);
     expect(await readGroups()).toHaveLength(0);
     await expandAssistantHistoriesWithContent();
+    await browser.waitUntil(async () => (await readGroups()).length > 0);
+    const historyGroups = await readGroups();
+    expect(historyGroups.every((group) => !group.expanded)).toBe(true);
+    expect(await browser.$('[data-tool-call-id="toolu_activity_write"]').isExisting()).toBe(false);
+    for (const trigger of await browser.$$(TRIGGER)) await trigger.click();
     await browser.$('[data-tool-call-id="toolu_activity_write"]').waitForExist();
-    expect(await readGroups()).toHaveLength(0);
   });
 });
 

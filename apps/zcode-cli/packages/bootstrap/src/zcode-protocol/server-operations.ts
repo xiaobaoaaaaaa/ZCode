@@ -1,3 +1,4 @@
+import { isAbsolute, relative, sep } from "node:path";
 import {
   isAuxiliarySessionKind,
   isReadonlyAgentSessionKind,
@@ -1512,14 +1513,17 @@ export async function activateSessionRuntime(
     );
   }
   session = await repairLegacyRemoteSessionWorkspaceForResume(context, session);
+  // 子代理可继承父 runtime cd 后的执行目录；无 workspace 的冷查询也必须从持久父链
+  // 找到所属工作区，不能把 child 的执行 cwd 当成项目身份。只读解析不激活或改写父会话。
+  const directoryOwner = context.sessionDirectorySourceEnabled
+    ? await resolvePersistedDirectorySession(context, session, params.workspace, true)
+    : session;
+  if (!directoryOwner) throw new Error("project.session-lineage-invalid");
   const workspace =
     params.workspace ??
     buildWorkspaceRef({
-      // V4 历史会话冷订阅只传 sessionId；远端会话若在这里仅用目录
-      // 重建 workspace，identity 会退化成 path key，无法命中按 workspaceID 隔离的
-      // provider registry，最终把可用模型误判为不可用并永久触发 restoreWarning。
-      workspaceIdentity: session.workspaceID,
-      workspacePath: session.path ?? session.directory,
+      workspaceIdentity: directoryOwner.workspaceID,
+      workspacePath: directoryOwner.path ?? directoryOwner.directory,
     });
   let persistedMessages =
     options.persistedMessages ?? (await readPersistedSessionMessages(context, params.sessionId));
@@ -1689,23 +1693,50 @@ function resolveLegacyRemoteWorkspace(
 async function resolvePersistedDirectorySession(
   context: ZCodeProtocolAgentServerContext,
   session: SessionInfo,
-  workspace: ZCodeWorkspaceRef,
+  workspace: ZCodeWorkspaceRef | undefined,
   resolveOwner: boolean,
 ): Promise<SessionInfo | null> {
-  const expectedKey = workspace.workspaceIdentity?.trim() || workspace.workspacePath;
+  const expectedKey = workspace?.workspaceIdentity?.trim() || workspace?.workspacePath;
   const visited = new Set<string>();
+  const children: SessionInfo[] = [];
   let current: SessionInfo | null = session;
   while (current && current.time.deleted === undefined && !visited.has(current.id)) {
     visited.add(current.id);
     const path = current.path || current.directory;
     const key = current.workspaceID?.trim() || path;
-    if (path !== workspace.workspacePath) return null;
-    const auxiliary = isAuxiliarySessionKind(current.taskType);
-    if (key === expectedKey && (!resolveOwner || !auxiliary)) return current;
-    // 历史 child 可缺少 identity，但只能由同 cwd 的持久化父链证明归属。
-    // 已有显式外部身份、缺失或成环父链不能按目录猜项目，也不能启动父 runtime。
-    if (!auxiliary || !current.parentID || (key !== expectedKey && key !== path)) return null;
-    current = (await context.deps.sessionStore?.getSession(current.parentID)) ?? null;
+    // 未协商目录来源的旧 metadata 查询保留同 workspace 的原合同。
+    if (
+      !resolveOwner &&
+      children.length === 0 &&
+      workspace &&
+      path === workspace.workspacePath &&
+      key === expectedKey
+    )
+      return current;
+    if (isAuxiliarySessionKind(current.taskType)) {
+      if (!current.parentID) return null;
+      children.push(current);
+      current = (await context.deps.sessionStore?.getSession(current.parentID)) ?? null;
+      continue;
+    }
+    if (workspace && (path !== workspace.workspacePath || key !== expectedKey)) return null;
+    for (const child of children) {
+      const childPath = child.path || child.directory;
+      const identity = child.workspaceID?.trim();
+      if (identity && identity !== key) return null;
+      if (childPath === path) continue;
+      // 主线程 Bash cd 会让新建 child 保存子目录。完整父链证明身份，路径包含关系
+      // 只放行 subagent 的真实执行目录；前缀相似、.. 越界和显式 foreign identity 不放行。
+      if (child.taskType !== "subagent_child" || !isAbsolute(childPath)) return null;
+      const childRelativePath = relative(path, childPath);
+      if (
+        isAbsolute(childRelativePath) ||
+        childRelativePath === ".." ||
+        childRelativePath.startsWith(`..${sep}`)
+      )
+        return null;
+    }
+    return current;
   }
   return null;
 }
@@ -3435,11 +3466,12 @@ async function materializeSessionRecord(
   source: SessionStartupPreferencesSource,
   trace?: ZCodeProtocolTrace,
 ): Promise<ZCodeProtocolSessionRecord> {
+  const persistedSession = resume ? await getPersistedSession(context, sessionId) : null;
   let directorySessionId: string | undefined;
   if (source.kind === "host" && context.sessionDirectorySourceEnabled) {
     directorySessionId = sessionId;
     if (resume) {
-      const session = await getPersistedSession(context, sessionId);
+      const session = persistedSession;
       const workspace =
         params.workspace ?? buildWorkspaceRef({ workspacePath: context.deps.cwd ?? process.cwd() });
       const directorySession = session
@@ -3459,7 +3491,15 @@ async function materializeSessionRecord(
     directorySessionId,
     params.workspace ?? buildWorkspaceRef({ workspacePath: context.deps.cwd ?? process.cwd() }),
   );
-  return createRecord(context, params, sessionId, resume, startupPreferences, trace);
+  return createRecord(
+    context,
+    params,
+    sessionId,
+    resume,
+    startupPreferences,
+    trace,
+    persistedSession?.directory,
+  );
 }
 
 async function createRecord(
@@ -3469,6 +3509,7 @@ async function createRecord(
   resume: boolean,
   startupPreferences: SessionStartupPreferences,
   trace?: ZCodeProtocolTrace,
+  executionDirectory?: string,
 ): Promise<ZCodeProtocolSessionRecord> {
   const workspace =
     "workspace" in params && params.workspace
@@ -3541,7 +3582,8 @@ async function createRecord(
       // 这里补一份默认配置开启；具体是否生成仍由 runtime 按 parent/taskType/turnNumber 把关。
       // automation 执行会话显式关闭二次命名，避免回答内容覆盖原始用户 query 标题。
       titleGeneration: params.titleGenerationEnabled === false ? { enabled: false } : {},
-      workingDirectory: workspace.workspacePath,
+      // 恢复的 child 保留原执行目录；record.workspace 继续承载父链证明的身份。
+      workingDirectory: executionDirectory ?? workspace.workspacePath,
       // 身份隔离与路径执行分开：core 只把 identity 写入 session.workspace_id，
       // workingDirectory 仍是远端机器上的实际路径；本地 workspace 保持 undefined。
       workspaceIdentity: workspace.workspaceIdentity as WorkspaceId | undefined,

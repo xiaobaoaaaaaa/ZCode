@@ -16,6 +16,13 @@
       "syntheticReason": "运行时证据显示标题旁路缺少响应；在本例显式登记固定标题，避免依赖 legacy fixture 或触发后台网络重试。"
     },
     {
+      "id": "subagent-sidebar-parent-cd",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "固定模型先 cd 再派发的顺序；Bash、Agent、SQLite、冷恢复与 UI 均使用真实生产链路。"
+    },
+    {
       "id": "subagent-sidebar-parent-agent",
       "kind": "main",
       "timingPolicy": "fast-text",

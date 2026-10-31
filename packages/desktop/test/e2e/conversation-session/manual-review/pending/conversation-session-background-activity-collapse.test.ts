@@ -21,16 +21,12 @@ const TOOL_B = "toolu_bg_activity_bash_b";
 async function readWakeTurn() {
   return browser.execute((trigger) => {
     const title = Array.from(
-      document.querySelectorAll(
-        '[data-testid^="chat-background-result-title"]',
-      ),
+      document.querySelectorAll('[data-testid^="chat-background-result-title"]'),
     ).at(-1);
     const turn = title?.closest<HTMLElement>("section[data-turn-id]");
     return {
       turnId: turn?.dataset.turnId,
-      titleOutsideActivity: Boolean(
-        title && !title.closest("[data-execution-activity]"),
-      ),
+      titleOutsideActivity: Boolean(title && !title.closest("[data-execution-activity]")),
       progressOutsideActivity: Array.from(
         turn?.querySelectorAll('[data-testid^="v4-row-"]') ?? [],
       ).some(
@@ -38,17 +34,14 @@ async function readWakeTurn() {
           row.textContent?.includes("E2E_WAKE_PROGRESS") &&
           !row.closest("[data-execution-activity]"),
       ),
-      groups: Array.from(turn?.querySelectorAll(trigger) ?? []).map(
-        (button) => ({
-          key: button.closest<HTMLElement>("[data-execution-activity]")?.dataset
-            .executionActivity,
-          expanded: button.getAttribute("aria-expanded") === "true",
-          label: button.getAttribute("aria-label") ?? "",
-        }),
+      groups: Array.from(turn?.querySelectorAll(trigger) ?? []).map((button) => ({
+        key: button.closest<HTMLElement>("[data-execution-activity]")?.dataset.executionActivity,
+        expanded: button.getAttribute("aria-expanded") === "true",
+        label: button.getAttribute("aria-label") ?? "",
+      })),
+      toolIds: Array.from(turn?.querySelectorAll<HTMLElement>("[data-tool-call-id]") ?? []).map(
+        (tool) => tool.dataset.toolCallId,
       ),
-      toolIds: Array.from(
-        turn?.querySelectorAll<HTMLElement>("[data-tool-call-id]") ?? [],
-      ).map((tool) => tool.dataset.toolCallId),
       historyExpanded: turn
         ?.querySelector('[data-testid^="chat-assistant-history-trigger"]')
         ?.getAttribute("aria-expanded"),
@@ -77,9 +70,7 @@ describe("EA-BG-01 后台唤醒轮过程折叠", () => {
   });
 
   after(async () => {
-    if (
-      (await getV4ConversationState().catch(() => null))?.state === "streaming"
-    ) {
+    if ((await getV4ConversationState().catch(() => null))?.state === "streaming") {
       await clickV4Stop().catch(() => undefined);
     }
     await browser.electron.restoreAllMocks();
@@ -88,27 +79,18 @@ describe("EA-BG-01 后台唤醒轮过程折叠", () => {
 
   it("folds an automatic wake turn while preserving manual expansion and completed history", async function () {
     this.timeout(180000);
-    await sendV4Prompt(
-      `${MARKER}_LAUNCH: Start a background agent, then finish this main turn.`,
-    );
+    await sendV4Prompt(`${MARKER}_LAUNCH: Start a background agent, then finish this main turn.`);
     await waitForV4AssistantMessageContaining(`${MARKER}_PARENT_DONE`);
-    await waitForV4ConversationState(
-      (state) => state.state === "idle",
-      "主轮没有结束",
-    );
+    await waitForV4ConversationState((state) => state.state === "idle", "主轮没有结束");
     await releaseControlledReplay("bg-activity-child");
     await browser.waitUntil(
-      async () =>
-        Boolean(await getLatestUpstreamToolResultByToolCallId(TOOL_A)),
+      async () => Boolean(await getLatestUpstreamToolResultByToolCallId(TOOL_A)),
       { timeout: 30000, timeoutMsg: "后台通知没有自动唤醒主轮并执行真实 Bash" },
     );
-    await browser.waitUntil(
-      async () => (await readWakeTurn()).groups.length === 1,
-      {
-        timeout: 15000,
-        timeoutMsg: "后台唤醒轮未启用执行过程折叠",
-      },
-    );
+    await browser.waitUntil(async () => (await readWakeTurn()).groups.length === 1, {
+      timeout: 15000,
+      timeoutMsg: "后台唤醒轮未启用执行过程折叠",
+    });
     const initial = await readWakeTurn();
     expect(initial.titleOutsideActivity).toBe(true);
     expect(initial.progressOutsideActivity).toBe(true);
@@ -118,62 +100,43 @@ describe("EA-BG-01 后台唤醒轮过程折叠", () => {
     const turnSelector = `section[data-turn-id="${initial.turnId}"]`;
     const trigger = await browser.$(`${turnSelector} ${TRIGGER}`);
     await trigger.click();
-    await browser.waitUntil(async () =>
-      (await readWakeTurn()).toolIds.includes(TOOL_A),
-    );
+    await browser.waitUntil(async () => (await readWakeTurn()).toolIds.includes(TOOL_A));
     await browser.$(`[data-testid="tool-summary-trigger-${TOOL_A}"]`).click();
     await browser.waitUntil(async () =>
-      (await browser.$(`[data-tool-call-id="${TOOL_A}"]`).getText()).includes(
-        "E2E_WAKE_LOG_A",
-      ),
+      (await browser.$(`[data-tool-call-id="${TOOL_A}"]`).getText()).includes("E2E_WAKE_LOG_A"),
     );
     await releaseControlledReplay("bg-activity-append");
     await browser.waitUntil(
-      async () =>
-        Boolean(await getLatestUpstreamToolResultByToolCallId(TOOL_B)),
+      async () => Boolean(await getLatestUpstreamToolResultByToolCallId(TOOL_B)),
       { timeout: 30000 },
     );
-    await browser.waitUntil(async () =>
-      (await readWakeTurn()).groups[0]?.label.includes("终端 2"),
-    );
+    await browser.waitUntil(async () => (await readWakeTurn()).groups[0]?.label.includes("终端 2"));
     expect((await readWakeTurn()).groups).toEqual([
       expect.objectContaining({ key: initial.groups[0]!.key, expanded: true }),
     ]);
     await browser.saveScreenshot(
-      join(
-        process.env.ZCODE_E2E_ARTIFACT_DIR!,
-        "background-activity-expanded.png",
-      ),
+      join(process.env.ZCODE_E2E_ARTIFACT_DIR!, "background-activity-expanded.png"),
     );
     await trigger.click();
-    await browser.waitUntil(
-      async () => !(await readWakeTurn()).toolIds.includes(TOOL_A),
-    );
+    await browser.waitUntil(async () => !(await readWakeTurn()).toolIds.includes(TOOL_A));
     expect((await readWakeTurn()).toolIds).not.toContain(TOOL_B);
     await browser.saveScreenshot(
-      join(
-        process.env.ZCODE_E2E_ARTIFACT_DIR!,
-        "background-activity-collapsed.png",
-      ),
+      join(process.env.ZCODE_E2E_ARTIFACT_DIR!, "background-activity-collapsed.png"),
     );
 
     await releaseControlledReplay("bg-activity-finish");
     await waitForV4AssistantMessageContaining(`${MARKER}_FINAL`);
-    await waitForV4ConversationState(
-      (state) => state.state === "idle",
-      "唤醒轮没有结束",
-    );
+    await waitForV4ConversationState((state) => state.state === "idle", "唤醒轮没有结束");
     await browser.waitUntil(async () => {
       const state = await readWakeTurn();
       return state.groups.length === 0 && state.historyExpanded === "false";
     });
-    await browser
-      .$(`${turnSelector} [data-testid^="chat-assistant-history-trigger"]`)
-      .click();
-    await browser.waitUntil(async () =>
-      (await readWakeTurn()).toolIds.includes(TOOL_A),
-    );
+    await browser.$(`${turnSelector} [data-testid^="chat-assistant-history-trigger"]`).click();
+    await browser.waitUntil(async () => (await readWakeTurn()).groups.length === 1);
+    expect((await readWakeTurn()).groups[0]?.expanded).toBe(false);
+    expect((await readWakeTurn()).toolIds).not.toContain(TOOL_A);
+    await browser.$(`${turnSelector} ${TRIGGER}`).click();
+    await browser.waitUntil(async () => (await readWakeTurn()).toolIds.includes(TOOL_A));
     expect((await readWakeTurn()).toolIds).toContain(TOOL_B);
-    expect((await readWakeTurn()).groups).toHaveLength(0);
   });
 });

@@ -20,6 +20,7 @@ import {
   type HostProjectWorkspaceNavigationInput,
   resolveUnrecognizedWebRemoteControlRequest,
   resolveWebRemoteControlWorkspaceKey,
+  resolveWebRemoteControlPageVersion,
   type WebRemoteControlAppPayload,
   type WebRemoteControlAuthStateChange,
   type WebRemoteControlContext,
@@ -1020,7 +1021,8 @@ export function createWebRemoteControlManager(dependencies: WebRemoteControlMana
   ): WebRemoteControlWindowBootstrapResult {
     return {
       windowControlSessionId: runtime.deviceSid,
-      desktopAppVersion: dependencies.appVersion,
+      // 官方旧页面用此字段选择静态资源；与二维码不一致会在配对后再次跳回 Personal 404。
+      desktopAppVersion: resolveWebRemoteControlPageVersion(dependencies.appVersion),
       workspaces: getAvailableWorkspaces(runtime),
       initialViewState: getRuntimeInitialViewState(runtime),
       mobileViewState: runtime.mobileViewState,

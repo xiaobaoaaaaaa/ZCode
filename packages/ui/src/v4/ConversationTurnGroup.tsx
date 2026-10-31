@@ -407,7 +407,6 @@ function ConversationAssistantWorkItems({
   context,
   stageTailIsRunning = false,
   assistantCodeCommentProjectionEnabled = false,
-  collapseActivities = false,
   historyContainer,
 }: {
   rows: readonly AssistantWorkRow[];
@@ -415,12 +414,12 @@ function ConversationAssistantWorkItems({
   stageTailIsRunning?: boolean;
   /** running turn 的正文可能暂时落在 history renderer，仍需隐藏特化协议原文。 */
   assistantCodeCommentProjectionEnabled?: boolean;
-  collapseActivities?: boolean;
   historyContainer?: {
     chunkKey: string;
     open: boolean;
   };
 }) {
+  // 分组是所有工作段的展示规则，不能由 running 决定；否则完成态历史与 child 入口退化成散行。
   const showReasoning = context.messageStreamShowReasoning === true;
   const firstReasoningRowId = context.messageStreamFirstReasoningRowId;
   const items = useMemo(
@@ -435,7 +434,7 @@ function ConversationAssistantWorkItems({
         },
         {
           stageTailIsRunning,
-          collapseActivities,
+          collapseActivities: true,
           enableCuaGrouping: ENABLE_CUA_TOOL_CALL_GROUPING,
           enableExploreGrouping:
             context.toolGroupingExploreEnabled ?? ENABLE_EXPLORE_TOOL_CALL_GROUPING,
@@ -446,7 +445,6 @@ function ConversationAssistantWorkItems({
         },
       ),
     [
-      collapseActivities,
       context.toolGroupingChangesEnabled,
       context.toolGroupingExploreEnabled,
       context.toolGroupingTerminalEnabled,
@@ -484,17 +482,15 @@ function ConversationAssistantWorkItems({
     );
   const content = (
     <div className="flex flex-col gap-4">
-      {collapseActivities
-        ? groupExecutionActivities(items, describeAssistantWorkActivity).map((group) =>
-            group.kind === "item" ? (
-              renderItem(group.item)
-            ) : (
-              <ExecutionActivityGroup key={`activity:${group.key}`} activity={group}>
-                {group.items.map(renderItem)}
-              </ExecutionActivityGroup>
-            ),
-          )
-        : items.map(renderItem)}
+      {groupExecutionActivities(items, describeAssistantWorkActivity).map((group) =>
+        group.kind === "item" ? (
+          renderItem(group.item)
+        ) : (
+          <ExecutionActivityGroup key={`activity:${group.key}`} activity={group}>
+            {group.items.map(renderItem)}
+          </ExecutionActivityGroup>
+        ),
+      )}
     </div>
   );
 
@@ -860,7 +856,6 @@ function ConversationWorkSegmentFlow({
               stageTailIsRunning={stageTailIsRunning}
               assistantCodeCommentProjectionEnabled={assistantCodeCommentProjectionEnabled}
               historyContainer={{ chunkKey, open }}
-              collapseActivities={segment.workStatus?.state === "running"}
             />
           );
         } else if (item.kind === "assistantText") {
@@ -888,7 +883,6 @@ function ConversationWorkSegmentFlow({
               context={context}
               stageTailIsRunning={stageTailIsRunning}
               assistantCodeCommentProjectionEnabled={assistantCodeCommentProjectionEnabled}
-              collapseActivities={segment.workStatus?.state === "running"}
             />
           );
         }
@@ -1276,9 +1270,6 @@ function ConversationBackgroundResultWork({
                 rows={unit.assistantHistoryRows}
                 context={context}
                 assistantCodeCommentProjectionEnabled={assistantCodeCommentProjectionEnabled}
-                // 后台通知会独立唤醒一轮；此入口漏传开关时，全部思考和工具绕过过程折叠。
-                // 使用本轮权威 running 状态，完成后仍交给外层历史折叠，不重开先前主轮。
-                collapseActivities={unit.isRunning}
                 stageTailIsRunning={unit.isRunning && !latestAssistantTextRow && !hasFollowing}
               />
             </div>
@@ -1305,7 +1296,6 @@ function ConversationBackgroundResultWork({
           rows={unit.assistantFollowingRows}
           context={context}
           assistantCodeCommentProjectionEnabled={assistantCodeCommentProjectionEnabled}
-          collapseActivities={unit.isRunning}
           stageTailIsRunning={unit.isRunning}
         />
       ) : null}

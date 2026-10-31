@@ -27,6 +27,37 @@
       }
     },
     {
+      "id": "subagent-sidebar-parent-cd",
+      "description": "主代理先切换到子目录，再派发子代理。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "固定模型先 cd 再派发的顺序；Bash、Agent、SQLite、冷恢复与 UI 均使用真实生产链路。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyExcludes": [
+          "Generate a concise title",
+          "CRITICAL: Respond with TEXT ONLY",
+          "toolu_e2e_subagent_cd"
+        ],
+        "lastUserMessageIncludes": ["E2E_SUBAGENT_SIDEBAR_PARENT"]
+      },
+      "response": {
+        "statusCode": 200,
+        "toolUse": {
+          "id": "toolu_e2e_subagent_cd",
+          "name": "Bash",
+          "input": {
+            "command": "node -e \"require('node:fs/promises').mkdir('e2e-child-cwd', {recursive:true})\" && cd e2e-child-cwd && echo E2E_SUBAGENT_CWD_READY"
+          }
+        }
+      }
+    },
+    {
       "id": "subagent-sidebar-parent-agent",
       "description": "subagent-sidebar-parent-agent",
       "metadata": {
@@ -39,8 +70,12 @@
       "match": {
         "method": "POST",
         "pathIncludes": "/messages",
-        "bodyExcludes": ["Generate a concise title", "CRITICAL: Respond with TEXT ONLY"],
-        "lastUserMessageIncludes": ["E2E_SUBAGENT_SIDEBAR_PARENT"]
+        "bodyExcludes": [
+          "Generate a concise title",
+          "CRITICAL: Respond with TEXT ONLY",
+          "toolu_e2e_subagent_sidebar"
+        ],
+        "bodyIncludes": ["E2E_SUBAGENT_SIDEBAR_PARENT", "toolu_e2e_subagent_cd"]
       },
       "response": {
         "statusCode": 200,
