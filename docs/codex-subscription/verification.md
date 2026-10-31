@@ -27,3 +27,5 @@
 参考协议：[CC Switch Codex OAuth](https://github.com/farion1231/cc-switch/blob/main/src-tauri/src/proxy/providers/codex_oauth_auth.rs)、[CC Switch quota](https://github.com/farion1231/cc-switch/blob/main/src-tauri/src/services/subscription.rs)、[Codex authentication](https://developers.openai.com/codex/auth/)。本实现复用 ZCode 自有服务/网络/加密/模型执行链，不导入 CC Switch 代码或数据库。
 
 最终静态检查：根类型检查、CLI 类型检查（34 个任务）与架构检查均成功。根 Lint 为 0 errors / 83 warnings；CLI Lint 为 0 errors / 72 warnings，另有 7 项保持原样的上游行数诊断。未把 warnings 写成零，也未运行已退役的 App 全量单测。Personal release 元数据/隔离测试 9 项通过。
+
+功能分支 Push 的 pre-push 门禁成功：51 项架构/工程工具检查通过，架构 0 违规。affected 选中 157/157 工程规格，按仓库合同跳过整套工程测试（并非通过 157 项）；定向 CLI 与桌面 E2E 证据见上表。
