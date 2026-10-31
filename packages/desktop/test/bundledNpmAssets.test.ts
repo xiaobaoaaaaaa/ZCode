@@ -1,9 +1,10 @@
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join, resolve } from "node:path";
+import { promisify } from "node:util";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -14,6 +15,7 @@ import {
 } from "../scripts/bundled-npm-assets.mjs";
 
 const roots: string[] = [];
+const exec = promisify(execFile);
 
 async function makeRoot(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "zcode-bundled-npm-"));
@@ -22,6 +24,7 @@ async function makeRoot(): Promise<string> {
 }
 
 afterEach(async () => {
+  vi.unstubAllEnvs();
   await Promise.all(roots.splice(0).map((root) => rm(root, { force: true, recursive: true })));
 });
 
@@ -58,6 +61,28 @@ describe("bundled npm constants", () => {
 });
 
 describe("stageBundledNpm", () => {
+  it.skipIf(process.platform !== "win32")(
+    "stages with Git Bash GNU tar and a separate cache",
+    async () => {
+      const root = await makeRoot();
+      const fake = await createFakeNpmTarball(root);
+      const { stdout } = await exec("git", ["--exec-path"]);
+      const gitTools = resolve(stdout.trim(), "../../../usr/bin");
+      vi.stubEnv("PATH", `${gitTools}${delimiter}${process.env.PATH}`);
+      expect((await exec("tar", ["--version"])).stdout).toContain("GNU tar");
+      const stagedRoot = await stageBundledNpm({
+        cacheDir: join(root, "separate cache"),
+        download: async (_url: string, destination: string) =>
+          copyFile(fake.tarballPath, destination),
+        glmDir: join(root, "glm"),
+        integrity: fake.integrity,
+        version: "1.2.3",
+      });
+      expect(await readFile(join(stagedRoot, "bin", "npm-cli.js"), "utf8")).toBe("// npm");
+      expect(await readFile(join(stagedRoot, "bin", "npx-cli.js"), "utf8")).toBe("// npx");
+    },
+  );
+
   it("downloads, verifies and stages npm without docs and man pages", async () => {
     const root = await makeRoot();
     const fake = await createFakeNpmTarball(root);

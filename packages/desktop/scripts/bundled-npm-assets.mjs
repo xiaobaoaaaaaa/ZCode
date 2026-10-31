@@ -8,7 +8,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { access, cp, mkdir, mkdtemp, rename, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, join, relative, sep } from "node:path";
+import { basename, dirname, join, relative, sep } from "node:path";
 import { downloadPrebuiltArchive } from "../../../scripts/prebuilt-binary-download.mjs";
 import { extractPrebuiltArchive } from "../../../scripts/prebuilt-binary-extract.mjs";
 
@@ -44,7 +44,14 @@ export async function stageBundledNpm({
   const tarballPath = await ensureVerifiedTarball({ cacheDir, download, integrity, version });
   const workDir = await mkdtemp(join(tmpdir(), "zcode-bundled-npm-"));
   try {
-    extract({ archiveExt: "tgz", archivePath: tarballPath, cwd: workDir, extractDir: workDir });
+    // Git Bash tar 把绝对归档路径的盘符当成远端主机；从缓存目录解包让共享 helper
+    // 生成相对归档名，即使临时目录与缓存不在同一盘符也不会触发远程读取。
+    extract({
+      archiveExt: "tgz",
+      archivePath: tarballPath,
+      cwd: dirname(tarballPath),
+      extractDir: workDir,
+    });
     const packageRoot = join(workDir, NPM_TARBALL_PACKAGE_DIR);
     await assertNpmEntries(packageRoot);
     const targetRoot = join(glmDir, ...BUNDLED_NPM_STAGED_SEGMENTS);

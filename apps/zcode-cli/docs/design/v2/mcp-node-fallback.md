@@ -136,6 +136,9 @@ On POSIX only the exact key `PATH` is used.
   `bundled-agents/<platform>/glm/node-runtime/npm` (resources `glm/node-runtime/npm` in the app).
   The top-level `docs/` and `man/` directories are left out (`npm help` is not supported). License
   files of npm and of its bundled dependencies stay in the copied tree.
+- Extraction runs from the verified archive's cache directory. The archive argument is relative
+  to that directory, including when the temporary output is on another Windows drive; Git Bash
+  GNU tar must never interpret a drive letter as a remote archive host.
 - Runtime lookup: `<dir>/node-runtime/npm` for the entry file directory, then for the bundle
   directory. There is no cwd candidate, so a workspace cannot inject its own npm.
 - A candidate is valid only when `bin/npm-cli.js` and `bin/npx-cli.js` exist.
@@ -178,3 +181,4 @@ On POSIX only the exact key `PATH` is used.
 - Bootstrap unit: npm root lookup order, validity check, and no provider outside Electron.
 - Desktop script unit: npm staging verifies the sha512, reuses a valid cache, replaces a corrupt
   cache, copies the package without `docs/`/`man/`, and fails when the npm entry files are missing.
+- Windows staging also exercises Git Bash GNU tar with a separate cache and extraction directory.
