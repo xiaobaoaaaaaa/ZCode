@@ -13,6 +13,7 @@
     { "path": "../rpc" },
     { "path": "../shared" },
     { "path": "../services" },
-    { "path": "../client" }
+    { "path": "../client" },
+    { "path": "../server" }
   ]
 }

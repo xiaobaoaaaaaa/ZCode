@@ -10,5 +10,6 @@
   },
   "include": ["src/main", "src/shared", "src/scheduler", "src/side-pane-windows"],
   // main 直接依赖 shared 和 services；把引用补齐后，desktop 子工程也能稳定复用上游声明产物。
-  "references": [{ "path": "../shared" }, { "path": "../services" }]
+  // Personal 远端入口直接引用 server；缺少工程引用会重复检查源码并丢失 RPC 回调类型。
+  "references": [{ "path": "../shared" }, { "path": "../services" }, { "path": "../server" }]
 }

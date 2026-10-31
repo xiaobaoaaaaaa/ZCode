@@ -254,7 +254,9 @@ export function EditToolCallBlock(context: ToolCallBlockRenderContext) {
                 // edit 的 diff 预览需要直接挂在 content 里，避免 ToolCallBody 再次接管 inlinePreview
                 // 后把单文件 patch 吃掉，导致展开后只剩输入/输出而看不到真正的变更内容。
                 <EditInlineDiffContent
+                  key={singleFileInlinePreview.source.path}
                   preview={singleFileInlinePreview.source}
+                  isRunning={isRunning}
                   theme={context.theme}
                   codePreviewSettings={context.codePreviewSettings}
                 />
@@ -419,7 +421,9 @@ function EditFileSummaryBlock({
       <div className="space-y-3">
         {inlinePreviewOverride?.type === "patch" ? (
           <EditInlineDiffContent
+            key={inlinePreviewOverride.source.path}
             preview={inlinePreviewOverride.source}
+            isRunning={isRunning}
             theme={theme}
             codePreviewSettings={codePreviewSettings}
           />
@@ -445,6 +449,7 @@ function EditFileSummaryBlock({
       codePreviewSettings,
       displayModel,
       inlinePreviewOverride,
+      isRunning,
       onOpenBrowserUrl,
       onOpenCodeViewer,
       onOpenFileLink,

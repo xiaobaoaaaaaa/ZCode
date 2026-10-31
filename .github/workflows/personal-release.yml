@@ -73,7 +73,7 @@ jobs:
       - name: Validate release tooling and baseline
         if: matrix.target == 'linux-x64'
         run: |
-          node --test scripts/test/personal-release.test.mjs scripts/test/desktop-dev-version.test.mjs
+          node --test scripts/test/personal-release.test.mjs scripts/test/desktop-dev-version.test.mjs scripts/test/personal-upstream-isolation.test.mjs
           pnpm exec vitest run packages/desktop/test/electronBuilderLinuxPackageTargets.test.ts
           node scripts/licenses.mjs check
           pnpm lint
@@ -146,3 +146,36 @@ jobs:
           fi
           gh release upload "$tag" "$RUNNER_TEMP/release-ready/"* --clobber
           gh release view "$tag" --json url,tagName,isDraft,assets --jq '{url,tagName,isDraft,assets:[.assets[]|{name,size,digest}]}'
+
+      # 本次用户明确授权正式发布；其他版本仍只生成草稿。
+      - name: Publish authorized 3.17.1 Personal release
+        if: github.ref == 'refs/heads/release/3.17.1-personal.1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="v3.17.1-personal.1"
+          release_id=$(gh release view "$tag" --json databaseId --jq .databaseId)
+          gh api "repos/$GITHUB_REPOSITORY/releases/$release_id" > "$RUNNER_TEMP/uploaded-release.json"
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { readFile, readdir, stat } from 'node:fs/promises';
+          import { createReadStream } from 'node:fs';
+          import { createHash } from 'node:crypto';
+          import { join } from 'node:path';
+          const release = JSON.parse(await readFile(join(process.env.RUNNER_TEMP, 'uploaded-release.json'), 'utf8'));
+          assert.equal(release.draft, true);
+          assert.equal(release.target_commitish, process.env.GITHUB_SHA);
+          const root = join(process.env.RUNNER_TEMP, 'release-ready');
+          const names = await readdir(root);
+          assert.equal(names.length, 15);
+          assert.deepEqual(release.assets.map(a => a.name).sort(), [...names].sort());
+          for (const name of names) {
+            const asset = release.assets.find(a => a.name === name);
+            const path = join(root, name);
+            assert.equal(asset.size, (await stat(path)).size);
+            const hash = createHash('sha256');
+            for await (const chunk of createReadStream(path)) hash.update(chunk);
+            assert.equal(asset.digest, 'sha256:' + hash.digest('hex'), name);
+          }
+          NODE
+          gh release edit "$tag" --draft=false --prerelease=false --latest
