@@ -135,6 +135,7 @@ export const ServiceChannels = {
   OAuth: "oauth",
   /** 新 Provider Config 的设置读写 Facade */
   ProviderSettings: "provider-settings",
+  CodexSubscription: "codex-subscription",
   /** 新 Provider Registry 的模型选择 Facade */
   ModelSelection: "model-selection",
   /** 远端 Environment 内部 Provider Provisioning target */

@@ -1,6 +1,9 @@
+import { codexSubscriptionMessagesEn as codexSubscriptionMessages } from "@/codex-subscription/contract.js";
 import { requestSecurityMessagesEnUS } from "@/request-security-edition/messages.js";
 /** English translations */
 const enUS: Record<string, string> = {
+  ...codexSubscriptionMessages,
+
   "settings.globalSearch.title": "Search settings…",
   "settings.globalSearch.hint":
     "Search settings. Use the arrow keys to choose a result and Enter to open it.",

@@ -1,3 +1,4 @@
+import type { ICodexSubscriptionService } from "./codex-subscription/contract.js";
 import type { IRemoteProjectService } from "#src/remote-projects/contract.js";
 import type { ITaskGroupService } from "#src/task-groups/contract.js";
 import type { WindowProjectDirectoryServices } from "#src/window-project-directory/contract.js";
@@ -87,6 +88,7 @@ export interface IServiceAccessor {
   readonly fileWatcherService: IFileWatcherService;
   readonly oauthService: IOAuthService;
   /** 当前 Environment 的 Provider 配置与设置视图。 */
+  readonly codexSubscriptionService?: ICodexSubscriptionService;
   readonly providerSettingsService: IProviderSettingsService;
   /** 当前 Environment Registry 发布的唯一模型选择 View。 */
   readonly modelSelectionService: IModelSelectionService;

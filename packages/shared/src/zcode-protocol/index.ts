@@ -2850,6 +2850,7 @@ export const zcodeProviderRuntimeHeadersRequestParamsSchema = z
     modelSelection: modelSelectionSchema,
     providerId: nonEmptyString,
     accountAccess: zcodeProviderAccountAccessSchema.optional(),
+    codexAccountId: nonEmptyString.optional(),
     expectedAccountScope: z
       .string()
       .regex(/^[a-f0-9]{64}$/)
@@ -2860,7 +2861,10 @@ export const zcodeProviderRuntimeHeadersRequestParamsSchema = z
       .optional(),
     reason: zcodeProviderRuntimeHeadersRequestReasonSchema,
   })
-  .strict();
+  .strict()
+  .refine((request) => !(request.accountAccess && request.codexAccountId), {
+    message: "A request cannot mix account authentication types",
+  });
 export type ZCodeProviderRuntimeHeadersRequestParams = z.infer<
   typeof zcodeProviderRuntimeHeadersRequestParamsSchema
 >;

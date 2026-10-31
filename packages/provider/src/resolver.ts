@@ -27,7 +27,8 @@ export type RegistryZhipuAccountAccessConfig = ZhipuAccountAccessConfig &
 
 export type RegistryProviderAccessConfig =
   | (ApiKeyAccessConfig & z.infer<typeof completeApiKeyAccessDataSchema>)
-  | RegistryZhipuAccountAccessConfig;
+  | RegistryZhipuAccountAccessConfig
+  | import("./config/provider-config.js").CodexAccountAccessConfig;
 
 export type RegistryProviderConfig = ProviderConfig &
   z.infer<typeof completeProviderConfigDataSchema> & {
@@ -43,20 +44,22 @@ export function serializeRegistryProviderConfig(
     group: config.group,
     ...(config.logo === undefined ? {} : { logo: config.logo }),
     access:
-      config.access.type !== "zhipu-account"
-        ? {
-            type: config.access.type,
-            apiKey: config.access.apiKey,
-            ...(config.access.apiKeyManagementUrl === undefined
-              ? {}
-              : { apiKeyManagementUrl: config.access.apiKeyManagementUrl }),
-          }
-        : {
-            type: config.access.type,
-            accountType: config.access.accountType,
-            mode: config.access.mode,
-            entitled: config.access.entitled,
-          },
+      config.access.type === "codex-account"
+        ? { type: config.access.type, accountId: config.access.accountId }
+        : config.access.type !== "zhipu-account"
+          ? {
+              type: config.access.type,
+              apiKey: config.access.apiKey,
+              ...(config.access.apiKeyManagementUrl === undefined
+                ? {}
+                : { apiKeyManagementUrl: config.access.apiKeyManagementUrl }),
+            }
+          : {
+              type: config.access.type,
+              accountType: config.access.accountType,
+              mode: config.access.mode,
+              entitled: config.access.entitled,
+            },
     api: {
       type: config.api.type,
       baseUrl: config.api.baseUrl,

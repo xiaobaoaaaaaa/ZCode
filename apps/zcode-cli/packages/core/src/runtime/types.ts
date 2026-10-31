@@ -432,6 +432,7 @@ export interface ProviderRuntimeHeadersPort {
   shouldRefreshBeforeModelRequest?(input: { providerId: string; modelId: string }): boolean;
   refreshBeforeModelRequest(input: {
     accountAccess?: ZCodeProviderAccountAccess;
+    codexAccountId?: string;
     expectedAccountScope?: string;
     rejectedProjectTokenFingerprint?: string;
     abortSignal?: AbortSignal;

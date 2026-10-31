@@ -211,7 +211,7 @@ export class AiSdkModelAdapter {
                 : requestAuth;
             return { headersApplied: true, requestAuth: refreshedAuth };
           }
-        : options.providerConfig.access.type === "zhipu-account"
+        : options.providerConfig.access.type === "zhipu-account" || options.providerConfig.access.type === "codex-account"
           ? (contextRefreshRuntimeHeadersBeforeAttempt ??
             (async () => {
               throw new ModelProtocolError(
@@ -246,6 +246,7 @@ export class AiSdkModelAdapter {
               refreshRuntimeHeadersBeforeAttempt: (input) =>
                 refreshRuntimeHeadersBeforeAttempt({
                   ...input,
+                  ...(options.providerConfig.access.type === "codex-account" ? { codexAccountId: options.providerConfig.access.accountId } : {}),
                   ...(options.providerConfig.access.type === "zhipu-account"
                     ? { accountAccess: options.providerConfig.access }
                     : {}),

@@ -1,3 +1,4 @@
+import { createCodexResponsesFetch, CODEX_RESPONSES_BASE_URL } from "./codex-subscription/index.js";
 import { withoutRequestVerificationHeaders } from "@zcode/shared";
 /* eslint-disable max-lines -- AI SDK 模型执行装配集中维护 provider factory、鉴权和网络错误适配，拆分会让状态同步更脆弱。 */
 // ============================================================
@@ -301,7 +302,7 @@ export class AiSdkModelExecution {
       providerId,
     );
     // ID 属于当前 attempt，不能放入按 Provider 缓存的 transport，避免切换账号后串用。
-    const providerTransport = this.endpointRoutingPort
+    const providerTransport = this.endpointRoutingPort && providerConfig.access.type !== "codex-account"
       ? createProviderEndpointRoutingFetch({
           fetch: networkTransport,
           routingPort: this.endpointRoutingPort,
@@ -319,15 +320,16 @@ export class AiSdkModelExecution {
       providerKind: providerConfig.kind,
       streamTiming,
     });
+    const compatibleFetch = providerConfig.access.type === "codex-account" ? createCodexResponsesFetch(fetch) : fetch;
     const optionFetch =
       optionMaps && optionValues
         ? createModelOptionMapFetch({
             capture: rawRequestBodyCapture,
-            fetch,
+            fetch: compatibleFetch,
             maps: optionMaps,
             values: optionValues,
           })
-        : fetch;
+        : compatibleFetch;
 
     switch (providerConfig.kind) {
       case "openai": {
@@ -402,13 +404,16 @@ function toAiSdkProviderConfig(
   providerId: string,
   config: RegistryProviderConfig,
 ): AiSdkProviderConfig {
+  if (config.access.type === "codex-account" && (config.api.type !== "openai-responses" || config.api.baseUrl !== CODEX_RESPONSES_BASE_URL)) {
+    throw new Error("Invalid Codex subscription endpoint or API format");
+  }
   const common = {
-    ...(config.access.type !== "zhipu-account" && config.access.apiKey
+    ...((config.access.type === "api-key" || config.access.type === "zhipu-coding-plan-api-key") && config.access.apiKey
       ? { apiKey: config.access.apiKey }
       : {}),
     baseURL: config.api.baseUrl,
     ...(config.api.headers ? { headers: { ...config.api.headers } } : {}),
-    providerOptions: { apiFormat: config.api.type },
+    providerOptions: { apiFormat: config.api.type, ...(config.access.type === "codex-account" ? { openai: { store: false, include: ["reasoning.encrypted_content"] } } : {}) },
     access: config.access,
   };
   switch (config.api.type) {

@@ -70,6 +70,7 @@ export interface ModelInvocationContext {
   preserveProviderStreamBoundaries?: boolean;
   refreshRuntimeHeadersBeforeAttempt?: (input: {
     accountAccess?: ZCodeProviderAccountAccess;
+    codexAccountId?: string;
     expectedAccountScope?: string;
     rejectedProjectTokenFingerprint?: string;
     attempt: number;

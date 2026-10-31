@@ -2,6 +2,7 @@
 import { ConfigOverlay, type ConfigValidationIssue } from "../config-overlay.js";
 import type { z } from "zod";
 import {
+  codexAccountAccessDataSchema,
   completeApiKeyAccessDataSchema,
   completeZhipuAccountAccessDataSchema,
   completeProviderApiDataSchema,
@@ -111,7 +112,29 @@ export class ZhipuAccountAccessConfig extends ConfigOverlay<ZhipuAccountAccessCo
   }
 }
 
-export type ProviderAccessConfig = ApiKeyAccessConfig | ZhipuAccountAccessConfig;
+export class CodexAccountAccessConfig extends ConfigOverlay<CodexAccountAccessConfig> {
+  readonly type = "codex-account" as const;
+  readonly accountId: string;
+  constructor(input: { accountId: string }) {
+    super();
+    this.accountId = input.accountId;
+    Object.freeze(this);
+  }
+  overlay(next: CodexAccountAccessConfig): CodexAccountAccessConfig {
+    return next;
+  }
+  validateComplete(path: readonly string[] = []): readonly ConfigValidationIssue[] {
+    return validateConfigSchema(codexAccountAccessDataSchema, this.toJSON(), path);
+  }
+  toJSON(): Readonly<z.infer<typeof codexAccountAccessDataSchema>> {
+    return { type: this.type, accountId: this.accountId };
+  }
+}
+
+export type ProviderAccessConfig =
+  | ApiKeyAccessConfig
+  | ZhipuAccountAccessConfig
+  | CodexAccountAccessConfig;
 
 export type ProviderAccessConfigObject = Readonly<z.infer<typeof providerAccessDataSchema>>;
 
@@ -505,6 +528,8 @@ function overlayProviderAccess(
       return current.overlay(next as ApiKeyAccessConfig);
     case "zhipu-account":
       return current.overlay(next as ZhipuAccountAccessConfig);
+    case "codex-account":
+      return current.overlay(next as CodexAccountAccessConfig);
   }
 }
 

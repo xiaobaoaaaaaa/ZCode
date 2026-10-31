@@ -6,6 +6,7 @@
     "#src/*": "./src/*"
   },
   "exports": {
+    "./codex-subscription": "./src/codex-subscription/index.ts",
     "./data-import": "./src/data-import/index.ts",
     "./data-import/bootstrap": "./src/data-import/bootstrap.ts",
     "./storage-startup": "./src/project-storage/startup-entry.ts",

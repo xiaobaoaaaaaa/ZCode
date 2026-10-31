@@ -1,3 +1,5 @@
+import { withFileLock as withCodexStoreLock } from "@zcode/shared/node";
+import { createCodexSubscription, ICodexSubscriptionService } from "./codex-subscription/index.js";
 import { ZCODE_DATA_DIR_NAME } from "@zcode/shared/env";
 import {
   createRemoteProjectService,
@@ -1641,6 +1643,15 @@ export function createLocalServices(options: {
       accountProviderConfigSource.dispose();
     },
   });
+  const codexSubscription = createCodexSubscription({
+    credentials: credentialService,
+    fetch: hostApiNetworkTransport.fetch,
+    providers: providerRuntime.providerSettings,
+    withLock: (operation) =>
+      withCodexStoreLock(join(resolveAppConfigDir(), "codex-subscription"), operation, {
+        lockMaxWaitMs: 120_000,
+      }),
+  });
   handleOAuthProviderLogout = createOAuthProviderLogoutHandler({
     accountProviderCredentialStore,
     refreshAccountProviders: (reason: string) => accountProviderConfigSource.refresh(reason),
@@ -2251,6 +2262,7 @@ export function createLocalServices(options: {
     workspaceIdentity: undefined,
   });
   const zcodeAgentService = createZCodeAgentService({
+    resolveCodexRequestAuth: codexSubscription.resolveRequestAuth,
     useSharedTaskRuntime: async (target) => {
       if (options?.projectStorageHostId && options.projectStorageHostId !== "local") return false;
       return !(await taskIndexRepo.getProjectRepository()).hasProjectWorkspace(target);
@@ -3030,6 +3042,7 @@ export function createLocalServices(options: {
   }
   services
     .register(IProviderSettingsService, providerRuntime.providerSettings)
+    .register(ICodexSubscriptionService, codexSubscription.service)
     .register(IModelSelectionService, providerRuntime.modelSelection);
   if (isDesktopAttachedRemote || options.providerProvisioningTargetEnabled === true) {
     services.register(

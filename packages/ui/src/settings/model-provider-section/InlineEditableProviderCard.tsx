@@ -811,7 +811,7 @@ export function InlineEditableProviderCard({
         {isAccountProvider ? null : (
           <ProviderConnectionSection
             provider={provider}
-            readOnly={readOnlyEndpoints}
+            readOnly={readOnlyEndpoints || provider.config.access?.type === "codex-account"}
             apiFormat={apiFormat}
             baseUrlValue={baseUrlValue}
             onApiFormatChange={handleApiFormatChange}

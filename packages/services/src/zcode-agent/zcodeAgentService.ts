@@ -1102,6 +1102,10 @@ interface CreateZCodeAgentServiceBaseOptions extends Omit<
 > {
   /** 仅供 MCP 状态探测进程使用，不能把空闲回收传给 chat。 */
   mcpStatusIdleTimeoutMs?: number;
+  resolveCodexRequestAuth?: (
+    accountId: string,
+    providerId: string,
+  ) => Promise<AccountRequestAuthMaterial>;
   accountProviderConfigSource?: ProviderSource<AccountProviderConfigSnapshot>;
   /** Desktop Host 请求 Main 登记 Agent 已授权的精确本地视频路径。 */
   authorizeLocalMediaPreviewPath?: (path: string) => Promise<string>;
@@ -1663,6 +1667,11 @@ export function createZCodeAgentService(
   async function resolveAccountRequestAuth(
     request: ZCodeProviderRuntimeHeadersRequestParams,
   ): Promise<AccountRequestAuthMaterial | undefined> {
+    if (request.codexAccountId) {
+      if (request.accountAccess || !options?.resolveCodexRequestAuth)
+        throw new Error("Codex request auth is unavailable");
+      return options.resolveCodexRequestAuth(request.codexAccountId, request.providerId);
+    }
     if (!request.accountAccess || !accountRequestAuthService) {
       return undefined;
     }
@@ -1729,6 +1738,10 @@ export function createZCodeAgentService(
       | (typeof zcodeProviderRuntimeHeadersErrorCode)[keyof typeof zcodeProviderRuntimeHeadersErrorCode]
       | undefined;
     try {
+      if (pending.request.codexAccountId) {
+        await respondAccountRequestAuthWithoutInteraction({ key, pending });
+        return;
+      }
       const access = pending.request.accountAccess;
       if (requiresRequestVerification(access)) {
         let config: RequestVerificationConfig | null;

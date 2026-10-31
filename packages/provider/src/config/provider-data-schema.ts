@@ -54,13 +54,21 @@ export const zhipuAccountAccessDataSchema = z
     type: completeZhipuAccountAccessDataSchema.shape.type,
   })
   .strict();
+export const codexAccountAccessDataSchema = z
+  .object({
+    type: z.literal("codex-account"),
+    accountId: z.string().min(1),
+  })
+  .strict();
 export const providerAccessDataSchema = z.discriminatedUnion("type", [
   apiKeyAccessDataSchema,
   zhipuAccountAccessDataSchema,
+  codexAccountAccessDataSchema,
 ]);
 export const completeProviderAccessDataSchema = z.discriminatedUnion("type", [
   completeApiKeyAccessDataSchema,
   completeZhipuAccountAccessDataSchema,
+  codexAccountAccessDataSchema,
 ]);
 
 export const completeProviderApiDataSchema = z

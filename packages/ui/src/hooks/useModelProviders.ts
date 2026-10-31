@@ -247,3 +247,8 @@ export function useModelProviders(target: {
     providerSettingsView,
   };
 }
+
+/** Account metadata stays on the active Host; components receive only the RPC contract. */
+export function useCodexSubscriptionService() {
+  return useServices().codexSubscriptionService;
+}

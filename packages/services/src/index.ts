@@ -1,3 +1,5 @@
+export { ICodexSubscriptionService } from "./codex-subscription/contract.js";
+export type { CodexAccount, CodexDeviceLogin } from "./codex-subscription/contract.js";
 // Descriptors & collection (browser-safe)
 export { type ServiceDescriptor, createServiceDescriptor } from "./descriptors.js";
 export { ServiceCollection, type ServiceExposurePolicy } from "./collection.js";

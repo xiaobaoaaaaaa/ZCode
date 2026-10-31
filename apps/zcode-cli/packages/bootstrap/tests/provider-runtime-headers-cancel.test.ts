@@ -5,11 +5,29 @@ import { createProviderRuntimeHeadersPort } from "../src/zcode-protocol/provider
 import type { ZCodeProtocolAgentServerContext } from "../src/zcode-protocol/server-types.js";
 import type { ZCodeAppOptions } from "../src/app/types.js";
 import type { ZCodeProviderRuntimeHeadersRequestParams } from "@zcode/shared";
+import { zcodeProviderRuntimeHeadersRequestParamsSchema } from "@zcode/shared";
 const workspace = {
   workspacePath: "/work",
   workspaceIdentity: "ssh:host:/work",
   workspaceKey: "ssh:host:/work",
 };
+it("拒绝一个请求混用两种账号鉴权", () => {
+  expect(zcodeProviderRuntimeHeadersRequestParamsSchema.safeParse({
+    requestId: "request", sessionId: "session", workspace,
+    modelSelection: { providerId: "codex", modelId: "gpt-test" }, providerId: "codex",
+    codexAccountId: "account", reason: "model-request",
+    accountAccess: { type: "zhipu-account", accountType: "zai", mode: "start-plan", entitled: true },
+  }).success).toBe(false);
+});
+it("Codex 账号引用经相同端口保留 workspace identity，不混入智谱账号材料", async () => {
+  const requestClient = vi.fn(async () => ({ headersApplied: true, requestAuth: { apiKey: "synthetic" } }));
+  const port = createProviderRuntimeHeadersPort({ requestClient, notify: vi.fn() } as unknown as ZCodeProtocolAgentServerContext, workspace);
+  await port.refreshBeforeModelRequest({ sessionId: "session", providerId: "codex-test", modelId: "gpt-test",
+    reason: "model-request", codexAccountId: "account-test", traceContext: { traceId: "test-trace" } });
+  const request = (requestClient.mock.calls as unknown as Array<[string, Record<string, unknown>]>)[0]![1];
+  expect(request).toMatchObject({ workspace, codexAccountId: "account-test", modelSelection: { providerId: "codex-test", modelId: "gpt-test" } });
+  expect(request).not.toHaveProperty("accountAccess");
+});
 it("真实工厂同样装配唯一请求端口，完整账号事实透传而不写旧 ModelRef", async () => {
   const requestAuth = { apiKey: "team-key", headers: { "X-Team": "team-a" } };
   const requestClient = vi.fn(

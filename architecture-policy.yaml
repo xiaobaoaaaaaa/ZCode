@@ -1293,6 +1293,44 @@ modules:
       adapters: .
     owner: desktop-shell
 
+  # codex-subscription：由 architecture:adopt 登记
+  - id: codex-subscription
+    roots:
+      - packages/services/src/codex-subscription
+    managed: true
+    requires: [shared, services]
+    publicEntrypoints:
+      - packages/services/src/codex-subscription/index.ts
+      - packages/services/src/codex-subscription/contract.ts
+    layers:
+      adapters: .
+    owner: model-provider
+  # codex-responses：由 architecture:adopt 登记
+  - id: codex-responses
+    roots:
+      - apps/zcode-cli/packages/adapters/src/model/codex-subscription
+    managed: true
+    requires: []
+    publicEntrypoints:
+      - apps/zcode-cli/packages/adapters/src/model/codex-subscription/index.ts
+      - apps/zcode-cli/packages/adapters/src/model/codex-subscription/contract.ts
+    layers:
+      adapters: .
+    owner: model-provider
+  # codex-subscription-ui：由 architecture:adopt 登记
+  - id: codex-subscription-ui
+    roots:
+      - packages/ui/src/codex-subscription
+    managed: true
+    requires: [services, ui]
+    publicEntrypoints:
+      - packages/ui/src/codex-subscription/index.tsx
+      - packages/ui/src/codex-subscription/contract.ts
+    layers:
+      contract: contract.ts
+      ui: .
+    owner: model-provider
+
 global:
   # 临时时间戳（2026-09-10）：unmanaged-new-file 只约束此日期之后首次入库的文件。
   # 基于领先 staging 很多的分支开工时，merge-base 之前的"新增"文件不应被追溯。

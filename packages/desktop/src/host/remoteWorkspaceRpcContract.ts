@@ -21,6 +21,7 @@ export const REMOTE_WORKSPACE_RPC_CHANNELS = [
   "fileWatcherService",
   "oauthService",
   "providerSettingsService",
+  "codexSubscriptionService",
   "modelSelectionService",
   "mediaPreviewService",
   "sourceServerWorkspaceService",

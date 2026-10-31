@@ -1,3 +1,4 @@
+import { ICodexSubscriptionService } from "@zcode/services";
 import {
   ServiceCollection,
   IFileService,
@@ -85,6 +86,7 @@ export const REMOTE_WORKSPACE_RPC_REGISTRATIONS = [
   ["fileWatcherService", IFileWatcherService],
   ["oauthService", IOAuthService],
   ["providerSettingsService", IProviderSettingsService],
+  ["codexSubscriptionService", ICodexSubscriptionService],
   ["modelSelectionService", IModelSelectionService],
   ["sourceServerWorkspaceService", ISourceServerWorkspaceService],
   ["usageStatsService", IUsageStatsService],
@@ -220,6 +222,7 @@ export function createServerRemoteWorkspaceServiceCollection(params: {
     .register(IFileWatcherService, params.connectionServices.fileWatcherService)
     .register(IOAuthService, params.connectionServices.oauthService)
     .register(IProviderSettingsService, params.connectionServices.providerSettingsService)
+    .register(ICodexSubscriptionService, params.connectionServices.codexSubscriptionService!)
     .register(IModelSelectionService, params.connectionServices.modelSelectionService)
     .register(ISourceServerWorkspaceService, params.connectionServices.sourceServerWorkspaceService)
     .register(IUsageStatsService, params.connectionServices.usageStatsService)
