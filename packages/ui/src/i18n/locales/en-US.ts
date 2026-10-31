@@ -2335,6 +2335,9 @@ const enUS: Record<string, string> = {
   "updateDialog.releaseNotesExpand": "Show",
   "updateDialog.releaseNotesCollapse": "Hide",
   "updateDialog.downloadAndUpdate": "Download update",
+  "updateDialog.openDownloadPage": "Open download page",
+  "settings.personalManualUpdateDescription":
+    "On macOS, open the download page and install the update manually.",
   "updateDialog.cancelDownload": "Cancel download",
   "updateDialog.autoDownloadAndInstall": "Automatically download and install updates next time",
   "updateDialog.downloadingAction": "Downloading",

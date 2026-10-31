@@ -48,6 +48,7 @@ macOS 使用 ad-hoc 签名，不代表 Developer ID 签名或公证；Windows �
 - Windows 保持上游禁用 Node Inspector 的 fuse；通过 Chromium 调试连接验证欢迎页和
   关于窗口的实际版本，并检查 PE x64 头与隔离目录的实际写入，不为测试弱化发行包。
 - 聚合阶段核对五个目标的 commit、版本、启动结果和全部哈希，缺失或篡改即失败。
+- Release 构建开启 Personal 更新；`release-manifest.json` 的每项资产同时记录 SHA-256 与 base64 SHA-512，后者供应用内下载校验。更新通道、平台安装范围及首次手动升级要求见 [Personal 更新规格](../desktop/personal-app-update.md)。
 - 仅上传约定的 13 个安装包、`SHA256SUMS` 和 `release-manifest.json`；调试日志和截图留在 Actions artifacts。
 - 发布标签只在版本完成后使用。已公开的同版本发布不覆盖；后续修改递增个人版序号。
 - 包内保留上游第三方声明，重新生成输入清单并运行基础检查。上游清单中已登记的材料缺口必须保留并披露，不能声称严格材料审计通过。

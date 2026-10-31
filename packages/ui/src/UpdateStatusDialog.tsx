@@ -25,6 +25,7 @@ export function UpdateStatusDialog({
   edgeToEdge = false,
   intl,
   isUpdateActionPending,
+  manualDownload = false,
   autoDownloadAndInstallUpdates,
   onAutoDownloadAndInstallUpdatesChange,
   onCancelDownload,
@@ -44,6 +45,7 @@ export function UpdateStatusDialog({
   edgeToEdge?: boolean;
   intl: IntlInstance;
   isUpdateActionPending: boolean;
+  manualDownload?: boolean;
   autoDownloadAndInstallUpdates: boolean;
   localizedUpdateReleaseNotes: LocalizedUpdateReleaseNotes | null;
   onAutoDownloadAndInstallUpdatesChange: (enabled: boolean) => Promise<void>;
@@ -150,7 +152,7 @@ export function UpdateStatusDialog({
       ) : null}
 
       <div className={cn("[app-region:no-drag]", isDownloading ? "-mt-2" : null)}>
-        {isBeforeDownload ? (
+        {isBeforeDownload && !manualDownload ? (
           <label className="mb-4 flex min-w-0 items-center gap-2 text-ui-base leading-5 text-foreground">
             <Checkbox
               checked={autoDownloadAndInstallUpdates}
@@ -247,7 +249,11 @@ export function UpdateStatusDialog({
                 disabled={isUpdateActionPending}
                 onClick={() => void onDownloadUpdate()}
               >
-                {intl.formatMessage({ id: "updateDialog.downloadAndUpdate" })}
+                {intl.formatMessage({
+                  id: manualDownload
+                    ? "updateDialog.openDownloadPage"
+                    : "updateDialog.downloadAndUpdate",
+                })}
               </Button>
             )}
           </div>

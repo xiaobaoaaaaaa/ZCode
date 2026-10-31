@@ -36,6 +36,8 @@ export type UpdateStatePayload =
       kind: "update-available";
       enabled: boolean;
       version: string;
+      /** 当前平台只能打开下载页；URL 仍由 Main 根据权威版本构造。 */
+      manualDownload?: boolean;
       channel?: ElectronReleaseChannel;
       releaseNotes?: PostUpdateReleaseNotesPayload;
     }

@@ -6,7 +6,7 @@ import type {
   LocalePreference,
   ZCodeInteractionBehavior,
 } from "@zcode/shared";
-import { appToolSearchModeSchema } from "@zcode/shared";
+import { appToolSearchModeSchema, ZCODE_PRODUCT_FLAVOR } from "@zcode/shared";
 import {
   TID_SETTINGS_ASK_USER_QUESTION_AUTO_RESOLUTION_SWITCH,
   TID_SETTINGS_NATIVE_SEARCH_SWITCH,
@@ -740,14 +740,24 @@ export function GeneralSectionContent({
                 id: "settings.autoDownloadAndInstallUpdates",
               })}
               description={intl.formatMessage({
-                id: "settings.autoDownloadAndInstallUpdatesDescription",
+                id:
+                  ZCODE_PRODUCT_FLAVOR === "personal" && !isWindowsDesktop && !isLinuxDesktop
+                    ? "settings.personalManualUpdateDescription"
+                    : "settings.autoDownloadAndInstallUpdatesDescription",
               })}
               control={
                 <Switch
                   aria-label={intl.formatMessage({
                     id: "settings.autoDownloadAndInstallUpdates",
                   })}
-                  checked={autoDownloadAndInstallUpdates}
+                  disabled={
+                    ZCODE_PRODUCT_FLAVOR === "personal" && !isWindowsDesktop && !isLinuxDesktop
+                  }
+                  checked={
+                    ZCODE_PRODUCT_FLAVOR === "personal" && !isWindowsDesktop && !isLinuxDesktop
+                      ? false
+                      : autoDownloadAndInstallUpdates
+                  }
                   onCheckedChange={(checked) => {
                     void onAutoDownloadAndInstallUpdatesChange(checked);
                   }}

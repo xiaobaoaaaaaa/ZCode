@@ -1331,6 +1331,21 @@ modules:
       ui: .
     owner: model-provider
 
+  # desktop-update-menu：由 architecture:adopt 登记
+  - id: desktop-update-menu
+    roots:
+      - packages/ui/src/desktop-update-menu
+      - packages/ui/src/lib/desktopUpdateMenu.ts
+    managed: true
+    requires:
+      - shared
+    publicEntrypoints:
+      - packages/ui/src/lib/desktopUpdateMenu.ts
+      - packages/ui/src/desktop-update-menu/contract.ts
+    layers:
+      ui: .
+    owner: desktop-shell
+
 global:
   # 临时时间戳（2026-09-10）：unmanaged-new-file 只约束此日期之后首次入库的文件。
   # 基于领先 staging 很多的分支开工时，merge-base 之前的"新增"文件不应被追溯。

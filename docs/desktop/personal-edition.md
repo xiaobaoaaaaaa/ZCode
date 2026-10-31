@@ -40,7 +40,7 @@ sequenceDiagram
 2. 在隔离测试 home 预置官方配置及 profile，Personal 首次启动不读取或写入它们，实际数据只出现在 Personal 根。
 3. 导入官方目录到独立副本后，重启读取完整副本；来源和导入前 Personal 数据保持。
 4. CLI 子进程和 Main/Host 使用同一数据根，设置、会话、用户技能及内置缓存无官方路径回退。
-5. UI 显示 Personal 身份，旧版本不被自动覆盖；自动更新仍关闭。
+5. UI 显示 Personal 身份，官方应用不被覆盖；Personal 更新使用本 fork GitHub Releases，Windows/Linux 应用内安装，macOS 打开下载页，见 [更新规格](personal-app-update.md)。
 6. 项目外新建入口创建未归类草稿，项目内新建及 Composer 项目选择保留既有行为；桌面真实交互与桌面/手机入口单测回归。
 
 2026-10-29 本地验证：根与 CLI 类型检查通过；根 lint 无错误（96 项既有警告），CLI lint 无错误（69 项警告）；完整 CLI 测试的 42 个 Turbo 任务通过（限制并发以避开本机负载导致的计时失败）。新建入口与中断继续的真实 Electron 场景 2/2 通过，运行编号 `desktop-e2e-20261029-130150-163`，覆盖中文浅色、英文深色。原生发行包的最终证据由 Release manifest 和 Actions validation artifacts 记录。

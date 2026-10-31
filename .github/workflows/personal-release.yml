@@ -15,7 +15,7 @@ concurrency:
 env:
   ZCODE_ENV: production
   ZCODE_PERSONAL_IDENTITY: "1"
-  ZCODE_AUTO_UPDATE: "0"
+  ZCODE_AUTO_UPDATE: "1"
   CSC_IDENTITY_AUTO_DISCOVERY: "false"
   ELECTRON_MIRROR: https://github.com/electron/electron/releases/download/
   ELECTRON_BUILDER_BINARIES_MIRROR: https://github.com/electron-userland/electron-builder-binaries/releases/download/
@@ -79,6 +79,9 @@ jobs:
           node scripts/licenses.mjs check
           pnpm lint
           pnpm typecheck
+      - name: Verify Personal update runtime
+        if: matrix.target == 'linux-x64'
+        run: xvfb-run -a node packages/desktop/scripts/personal-update-smoke.mjs
       - name: Prepare native runtime
         run: pnpm prepare:desktop-runtime
       - name: Build desktop and workspace

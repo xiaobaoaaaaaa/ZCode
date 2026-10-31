@@ -30,6 +30,8 @@ export function UpdateStatusDialogController({
 }) {
   const { intl, locale } = useZCodeIntl();
   const requestConfirmation = useConfirmDialog();
+  const manualDownload =
+    updateState?.kind === "update-available" && updateState.manualDownload === true;
   const [autoDownloadAndInstallUpdates, setAutoDownloadAndInstallUpdates] = useState(false);
   const [updateActionInFlight, setUpdateActionInFlightState] = useState<UpdateActionInFlight>(null);
   const updateActionInFlightRef = useRef<typeof updateActionInFlight>(null);
@@ -155,11 +157,13 @@ export function UpdateStatusDialogController({
     setUpdateActionInFlight("download");
     try {
       await platform.downloadUpdate();
+      // 下载页动作不会产生 progress 事件，ACK 就是完成信号，不能等下载态或超时解锁。
+      if (manualDownload) setUpdateActionInFlight(null);
     } catch (error) {
       setUpdateActionInFlight(null);
       throw error;
     }
-  }, [platform, setUpdateActionInFlight]);
+  }, [manualDownload, platform, setUpdateActionInFlight]);
   const handleAutoDownloadAndInstallUpdatesChange = useCallback(
     async (enabled: boolean) => {
       setAutoDownloadAndInstallUpdates(enabled);
@@ -287,6 +291,7 @@ export function UpdateStatusDialogController({
       edgeToEdge={edgeToEdge}
       intl={intl}
       isUpdateActionPending={updateActionInFlight !== null}
+      manualDownload={manualDownload}
       localizedUpdateReleaseNotes={visibleUpdateReleaseNotes}
       onAutoDownloadAndInstallUpdatesChange={handleAutoDownloadAndInstallUpdatesChange}
       onCancelDownload={handleCancelDownload}

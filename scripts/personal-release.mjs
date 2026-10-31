@@ -44,10 +44,10 @@ export function expectedFiles(version, target) {
   });
 }
 
-async function digest(path) {
-  const hash = createHash("sha256");
+async function digest(path, algorithm = "sha256", encoding = "hex") {
+  const hash = createHash(algorithm);
   for await (const chunk of createReadStream(path)) hash.update(chunk);
-  return hash.digest("hex");
+  return hash.digest(encoding);
 }
 
 async function inspectPackage(path, name) {
@@ -82,7 +82,8 @@ async function inspectPackage(path, name) {
   } finally {
     await file.close();
   }
-  return { name, size: info.size, sha256: await digest(path) };
+  const [sha256, sha512] = await Promise.all([digest(path), digest(path, "sha512", "base64")]);
+  return { name, size: info.size, sha256, sha512 };
 }
 
 function validateSmoke(smoke, version, target) {

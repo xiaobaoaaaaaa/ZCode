@@ -1,5 +1,5 @@
 /* eslint-disable max-lines -- autoUpdater 需要集中维护 Electron 事件、菜单状态与 IPC 交互，过度拆分会让更新状态流更难追踪 */
-import { app, BrowserWindow, ipcMain, Menu } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, shell } from "electron";
 import type { ISettingService } from "@zcode/services";
 import pkg, { CancellationToken } from "electron-updater";
 import semver from "semver";
@@ -10,6 +10,7 @@ import {
   TEST_ZCODE_ENDPOINT_ORIGIN,
   PlatformChannels,
   ZCODE_VERSION,
+  ZCODE_PRODUCT_FLAVOR,
   desktopMenuMessageIds,
   formatDesktopMenuMessage,
   getDesktopMenuMessage,
@@ -22,7 +23,15 @@ import {
 } from "@zcode/shared";
 import { logger } from "./logger.js";
 import { verifyWindowsAuthenticodeSignature } from "../../scripts/powershell-command.mjs";
-import { ManifestUpdateProvider, getElectronReleasePlatform } from "./manifestUpdateProvider.js";
+import {
+  ManifestUpdateProvider,
+  PersonalGitHubUpdateProvider,
+  getPersonalReleasePageUrl,
+  getElectronReleasePlatform,
+} from "./manifestUpdateProvider.js";
+
+const isPersonalUpdate = ZCODE_PRODUCT_FLAVOR === "personal";
+const isManualPersonalUpdate = isPersonalUpdate && process.platform === "darwin";
 
 export const CHECK_FOR_UPDATE_MENU_ID = "check-for-update";
 const AUTO_UPDATE_POLL_INTERVAL_MS = 15 * 60 * 1000;
@@ -222,6 +231,8 @@ function applyDevAutoUpdateRuntimeOverrides(): void {
 }
 
 function normalizeVersionForCompare(version: string): string | null {
+  // Personal 版本号的序号位于 prerelease；coerce 会把 personal.3 / personal.4 都变成 3.17.1。
+  if (isPersonalUpdate) return semver.valid(version.trim());
   return semver.valid(semver.coerce(version.trim()));
 }
 
@@ -385,6 +396,7 @@ function buildUpdateAvailableState(
     enabled: true,
     version,
     channel,
+    ...(isManualPersonalUpdate ? { manualDownload: true } : {}),
     ...(releaseNotes ? { releaseNotes } : {}),
   };
 }
@@ -486,7 +498,9 @@ async function quitAndInstallUpdate(rejectUnavailable = false) {
   // 也不能让一次挂起的后台网络请求扣押用户已经选择的安装。
   quitAndInstallState = "preparing";
   logger.info("[auto-update] user requested quit and install");
-  if (process.platform === "win32" && app.isPackaged) {
+  // Personal 发布目前没有 Authenticode；其固定 GitHub 源与 SHA-512 下载校验由专用 provider 负责。
+  // 官方包仍在安装前重验签名，不能因 Personal 能力改变这条边界。
+  if (process.platform === "win32" && app.isPackaged && !isPersonalUpdate) {
     try {
       // 6.8.10 命中已下载缓存时跳过下载 hook；在退出服务前复查实际待安装文件。
       // 读取既有 updater 的安装路径，避免另存一份路径导致 ready 与安装目标不同步。
@@ -835,6 +849,27 @@ async function syncAutoUpdateCheckChannelFromSettings(
 }
 
 function applyManifestUpdateProvider(options: InitAutoUpdaterOptions): void {
+  if (isPersonalUpdate) {
+    // Personal 的 SemVer 含 prerelease，但是否预发布由 GitHub 标记决定，交给 provider 筛选。
+    autoUpdater.allowPrerelease = true;
+    autoUpdater.allowDowngrade = false;
+    autoUpdater.disableDifferentialDownload = true;
+    autoUpdater.disableWebInstaller = true;
+    autoUpdater.setFeedURL({
+      provider: "custom",
+      updateProvider: PersonalGitHubUpdateProvider,
+      releasePlatform: getElectronReleasePlatform(),
+      resolveReleaseChannel: async () => {
+        const channel = await resolveUpdateReleaseChannel(options.settingService);
+        if (!isUpdateTargetLocked()) availableUpdateChannel = channel;
+        return channel;
+      },
+    });
+    logger.info(
+      `[auto-update] Personal GitHub provider applied platform=${getElectronReleasePlatform()}`,
+    );
+    return;
+  }
   // 在更新器装配边界再次约束，避免内部调用绕过启动配置解析。
   const manifestUrl = app.isPackaged ? undefined : options.updateFeedSource?.url.trim();
   autoUpdater.setFeedURL({
@@ -1199,7 +1234,7 @@ async function isSkippedUpdateVersion(
 async function shouldAutoDownloadAndInstallUpdates(
   settingService: SettingServiceLike | undefined,
 ): Promise<boolean> {
-  if (!settingService) {
+  if (isManualPersonalUpdate || !settingService) {
     return false;
   }
 
@@ -1370,6 +1405,11 @@ export function downloadAvailableUpdate(reason = "renderer") {
   if (menuState.kind !== "update-available") {
     logger.info(`[auto-update] skip ${reason} download: state=${menuState.kind}`);
     return;
+  }
+
+  if (isManualPersonalUpdate) {
+    // ad-hoc 签名不走 Squirrel 安装；仅显式用户动作打开 Main 构造的固定 Release 页面。
+    return shell.openExternal(getPersonalReleasePageUrl(menuState.version));
   }
 
   downloadingUpdateVersion = menuState.version;
@@ -1686,7 +1726,7 @@ export async function initAutoUpdater(options: InitAutoUpdaterOptions = {}): Pro
   // 由 before-quit 主动安装，避免目标已经升高后退出装上旧包。
   autoUpdater.autoInstallOnAppQuit = false;
   autoUpdater.logger = logger;
-  if (autoUpdater instanceof pkg.NsisUpdater) {
+  if (autoUpdater instanceof pkg.NsisUpdater && !isPersonalUpdate) {
     // 保留包内 publisherName 来激活 NSIS hook，但不把旧 DN 当作未来换证的准入条件。
     autoUpdater.verifyUpdateCodeSignature = (_publisherNames, filePath) =>
       verifyWindowsAuthenticodeSignature(filePath);
@@ -1933,7 +1973,7 @@ export async function initAutoUpdater(options: InitAutoUpdaterOptions = {}): Pro
     void quitAndInstallUpdate();
   });
   ipcMain.handle(PlatformChannels.DownloadUpdate, () => {
-    downloadAvailableUpdate("renderer");
+    return downloadAvailableUpdate("renderer");
   });
   ipcMain.handle(PlatformChannels.CancelUpdateDownload, () => {
     cancelDownloadingUpdate("renderer");

@@ -18,6 +18,7 @@ import {
 } from "electron-updater";
 import type { ProviderRuntimeOptions } from "electron-updater/out/providers/Provider.js";
 import { parse as parseYaml } from "yaml";
+import semver from "semver";
 
 export const ELECTRON_MANIFEST_API_PATH = "/api/v1/releases/electron/manifest";
 
@@ -256,4 +257,137 @@ export class ManifestUpdateProvider extends Provider<UpdateInfo> {
       (await this.options.resolveReleaseChannel?.()) ?? this.options.releaseChannel ?? "stable";
     return normalizeReleaseChannel(resolved);
   }
+}
+
+const PERSONAL_REPOSITORY = "https://github.com/xiaobaoaaaaaa/ZCode";
+const PERSONAL_RELEASE_API = "https://api.github.com/repos/xiaobaoaaaaaa/ZCode/releases";
+const PERSONAL_VERSION = /^\d+\.\d+\.\d+-personal\.[1-9]\d*$/u;
+
+export function getPersonalReleasePageUrl(version: string): string {
+  if (!PERSONAL_VERSION.test(version) || !semver.valid(version)) {
+    throw new Error("Invalid Personal release version");
+  }
+  return `${PERSONAL_REPOSITORY}/releases/tag/v${version}`;
+}
+
+/** 固定 fork 的发布适配器；下载和安装状态继续由 Main / electron-updater 持有。 */
+export class PersonalGitHubUpdateProvider extends ManifestUpdateProvider {
+  private readonly personalOptions: ManifestUpdateProviderOptions;
+  private readonly updater: AppUpdater;
+
+  constructor(
+    options: ManifestUpdateProviderOptions,
+    updater: AppUpdater,
+    runtimeOptions: ProviderRuntimeOptions,
+  ) {
+    super(options, updater, runtimeOptions);
+    this.personalOptions = options;
+    this.updater = updater;
+  }
+
+  override async getLatestVersion(): Promise<UpdateInfo> {
+    const channel = normalizeReleaseChannel(
+      (await this.personalOptions.resolveReleaseChannel?.()) ?? this.personalOptions.releaseChannel,
+    );
+    const raw = await this.httpRequest(
+      new URL(
+        channel === "preview"
+          ? `${PERSONAL_RELEASE_API}?per_page=100`
+          : `${PERSONAL_RELEASE_API}/latest`,
+      ),
+      { accept: "application/vnd.github+json" },
+    );
+    if (!raw) throw new Error("Empty Personal release response");
+    const parsed: unknown = JSON.parse(raw);
+    if (channel === "preview" ? !Array.isArray(parsed) : !isRecord(parsed)) {
+      throw new Error("Invalid Personal release response");
+    }
+    const releases: unknown[] = Array.isArray(parsed) ? parsed : [parsed];
+    const candidates = releases
+      .flatMap((release) => {
+        if (
+          !isRecord(release) ||
+          release.draft !== false ||
+          typeof release.prerelease !== "boolean" ||
+          (channel === "stable" && release.prerelease) ||
+          typeof release.tag_name !== "string"
+        )
+          return [];
+        const version = release.tag_name.replace(/^v/u, "");
+        return release.tag_name === `v${version}` &&
+          PERSONAL_VERSION.test(version) &&
+          semver.valid(version)
+          ? [{ release, version }]
+          : [];
+      })
+      .sort((a, b) => semver.rcompare(a.version, b.version));
+    const selected = candidates[0];
+    const currentVersion = this.updater.currentVersion.version;
+    // 老 Release 没有更新用 SHA-512；同版/降版无需读取清单，也绝不回退官方源。
+    if (!selected || !semver.gt(selected.version, currentVersion)) {
+      return {
+        version: currentVersion,
+        files: [],
+        path: "",
+        sha512: "",
+        releaseDate: "",
+        zcodeReleaseChannel: channel,
+      } as UpdateInfo;
+    }
+    const { release, version } = selected;
+    const baseUrl = `${PERSONAL_REPOSITORY}/releases/download/v${version}/`;
+    const manifestRaw = await this.httpRequest(new URL(`${baseUrl}release-manifest.json`), {
+      accept: "application/json",
+    });
+    const manifest: unknown = JSON.parse(manifestRaw ?? "null");
+    if (!isRecord(manifest) || manifest.version !== version || !Array.isArray(manifest.assets)) {
+      throw new Error("Personal release manifest version/assets mismatch");
+    }
+    const platform = this.personalOptions.releasePlatform ?? getElectronReleasePlatform();
+    const target = personalTargetFiles(version, platform);
+    const assets = manifest.assets;
+    const files = target.map((name) => {
+      const records = assets.filter((asset: unknown) => isRecord(asset) && asset.name === name);
+      const asset: unknown = records[0];
+      if (
+        records.length !== 1 ||
+        !isRecord(asset) ||
+        typeof asset.size !== "number" ||
+        !Number.isSafeInteger(asset.size) ||
+        asset.size <= 0 ||
+        asset.size > 500 * 1024 * 1024 ||
+        typeof asset.sha512 !== "string" ||
+        !/^[A-Za-z0-9+/]{86}==$/u.test(asset.sha512)
+      ) {
+        throw new Error(`Invalid or missing Personal update asset: ${name}`);
+      }
+      return { url: `${baseUrl}${name}`, size: asset.size, sha512: asset.sha512 };
+    });
+    return {
+      version,
+      files,
+      path: files[0]!.url,
+      sha512: files[0]!.sha512,
+      releaseName: typeof release.name === "string" ? release.name : version,
+      releaseNotes: typeof release.body === "string" ? release.body : "",
+      releaseDate: typeof release.published_at === "string" ? release.published_at : "",
+      zcodeReleaseChannel: channel,
+    } as UpdateInfo;
+  }
+}
+
+function personalTargetFiles(version: string, platform: string): string[] {
+  const targets: Record<string, [string, string[]]> = {
+    "windows-x86_64": ["win", ["x64.exe"]],
+    "darwin-x86_64": ["mac", ["x64.zip", "x64.dmg"]],
+    "darwin-aarch64": ["mac", ["arm64.zip", "arm64.dmg"]],
+    "linux-x86_64": ["linux", ["x86_64.AppImage", "amd64.deb", "x86_64.rpm", "x64.pkg.tar.zst"]],
+    "linux-aarch64": [
+      "linux",
+      ["arm64.AppImage", "arm64.deb", "aarch64.rpm", "aarch64.pkg.tar.zst"],
+    ],
+  };
+  const target = targets[platform];
+  if (!target) throw new Error(`Unsupported Personal update platform: ${platform}`);
+  return target[1].map((suffix) => `ZCode-Personal-${version}-${target[0]}-${suffix}`);
 }

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -65,9 +66,29 @@ test("complete native matrix produces 13 packages and checksums", async (t) => {
   });
   assert.equal(result.assets.length, 13);
   assert.equal(result.builds.length, 5);
+  for (const asset of result.assets) {
+    assert.equal(
+      asset.sha512,
+      createHash("sha512")
+        .update(await readFile(join(root, "ready", asset.name)))
+        .digest("base64"),
+    );
+  }
   const sums = await readFile(join(root, "ready", "SHA256SUMS"), "utf8");
   assert.equal(sums.trim().split("\n").length, 14);
   assert.match(sums, /release-manifest\.json/u);
+});
+
+test("tampered staged update checksum is rejected", async (t) => {
+  const root = await fixture(t);
+  const file = join(root, "input", "packages-win-x64", "build.json");
+  const build = JSON.parse(await readFile(file, "utf8"));
+  build.files[0].sha512 = "A".repeat(88);
+  await writeFile(file, JSON.stringify(build));
+  await assert.rejects(
+    collectRelease(join(root, "input"), join(root, "ready"), { version, commit }),
+    /digest/u,
+  );
 });
 
 test("incomplete matrix cannot be published", async (t) => {

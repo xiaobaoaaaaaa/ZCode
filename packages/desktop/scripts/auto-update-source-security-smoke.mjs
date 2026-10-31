@@ -135,7 +135,11 @@ async function listen(label) {
   platform: "node",
   format: "cjs",
   external: ["electron", "electron-updater", "semver"],
-  alias: { "@zcode/shared": resolve(repoRoot, "packages/shared/src/index.ts") },
+  // Personal 身份的深链解析使用 shared/env 子入口，必须先映射子入口，避免被根 alias 拼成 index.ts/env。
+  alias: {
+    "@zcode/shared/env": resolve(repoRoot, "packages/shared/src/env.ts"),
+    "@zcode/shared": resolve(repoRoot, "packages/shared/src/index.ts"),
+  },
   plugins: [
     {
       name: "security-smoke-official-origin",

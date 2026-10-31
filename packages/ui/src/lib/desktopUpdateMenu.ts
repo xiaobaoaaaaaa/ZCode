@@ -8,7 +8,7 @@ import {
 export function shouldShowDesktopUpdateEntry(
   flavor: ZCodeProductFlavor = ZCODE_PRODUCT_FLAVOR,
 ): boolean {
-  return flavor === "production";
+  return flavor === "production" || flavor === "personal";
 }
 
 export function getUpdateMenuLabelId(state: UpdateStatePayload | null) {
