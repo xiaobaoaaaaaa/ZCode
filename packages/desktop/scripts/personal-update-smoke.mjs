@@ -209,18 +209,10 @@ try {
       child.stderr?.on("data", (chunk) => {
         output += chunk;
       });
+      const deadline = setTimeout(() => child.kill(), 30000);
       try {
-        if (child.exitCode === null)
-          await new Promise((done, fail) => {
-            const deadline = setTimeout(() => {
-              child.kill();
-              fail(new Error(`${mode}/${name} timed out`));
-            }, 30000);
-            child.once("exit", (code) => {
-              clearTimeout(deadline);
-              code === 0 ? done() : fail(new Error(`${mode}/${name} exited ${code}\n${output}`));
-            });
-          });
+        // 连接完成后才允许夹具执行；完成 Promise 是验收信号，不与 app.exit 争抢调试连接。
+        await electron.evaluate(() => globalThis.runPersonalUpdateSmoke());
         const result = JSON.parse(await readFile(resolve(root, "result.json"), "utf8"));
         if (["no-update", "older", "official-only"].includes(name))
           assert.equal(requests.length, 1);
@@ -230,6 +222,7 @@ try {
         assert.equal(result.scenario.name, name);
         console.log(`PASS ${mode}/${name}`);
       } finally {
+        clearTimeout(deadline);
         await writeFile(resolve(root, "runtime.log"), output);
         await electron.close().catch(() => {});
       }

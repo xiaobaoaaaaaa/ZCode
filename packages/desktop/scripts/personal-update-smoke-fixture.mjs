@@ -205,9 +205,6 @@ async function run() {
     JSON.stringify({ scenario, states, errors, opened, installOrder }, null, 2),
   );
   assert.ok((await readFile(resolve(root, "result.json"), "utf8")).length);
-  app.exit(0);
 }
-run().catch((error) => {
-  console.error(error);
-  app.exit(1);
-});
+// 快速的无更新分支曾在 Playwright 握手前退出；由 runner 连接后启动并等待完成，再统一关闭。
+globalThis.runPersonalUpdateSmoke = run;
