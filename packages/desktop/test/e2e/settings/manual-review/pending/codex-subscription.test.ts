@@ -3,6 +3,7 @@ import { createCodexSubscription } from "@zcode/services/codex-subscription";
 import type { IProviderSettingsService } from "@zcode/services";
 import {
   TID_TASK_SETTINGS_BUTTON,
+  TID_MODEL_PROVIDER_NAV_ITEM,
   TID_SETTINGS_SECTION_NAV,
   TID_SETTINGS_BACK_BUTTON,
   testId,
@@ -96,10 +97,12 @@ describe("Codex subscription account integration", () => {
         return { providers };
       },
       async createPersonalProvider(input: any) {
+        // 真实创建接口禁止调用方指定 group；旧 fixture 忽略该合同导致漏检。
+        assert.equal(input.initialConfig.group, undefined);
         const providerId = providers.length ? "codex-provider-2" : "codex-provider";
         providers.push({
           providerId,
-          effectiveConfig: input.initialConfig,
+          effectiveConfig: { group: "standard-personal", ...input.initialConfig },
           models: [],
         });
         return { providerId };
@@ -228,6 +231,7 @@ describe("Codex subscription account integration", () => {
     await dismissOccupationOnboarding();
     await clickTestIdByDom(TID_TASK_SETTINGS_BUTTON);
     await clickTestIdByDom(testId(TID_SETTINGS_SECTION_NAV, "modelProvider"));
+    await clickTestIdByDom(testId(TID_MODEL_PROVIDER_NAV_ITEM, "codex-subscription"));
     await $('[data-testid="codex-accounts"]').waitForExist({ timeout: 30_000 });
     // UI fixture replaces the public service contract only; no real account or OAuth network is used.
     await browser.execute(() => {
@@ -279,6 +283,7 @@ describe("Codex subscription account integration", () => {
     await clickTestIdByDom(TID_SETTINGS_BACK_BUTTON);
     await clickTestIdByDom(TID_TASK_SETTINGS_BUTTON);
     await clickTestIdByDom(testId(TID_SETTINGS_SECTION_NAV, "modelProvider"));
+    await clickTestIdByDom(testId(TID_MODEL_PROVIDER_NAV_ITEM, "codex-subscription"));
     // Browser open is stubbed at the Electron boundary, preserving the product click path.
     await browser.electron
       .mock("shell", "openExternal")
@@ -295,12 +300,13 @@ describe("Codex subscription account integration", () => {
     await clickTestIdByDom(TID_SETTINGS_BACK_BUTTON);
     await clickTestIdByDom(TID_TASK_SETTINGS_BUTTON);
     await clickTestIdByDom(testId(TID_SETTINGS_SECTION_NAV, "modelProvider"));
+    await clickTestIdByDom(testId(TID_MODEL_PROVIDER_NAV_ITEM, "codex-subscription"));
     await $('[data-testid="codex-account"]').waitForExist();
     assert.match(await $('[data-testid="codex-account"]').getText(), /75%/);
     await $('[data-testid="codex-refresh"]').click();
     await $('[data-testid="codex-connect"]').click();
     await browser.waitUntil(async () =>
-      /模型已就绪|Models are ready/.test(await $('[data-testid="codex-accounts"]').getText()),
+      /已同步|Synced/.test(await $('[data-testid="codex-accounts"]').getText()),
     );
     await browser.execute(() => (window as any).__testActions?.setTheme("dark"));
     await browser.waitUntil(() =>

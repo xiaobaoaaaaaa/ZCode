@@ -1,4 +1,3 @@
-import { CodexAccountsPanel } from "@/codex-subscription/index.js";
 import type { ReactNode } from "react";
 import { TID_MODEL_PROVIDER_ADD_PROVIDER_BUTTON } from "@zcode/shared/test-ids";
 import type { ModelProviderNavGroup } from "@/settings/model-provider-section/constants.js";
@@ -65,7 +64,6 @@ export function ModelProviderSectionLayout({
         />
       </div>
 
-      <CodexAccountsPanel />
       <div className="overflow-clip rounded-xl border border-border bg-card">
         <div
           className="grid min-h-[36rem] grid-cols-[56px_minmax(0,1fr)] gap-0 md:grid-cols-[224px_minmax(0,1fr)]"

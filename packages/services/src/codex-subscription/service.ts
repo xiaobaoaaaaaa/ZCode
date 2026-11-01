@@ -431,8 +431,8 @@ export function createCodexSubscription(deps: Dependencies) {
             p.effectiveConfig.access?.type === "codex-account" &&
             p.effectiveConfig.access.accountId === id,
         );
+        // 创建接口统一设置个人分组；传入 group 会在模型写入前被拒绝，导致首次同步失败。
         const initialConfig = {
-          group: "standard-personal" as const,
           access: { type: "codex-account" as const, accountId: id },
           api: { type: "openai-responses" as const, baseUrl: `${BACKEND}/codex` },
         };

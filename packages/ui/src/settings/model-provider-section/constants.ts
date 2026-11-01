@@ -133,6 +133,7 @@ export function resolveModelProviderDisplayName(
 }
 
 export type ModelProviderNavItem =
+  | { key: "codex-subscription"; type: "codex"; label: string }
   | {
       key: string;
       type: "preset";

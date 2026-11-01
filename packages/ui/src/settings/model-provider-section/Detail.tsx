@@ -255,7 +255,7 @@ export function ModelProviderSectionDetail({
   onSelectNavItem,
   providerSettingsView: providerSettingsViewOverride,
 }: {
-  selectedNavItem: ModelProviderNavItem | null;
+  selectedNavItem: Exclude<ModelProviderNavItem, { type: "codex" }> | null;
   navigationItems?: ModelProviderNavItem[];
   connectionSettingsFailed?: boolean;
   connectionSelections?: ProviderFamilyConnectionSelectionSettings;

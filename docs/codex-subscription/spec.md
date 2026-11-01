@@ -10,6 +10,32 @@
 
 本功能直接接入 ZCode 的 Responses 模型执行器；不是通过用户另行部署 CC Switch。外部 Claude Code 的配置改写与通用本地代理不属于本次账号接入。不得读取或覆盖其他应用的 auth.json。
 
+## 设置入口与模型同步
+
+- ChatGPT / Codex 在模型供应商的账号导航中拥有独立入口，与 BigModel / Start Plan 复用相同导航按钮、选中态和右侧详情容器；不再在供应商面板上方单独铺开账号块。
+- 选择状态仍由 ModelProviderSection 的 selectedNodeKey 唯一持有；只有选中 Codex 时挂载账号详情。离开详情取消未完成的设备登录，返回重新读取账号投影。Host 不支持 Codex 时不显示入口。
+- 详情复用 ProviderLogo 与官方 PlanStatusCardSurface：套餐标题、邮箱副标题、图标刷新与更多菜单。已登录时不显示教程、workspace ID、完整重置日期时间或长成功段落；workspace 身份在邮箱提示中保留，完整重置时间通过可聚焦提示查看。
+- 额度采用与官方相同的数字 + 进度条小卡，168 小时显示每周，其余按服务端窗口时长命名；条形长度限制在 0–100%，未知额度显示未知，不伪造额度。额外 credits 为 0 时省略，为正数或不限量时显示。过期/重新登录等异常仍可见。
+- 每个账号卡片下展示服务端发现的“可用模型”列表与“同步模型”操作；此列表只表示账号模型目录，不假装是本地已启用列表，不增加无服务状态支撑的开关。同步成功仅在该账号按钮旁显示短状态；不持久化另一份绑定状态。多账号互不混淆。
+- 刷新保留图标按钮及无障碍标签；重新登录和退出在更多菜单中，键盘和手机可达。空账号才显示登录说明。窄屏额度卡自动换行，模型长名不撑破布局；中英文、深浅主题一致。
+- 登录只发现账号和模型；“添加 / 同步模型”通过既有 ProviderSettingsService 创建/补充个人供应商，不改变当前会话模型。新建时不传 `initialConfig.group`，分组由 ProviderConfigService 唯一设置；再次同步保留既有模型配置，不重复创建模型或供应商。
+- 同步失败使用专门的重试文案，不把本地配置错误归因为网络或要求重新登录；原始异常不直接显示，避免泄露账号信息。
+
+```mermaid
+sequenceDiagram
+  participant Settings as Settings selectedNodeKey
+  participant Panel as Codex 详情投影
+  participant Host as CodexSubscriptionService
+  participant Provider as ProviderSettingsService
+  Settings->>Panel: 选中 Codex，挂载
+  Panel->>Host: listAccounts
+  Panel->>Host: connectAccount(accountId)
+  Host->>Provider: 创建供应商（不传 group）/补齐模型
+  Provider-->>Panel: 既有 Provider 变更事件刷新模型选择器
+  Host-->>Panel: 同步完成
+  Settings->>Panel: 切换导航，卸载并取消待授权登录
+```
+
 ## 所有者与接口
 
 - Host 的 Codex subscription service 唯一管理授权过程、账号、刷新和额度；凭据复用加密 CredentialService。
@@ -47,15 +73,17 @@ Provider access schema / Registry → 请求级鉴权协议 → Host 服务与�
 
 ## 验收与证据计划
 
-| 场景 | 预期 | 验证方式 |
-| --- | --- | --- |
-| 设备登录、等待、成功、过期、取消 | 单飞；无令牌 DTO；取消后迟到结果丢弃 | 隔离 Host 集成用例 + UI E2E |
-| 重复登录、错账号重新登录 | 不重复创建；不覆盖其他账号 | 隔离 Host 集成用例 |
-| 过期令牌与并发请求 | 一次轮换；持久化成功才返回 | 隔离 Host 集成用例 |
-| 移除与迟到刷新 | 不复活账号；旧模型下次请求失败 | 隔离 Host 集成用例 |
-| 模型发现与手动切换 | 每个账号独立 Provider，无自动切换 | CLI + UI E2E |
-| 额度成功、未知、网络失败、401 | 正确剩余/重置，保留旧值且标记 stale，重新登录提示 | 隔离 Host 集成用例 |
-| Responses 文本、工具调用、错误、取消 | 兼容 backend 字段与 SSE；不泄漏令牌至其他 URL | CLI adapter 回归 |
-| 窄屏、深浅主题、中英文 | 操作可达，长文案换行 | UI E2E / 截图 |
+| 场景                                 | 预期                                                                | 验证方式                             |
+| ------------------------------------ | ------------------------------------------------------------------- | ------------------------------------ |
+| 设备登录、等待、成功、过期、取消     | 单飞；无令牌 DTO；取消后迟到结果丢弃                                | 隔离 Host 集成用例 + UI E2E          |
+| 重复登录、错账号重新登录             | 不重复创建；不覆盖其他账号                                          | 隔离 Host 集成用例                   |
+| 过期令牌与并发请求                   | 一次轮换；持久化成功才返回                                          | 隔离 Host 集成用例                   |
+| 移除与迟到刷新                       | 不复活账号；旧模型下次请求失败                                      | 隔离 Host 集成用例                   |
+| 首次/重复同步                        | 真实 ProviderConfigService 接受创建，模型启用且无重复；新模型可补齐 | 隔离运行时场景，外部授权使用合成响应 |
+| Codex 导航与同步失败                 | 同组卡片选中、详情切换/取消、错误可重试；390px 中英文/深浅色不溢出  | 浏览器验收 + 更新 CS-02              |
+| 模型发现与手动切换                   | 每个账号独立 Provider，无自动切换                                   | CLI + UI E2E                         |
+| 额度成功、未知、网络失败、401        | 正确剩余/重置，保留旧值且标记 stale，重新登录提示                   | 隔离 Host 集成用例                   |
+| Responses 文本、工具调用、错误、取消 | 兼容 backend 字段与 SSE；不泄漏令牌至其他 URL                       | CLI adapter 回归                     |
+| 窄屏、深浅主题、中英文               | 操作可达，长文案换行                                                | UI E2E / 截图                        |
 
 剪枝：自动切换已由用户排除；不增加外部应用凭据同步。真实账号授权需用户在浏览器完成，mock 证据不得写成真实订阅联网通过。

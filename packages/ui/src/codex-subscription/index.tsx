@@ -3,39 +3,46 @@ import type { CodexAccount, CodexDeviceLogin } from "./contract.js";
 import { useCodexSubscriptionService } from "@/hooks/useModelProviders.js";
 import { usePlatform } from "@/hooks/usePlatform.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { CodexAccountCard } from "./AccountCard.js";
+import { PlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button.js";
+import { ProviderLogo } from "@/settings/model-provider-section/ProviderLogo.js";
 import type { CodexAccountsPanelProps } from "./contract.js";
 
 export function CodexAccountsPanel({ className }: CodexAccountsPanelProps) {
   const service = useCodexSubscriptionService();
   const platform = usePlatform();
-  const { intl, locale } = useZCodeIntl();
+  const { intl } = useZCodeIntl();
   const t = (id: string, values?: Record<string, string | number>) =>
     intl.formatMessage({ id: `codex.${id}` }, values);
   const [accounts, setAccounts] = useState<CodexAccount[]>([]);
   const [login, setLogin] = useState<CodexDeviceLogin | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(false);
-  const [connected, setConnected] = useState(false);
+  const [error, setError] = useState<"error" | "syncError" | null>(null);
+  const [syncedAccountId, setSyncedAccountId] = useState<string | null>(null);
   const generation = useRef(0);
-  const run = useCallback(async (operation: () => Promise<void>) => {
-    const version = generation.current;
-    setBusy(true);
-    setError(false);
-    setConnected(false);
-    try {
-      await operation();
-    } catch {
-      if (version === generation.current) setError(true);
-    } finally {
-      if (version === generation.current) setBusy(false);
-    }
-  }, []);
+  const run = useCallback(
+    async (operation: () => Promise<void>, failure: "error" | "syncError" = "error") => {
+      const version = generation.current;
+      setBusy(true);
+      setError(null);
+      setSyncedAccountId(null);
+      try {
+        await operation();
+      } catch {
+        if (version === generation.current) setError(failure);
+      } finally {
+        if (version === generation.current) setBusy(false);
+      }
+    },
+    [],
+  );
   useEffect(() => {
     const version = ++generation.current;
     setAccounts([]);
+    setSyncedAccountId(null);
     setLogin(null);
-    setError(false);
+    setError(null);
     setBusy(false);
     if (service)
       void service
@@ -44,7 +51,7 @@ export function CodexAccountsPanel({ className }: CodexAccountsPanelProps) {
           if (version === generation.current) setAccounts(value);
         })
         .catch(() => {
-          if (version === generation.current) setError(true);
+          if (version === generation.current) setError("error");
         });
     return () => {
       generation.current++;
@@ -70,7 +77,7 @@ export function CodexAccountsPanel({ className }: CodexAccountsPanelProps) {
         }
       } catch {
         if (!cancelled) {
-          setError(true);
+          setError("error");
           setLogin(null);
         }
       }
@@ -99,30 +106,28 @@ export function CodexAccountsPanel({ className }: CodexAccountsPanelProps) {
       platform.openExternal(value.verificationUrl);
     });
   return (
-    <section
-      data-testid="codex-accounts"
-      className={`space-y-3 rounded-xl border border-border bg-card p-4 ${className ?? ""}`}
-    >
+    <section data-testid="codex-accounts" className={`min-w-0 space-y-4 ${className ?? ""}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-ui-lg font-medium">{t("title")}</h3>
+        <div className="flex min-w-0 items-center gap-2">
+          <ProviderLogo logo={{ type: "builtin", key: "openai" }} className="size-5" />
+          <h3 className="text-ui-lg font-medium">{t("title")}</h3>
+        </div>
         <Button
           variant="outline"
           disabled={busy || !!login}
           onClick={() => void startLogin()}
           data-testid="codex-login"
         >
+          <PlusIcon className="size-3.5" />
           {t("login")}
         </Button>
       </div>
-      <p className="text-ui-base text-foreground-subtle">{t("description")}</p>
+      {accounts.length === 0 && !login && (
+        <p className="text-ui-base text-foreground-subtle">{t("description")}</p>
+      )}
       {error && (
         <p role="alert" className="text-ui-base text-destructive">
-          {t("error")}
-        </p>
-      )}
-      {connected && (
-        <p role="status" className="text-ui-base text-success">
-          {t("connected")}
+          {t(error)}
         </p>
       )}
       {login && (
@@ -155,100 +160,34 @@ export function CodexAccountsPanel({ className }: CodexAccountsPanelProps) {
       )}
       {accounts.length === 0 && <p className="text-ui-base text-foreground-subtle">{t("empty")}</p>}
       {accounts.map((account) => (
-        <div
+        <CodexAccountCard
           key={account.id}
-          className="space-y-2 border-t border-border pt-3"
-          data-testid="codex-account"
-        >
-          <div className="flex flex-wrap items-center gap-2 text-ui-base">
-            <span className="break-all font-medium">{account.email}</span>
-            <span className="text-foreground-subtle">
-              {account.plan} · {t("models", { count: account.models.length })}
-            </span>
-          </div>
-          <p className="break-all text-ui-caption text-foreground-subtle">{account.workspaceId}</p>
-          {account.needsLogin && (
-            <p role="alert" className="text-ui-base text-warning">
-              {t("required")}
-            </p>
-          )}
-          {!account.quota?.windows.length && (
-            <p className="text-ui-caption text-foreground-subtle">{t("unknown")}</p>
-          )}
-          {account.quota?.windows.map((window, index) => (
-            <div key={index} className="flex flex-wrap gap-x-3 gap-y-1 text-ui-caption">
-              {window.windowSeconds && (
-                <span>
-                  {t("window", { hours: Math.round((window.windowSeconds / 3600) * 10) / 10 })}
-                </span>
-              )}
-              <span>{t("remaining", { percent: Math.round(window.remainingPercent) })}</span>
-              {window.resetsAt && (
-                <span className="text-foreground-subtle">
-                  {t("reset", { time: new Date(window.resetsAt).toLocaleString(locale) })}
-                </span>
-              )}
-            </div>
-          ))}
-          {account.quota?.unlimitedCredits ? (
-            <p className="text-ui-caption">{t("unlimited")}</p>
-          ) : (
-            account.quota?.credits !== undefined && (
-              <p className="text-ui-caption">{t("credits", { value: account.quota.credits })}</p>
-            )
-          )}
-          {account.stale && <p className="text-ui-caption text-foreground-subtle">{t("stale")}</p>}
-          <div className="flex flex-wrap gap-2">
-            <Button
-              data-testid="codex-refresh"
-              variant="outline"
-              disabled={busy || !!login}
-              onClick={() =>
-                void run(async () => {
-                  const version = generation.current;
-                  await service.refreshAccount(account.id);
-                  await reload(version);
-                })
-              }
-            >
-              {t("refresh")}
-            </Button>
-            <Button
-              data-testid="codex-connect"
-              variant="outline"
-              disabled={busy || account.needsLogin || !account.models.length}
-              onClick={() =>
-                void run(async () => {
-                  const version = generation.current;
-                  await service.connectAccount(account.id);
-                  if (version === generation.current) setConnected(true);
-                })
-              }
-            >
-              {t("connect")}
-            </Button>
-            <Button
-              variant="ghost"
-              disabled={busy || !!login}
-              onClick={() => void startLogin(account.id)}
-            >
-              {t("relogin")}
-            </Button>
-            <Button
-              variant="ghost"
-              disabled={busy || !!login}
-              onClick={() =>
-                void run(async () => {
-                  const version = generation.current;
-                  await service.removeAccount(account.id);
-                  await reload(version);
-                })
-              }
-            >
-              {t("remove")}
-            </Button>
-          </div>
-        </div>
+          account={account}
+          busy={busy || !!login}
+          synced={syncedAccountId === account.id}
+          onRefresh={() =>
+            void run(async () => {
+              const version = generation.current;
+              await service.refreshAccount(account.id);
+              await reload(version);
+            })
+          }
+          onSync={() =>
+            void run(async () => {
+              const version = generation.current;
+              await service.connectAccount(account.id);
+              if (version === generation.current) setSyncedAccountId(account.id);
+            }, "syncError")
+          }
+          onRelogin={() => void startLogin(account.id)}
+          onRemove={() =>
+            void run(async () => {
+              const version = generation.current;
+              await service.removeAccount(account.id);
+              await reload(version);
+            })
+          }
+        />
       ))}
     </section>
   );

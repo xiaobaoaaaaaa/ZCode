@@ -43,6 +43,7 @@ interface PresetProviderWithConfig extends PresetProviderSpec {
 
 interface UseModelProviderNavigationOptions {
   presetProviders: PresetProviderWithConfig[];
+  codexAvailable?: boolean;
   modelProviders: ProviderSettingsFormProvider[];
   /**
    * 当前账号明确有权益的 Provider。缺省等价于尚无账号权益；生产设置页始终显式传入。
@@ -65,6 +66,7 @@ interface UseModelProviderNavigationOptions {
 
 export function useModelProviderNavigation({
   presetProviders,
+  codexAvailable = false,
   modelProviders,
   entitledAccountProviderIds = new Set(),
   modelProvidersLoading = false,
@@ -181,7 +183,9 @@ export function useModelProviderNavigation({
     const groups: ModelProviderNavGroup[] = [
       {
         id: "preset",
-        title: intl.formatMessage({ id: "settings.modelProvider.presetTitle" }),
+        title: intl.formatMessage({
+          id: codexAvailable ? "codex.accountsGroup" : "settings.modelProvider.presetTitle",
+        }),
         items: [
           ...presetProviders.map(({ id, displayName, provider }) => {
             const statusProvider = resolvePresetFamilyStatusProvider({
@@ -208,6 +212,15 @@ export function useModelProviderNavigation({
             };
           }),
           ...codingPlanItems.filter((item) => isStartPlanModelProviderId(item.presetId)),
+          ...(codexAvailable
+            ? [
+                {
+                  key: "codex-subscription" as const,
+                  type: "codex" as const,
+                  label: "ChatGPT / Codex",
+                },
+              ]
+            : []),
         ],
       },
       {
@@ -225,6 +238,7 @@ export function useModelProviderNavigation({
 
     return groups;
   }, [
+    codexAvailable,
     customProviders,
     codingPlanItems,
     connectionModeCodingPlanItems,
@@ -558,7 +572,7 @@ export function connectionSelectionMatchesNavigationItem(
   selection: ProviderFamilyConnectionSelection,
   item: Exclude<ModelProviderNavGroup["items"][number], { type: "codingPlanLoading" }>,
 ): boolean {
-  if (item.type === "custom") return false;
+  if (item.type === "custom" || item.type === "codex") return false;
   const familySpec = resolveModelProviderFamilySpecByProviderId(item.presetId ?? "");
   if (familySpec?.id !== family) return false;
   if (selection.kind === "start-plan") {

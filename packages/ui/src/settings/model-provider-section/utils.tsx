@@ -37,6 +37,8 @@ export function resolveModelProviderNavLogo(item: ModelProviderNavItem) {
 }
 
 export function renderModelProviderNavIcon(item: ModelProviderNavItem): ReactNode {
+  if (item.type === "codex")
+    return <ProviderLogo logo={{ type: "builtin", key: "openai" }} className="size-4" />;
   if ("provider" in item && item.provider) {
     return <ProviderLogo logo={resolveModelProviderNavLogo(item)} className="size-4" />;
   }

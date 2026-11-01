@@ -2,15 +2,15 @@
 
 基线为 `3.17.1-personal.1`。不恢复官方已退役的 App UT；新增账号用例保留为 pending E2E，未宣称已获得人工晋级审核。
 
-| 场景 | 结果与证据 |
-| --- | --- |
+| 场景                                                                                                                                              | 结果与证据                                                                                                                      |
+| ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | CS-01：设备等待/成功、取消后的迟到 exchange、同用户不同 workspace 两账号、手动绑定、并发刷新、无效 refresh token 后重新登录、错账号拒绝、退出清理 | 通过；`packages/desktop/.e2e-artifacts/desktop-e2e-20261031141100067-p90297-52e7a52c2d6fc14f`，服务使用合成账号与注入 transport |
-| CS-01：模型发现、额度剩余/重置、credits、网络错误保留旧额度 | 通过；同一账号集成用例；无真实账户额度访问 |
-| CS-02：真实设置页设备码、取消、模型同步、额度展示、桌面与 480px 窗口、深浅主题 | 通过；同上，UI 使用无令牌 service contract fixture；截图 `codex-settings.png` / `codex-settings-narrow.png` |
-| 请求级鉴权端口、workspace identity、取消、拒绝混用账号类型 | 7 项 Bootstrap 回归通过；`provider-runtime-headers-cancel.test.ts` |
-| Responses 动态鉴权、参数映射顺序、SSE 非流式归并、工具流保留、固定源与禁用 endpoint routing；原 API Key 回归 | 4 个 Adapter 测试文件、57 项通过 |
-| 旧工具折叠修复在新基线的集成回归 | 通过；`packages/desktop/.e2e-artifacts/desktop-e2e-20261031140930207-p88006-183d416efe79d33e` |
-| 文件详情为空的重试恢复、390px/1100px、深浅主题 | `node packages/desktop/scripts/gen-ui-e2e.mjs` 通过 |
+| CS-01：模型发现、额度剩余/重置、credits、网络错误保留旧额度                                                                                       | 通过；同一账号集成用例；无真实账户额度访问                                                                                      |
+| CS-02：真实设置页设备码、取消、模型同步、额度展示、桌面与 480px 窗口、深浅主题                                                                    | 通过；同上，UI 使用无令牌 service contract fixture；截图 `codex-settings.png` / `codex-settings-narrow.png`                     |
+| 请求级鉴权端口、workspace identity、取消、拒绝混用账号类型                                                                                        | 7 项 Bootstrap 回归通过；`provider-runtime-headers-cancel.test.ts`                                                              |
+| Responses 动态鉴权、参数映射顺序、SSE 非流式归并、工具流保留、固定源与禁用 endpoint routing；原 API Key 回归                                      | 4 个 Adapter 测试文件、57 项通过                                                                                                |
+| 旧工具折叠修复在新基线的集成回归                                                                                                                  | 通过；`packages/desktop/.e2e-artifacts/desktop-e2e-20261031140930207-p88006-183d416efe79d33e`                                   |
+| 文件详情为空的重试恢复、390px/1100px、深浅主题                                                                                                    | `node packages/desktop/scripts/gen-ui-e2e.mjs` 通过                                                                             |
 
 执行入口：
 
@@ -31,3 +31,22 @@
 功能分支 Push 的 pre-push 门禁成功：51 项架构/工程工具检查通过，架构 0 违规。affected 选中 157/157 工程规格，按仓库合同跳过整套工程测试（并非通过 157 项）；定向 CLI 与桌面 E2E 证据见上表。
 
 发布补充：首轮 Linux 依赖安装遇到 pnpm hoisted 重命名竞争，重跑后安装通过；随后许可证新鲜度检查发现版本更新后的输入清单未生成。已同步根 npm 锁文件版本、重新生成第三方声明与清单，并将发布安装的依赖构建并发降为 1。生成前后的 1173 个生产包版本及材料待核验条目一致；声明变动仅为当前 checkout 换行字节带来的相同 Apache 文本去重及原始文件哈希更新。根类型检查与 Lint 再次通过，9 项发布元数据/隔离测试和 7 项 Linux 包格式测试通过；最终五平台安装包必须从修正后的同一提交重建。
+
+## 2026-11-01 同步与卡片布局回归
+
+旧 CS-01 的供应商 fixture 没有执行真实创建校验，不能作为首次同步成功证据。本轮补充实际 `ProviderConfigService` 的隔离内存存储验收；CS-02 更新为先选择 Codex 导航入口，但未重跑完整 Electron 用例。
+
+- 浏览器/运行时验收：`packages/ui/test/browser/manual-review/pending/codex-subscription.test.mjs`，5/5 通过。首次创建、重复同步、新增模型补齐、用户禁用模型与供应商 logo 保留均执行真实配置服务。
+- 四组浏览器场景：1200px 中文浅色、1200px 英文深色、390px 中文深色、390px 英文浅色。覆盖导航选中、详情归位、同步失败文案与重试、重复同步、离开取消授权和返回重读、无横向溢出及无浏览器异常。点击同步通过本地验收端点调用真实 Codex service 和配置服务；账号投影、授权及额度为合成数据。
+- 证据目录：`packages/desktop/.e2e-artifacts/codex-subscription-ui/`，含四张截图与检查日志。未调用真实付费模型，未改动用户账号和凭据，未构建或安装发布包。
+- 根 `pnpm typecheck`、`pnpm --filter @zcode/desktop typecheck:e2e`、`pnpm architecture:check --changed` 通过；Lint 无错误，83 条已有警告。
+
+复跑：`CHROME_EXECUTABLE_PATH=<本机 Chromium 路径> pnpm exec tsx --test packages/ui/test/browser/manual-review/pending/codex-subscription.test.mjs`；不提供路径时使用本机 Chrome。测试用内存配置仓库，不访问真实账号存储。
+
+## 2026-11-01 卡片信息密度调整
+
+按 BigModel 截图复用 `PlanStatusCardSurface`，账号标题/副标题、额度区隔线与间距一致。额度改为百分比和进度条；workspace 身份、完整重置时间移到可聚焦提示；零 credits 不占行。重新登录/退出移到菜单，新增账号发现的只读模型目录；不伪造已启用状态。同步成功反馈限定当前账号。
+
+验收脚本仍为 `packages/ui/test/browser/manual-review/pending/codex-subscription.test.mjs`，11 项：真实配置服务同步回归、5 组视口/语言/主题、未知额度/重新登录、正数 credits、不限量、空账号登录、多账号反馈隔离。证据保存到 `packages/desktop/.e2e-artifacts/codex-subscription-compact-ui/`。本轮不调用真实账号，不将只读模型目录当作可执行模型配置的证明。
+
+本轮最终结果：11/11 通过；根 typecheck、desktop typecheck:e2e、架构检查均通过；Lint 0 errors / 83 条已有 warnings。完整 Electron 测试未重跑，未打包安装。

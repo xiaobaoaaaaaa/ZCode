@@ -1,4 +1,6 @@
 /* eslint-disable max-lines -- Model Provider 设置页需要集中编排导航、表单和 OAuth 交互，后续整体拆分时再收敛。 */
+import { CodexAccountsPanel } from "@/codex-subscription/index.js";
+import { useCodexSubscriptionService } from "@/hooks/useModelProviders.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand";
 import { marketingNavigation, finishMarketingNavigation } from "@/lib/marketingNavigation.js";
@@ -682,8 +684,10 @@ export function ModelProviderSection({
     };
   }, [presetSubscriptionProviderId]);
 
+  const codexSubscriptionService = useCodexSubscriptionService();
   const { navigationGroups, navigationItems, selectedNavItem, navigationUnavailable } =
     useModelProviderNavigation({
+      codexAvailable: Boolean(codexSubscriptionService),
       presetProviders,
       modelProviders,
       entitledAccountProviderIds,
@@ -1147,6 +1151,8 @@ export function ModelProviderSection({
             return handleCreateProvider({ providerName: label });
           }}
         />
+      ) : selectedNavItem?.type === "codex" ? (
+        <CodexAccountsPanel />
       ) : (
         <ModelProviderSectionDetail
           connectionSelections={effectiveConnectionSelections}
