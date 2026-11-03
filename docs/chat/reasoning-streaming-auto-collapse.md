@@ -24,4 +24,50 @@ Assistant thought / reasoning 块本身已经表达“模型正在思考”。�
 
 ## 兼容性
 
-该变更只影响 UI 层 thought / reasoning 展示，不修改 ZCode Protocol、消息快照、desktop continuous 或 mobile replayable 语义。移动 Web 与桌面端消费同一 message parts，共用默认收起和单行原位流式摘要规则。
+流式摘要和折叠由共享 UI 渲染，耗时由 CLI 的现有消息字段提供。不新增 ZCode Protocol 字段，
+不改变 desktop continuous 或 mobile replayable 的交付语义。移动 Web 与桌面端消费同一 V4 行，
+共用默认收起和单行原位流式摘要规则。
+
+## 折叠后的耗时恢复（EA-TIMING-01，2026-11-02）
+
+思考耗时属于消息事实，不属于折叠组件的挂载状态。原实现把开始时间存在组件 ref，
+外层执行过程或历史收起卸载后会重新计时；CLI 收口 reasoning 时又遗漏现有 `durationMs`，
+因此完成态重新展开也不能恢复原来的秒数。
+
+- CLI `ProductProjection` 继续是唯一事实所有者。运行态以行的 `createdAt` 为起点；正常结束、
+  取消、错误、失败流丢弃、模型降级或下一思考段收口时，用该事件的时间减去 `createdAt`，
+  将非负结果写入已有 `durationMs`。不读取重放时的系统时钟，不重复修改已经收口的行。
+- UI 将行的起点传入 `Reasoning.startedAt`（毫秒）；运行中仅在展开时刷新显示，重新挂载仍
+  从同一起点计算，收起期间的时间计入。完成态优先显示 CLI 的 `durationMs`，不继续增长。
+- 外层执行过程、历史和 CUA 分组仍可卸载子项；不常驻隐藏内容、不建立全局耗时缓存或第二份消息状态。
+- 不同消息独立计时。旧快照若确实缺少完成耗时，继续显示“几秒”，不凭重新展开时间伪造时长。
+  `Reasoning` 未传起点的既有调用保留本地计时兼容行为。
+
+```mermaid
+sequenceDiagram
+  participant C as CLI ProductProjection
+  participant R as V4 reasoning row
+  participant U as 共享 Reasoning UI
+  C->>R: reasoning_start：createdAt
+  R->>U: Desktop continuous / Web replayable：同一行
+  U->>U: 展开计算 now - createdAt；折叠卸载
+  C->>R: 结束/中断事件：durationMs = max(0, eventTime - createdAt)
+  R->>U: row.upserted / snapshot
+  U->>U: 再次展开或历史重挂载：显示固定 durationMs
+```
+
+验收：首次延迟展开、内外层反复收起、隐藏期间完成/中断、完成后历史重挂载均保留耗时；
+新行独立开始。CLI 事件重放及两种 delivery profile 必须得到相同的终态耗时。
+浏览器复用 `execution-history.test.mjs` 验证真实组件、桌面/手机、中英文及深浅主题；
+CLI 回归复用 `product-projection.test.ts`，不恢复 App 业务单测。
+
+验证（2026-11-02）：修复前浏览器延迟展开场景无法显示累计 5 秒，新增 CLI 8 项均因缺失
+`durationMs` 失败；修复后完整投影文件 248/248、浏览器 26/26（新增计时 14 项、原历史 12 项）
+通过。浏览器覆盖普通/后台/timelineOnly、桌面中文/手机英文、Zai 深浅主题、终态/中断和
+挂载中结束；中断仍按既有规则外显。完成态截图等待真实动画结束后核对。
+产物：`packages/desktop/.e2e-artifacts/reasoning-timing-20261102/`。
+
+根 `pnpm typecheck`、bootstrap 包类型、桌面 E2E 类型及架构检查通过；根 Lint 83 warnings /
+0 errors，CLI Lint 72 warnings / 0 errors（另 7 项原样上游行数诊断）。CLI 全仓类型命令因
+`turbo: command not found` 未完成，受影响 bootstrap 包类型已通过。浏览器候选保持 pending，
+未运行打包桌面或实体手机远控 E2E，未发布或安装新版。

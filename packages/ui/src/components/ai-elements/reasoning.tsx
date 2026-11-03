@@ -56,6 +56,8 @@ export type ReasoningProps = ComponentProps<typeof Collapsible> & {
   open?: boolean;
   defaultOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** 消息事实中的开始时间（毫秒），不随折叠内容的卸载重置。 */
+  startedAt?: number;
   duration?: number;
 };
 
@@ -95,6 +97,7 @@ export const Reasoning = memo(
     open,
     defaultOpen = false,
     onOpenChange,
+    startedAt,
     duration: durationProp,
     children,
     ...props
@@ -105,10 +108,13 @@ export const Reasoning = memo(
       onChange: onOpenChange,
       prop: open,
     });
-    const [duration, setDuration] = useControllableState<number | undefined>({
-      defaultProp: undefined,
-      prop: durationProp,
-    });
+    // 流式本地时钟到 CLI 终态耗时是正常切换，不是受控表单模式切换。
+    const [localDuration, setLocalDuration] = useState<number | undefined>(() =>
+      isStreaming && startedAt !== undefined
+        ? Math.max(1, Math.ceil((Date.now() - startedAt) / MS_IN_S))
+        : undefined,
+    );
+    const duration = durationProp ?? localDuration;
 
     const startTimeRef = useRef<number | null>(null);
     const contentUnmountDelayRef = useRef<number | null>(null);
@@ -127,15 +133,23 @@ export const Reasoning = memo(
     );
 
     useEffect(() => {
+      if (durationProp !== undefined) {
+        startTimeRef.current = null;
+        return;
+      }
       if (!isStreaming) {
         if (startTimeRef.current !== null) {
-          setDuration(Math.ceil((Date.now() - startTimeRef.current) / MS_IN_S));
+          setLocalDuration(Math.max(1, Math.ceil((Date.now() - startTimeRef.current) / MS_IN_S)));
         }
         startTimeRef.current = null;
         return;
       }
 
-      if (startTimeRef.current === null) {
+      // 外层执行过程/历史收起会卸载此组件；挂载时间不能作为消息开始时间，
+      // 否则重新展开从零计时。使用 CLI 行的起点，终态耗时仍以 duration prop 为准。
+      if (startedAt !== undefined) {
+        startTimeRef.current = startedAt;
+      } else if (startTimeRef.current === null) {
         startTimeRef.current = Date.now();
       }
 
@@ -149,13 +163,13 @@ export const Reasoning = memo(
         if (startTimeRef.current === null) {
           return;
         }
-        setDuration(Math.max(1, Math.ceil((Date.now() - startTimeRef.current) / MS_IN_S)));
+        setLocalDuration(Math.max(1, Math.ceil((Date.now() - startTimeRef.current) / MS_IN_S)));
       };
 
       updateDuration();
       const durationTimer = window.setInterval(updateDuration, MS_IN_S);
       return () => window.clearInterval(durationTimer);
-    }, [isOpen, isStreaming, setDuration]);
+    }, [durationProp, isOpen, isStreaming, startedAt]);
 
     useEffect(() => {
       const previousAutoCollapseKey = previousAutoCollapseKeyRef.current;

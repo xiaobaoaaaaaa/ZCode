@@ -83,11 +83,86 @@ function Fixture() {
     </>
   );
 }
+
+function TimingFixture() {
+  const [startedAt, setStartedAt] = useState(start);
+  const [generation, setGeneration] = useState(0);
+  const [endedAt, setEndedAt] = useState<number | null>(null);
+  const [turnEnded, setTurnEnded] = useState(false);
+  const [mountKey, setMountKey] = useState(0);
+  const interrupted = query.get("ending") === "interrupted";
+  const timingBase = {
+    turnId: `timing-${generation}`,
+    createdAt: startedAt,
+    createdAtSeq: 1,
+  };
+  const rows: ConversationRow[] = [
+    {
+      ...timingBase,
+      rowId: 1,
+      kind: "turnHeader",
+      origin: mode === "background" ? "backgroundResult" : "userInput",
+      state: turnEnded ? (interrupted ? "completedInterrupted" : "completedSuccess") : "running",
+      startedAt,
+      ...(turnEnded ? { endedAt: endedAt! } : {}),
+    },
+    { ...timingBase, rowId: 2, kind: "userInput", origin: "realUser", text: "E2E_TIMING" },
+    {
+      ...timingBase,
+      rowId: 3,
+      kind: "reasoning",
+      text: "E2E_TIMED_REASONING",
+      state: endedAt === null ? "streaming" : interrupted ? "interrupted" : "complete",
+      ...(endedAt === null ? {} : { durationMs: endedAt - startedAt }),
+    },
+    ...(turnEnded
+      ? [
+          {
+            ...timingBase,
+            rowId: 4,
+            kind: "assistantText" as const,
+            text: "E2E_TIMING_DONE",
+            state: "complete" as const,
+          },
+        ]
+      : []),
+  ];
+  const [unit] = buildConversationTurnRenderUnits(rows, { nowMs: Date.now() });
+  return (
+    <>
+      <button onClick={() => setEndedAt(Date.now())}>Finish reasoning</button>
+      <button onClick={() => setTurnEnded(true)}>Finish turn</button>
+      <button onClick={() => setMountKey((key) => key + 1)}>Remount</button>
+      <button
+        onClick={() => {
+          setStartedAt(Date.now());
+          setGeneration((value) => value + 1);
+          setEndedAt(null);
+          setTurnEnded(false);
+        }}
+      >
+        New thought
+      </button>
+      <ConversationTurnGroup
+        key={`${generation}:${mountKey}`}
+        unit={mode === "timeline" ? { ...unit!, timelineOnly: true } : unit!}
+        context={{
+          workspacePath: "/fixture",
+          theme,
+          codePreviewSettings: DEFAULT_CODE_PREVIEW_SETTINGS,
+          compactForRemoteControl: mobile,
+          messageStreamShowReasoning: true,
+        }}
+        onFeedbackChange={() => undefined}
+      />
+    </>
+  );
+}
 createRoot(document.getElementById("root")!).render(
   <TooltipProvider>
     <ZCodeIntlProvider initialLocale={mobile ? "en-US" : "zh-CN"}>
       <main className="min-h-dvh bg-background text-foreground @container/conversation">
-        <Fixture />
+        {query.get("scenario") === "timing" ? <TimingFixture /> : <Fixture />}
       </main>
     </ZCodeIntlProvider>
   </TooltipProvider>,

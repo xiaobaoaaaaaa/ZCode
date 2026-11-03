@@ -22,6 +22,12 @@ z-code 桌面端后续不再通过 ZCode app-server 兼容多 agent，而是只�
 - TUI/GUI 只维护展示偏好，例如滚动位置、焦点、面板折叠状态和未提交草稿。
 - `session/subscribe` 返回订阅确认、缺口事件和可选 snapshot；client 不把这层包装误当成 snapshot。
 
+V4 思考行的起点沿用 `createdAt`，结束/中断时由 `ProductProjection` 按收口事件时间填入已有
+`durationMs`，以便 GUI 折叠卸载、重挂载和重放后保持耗时。下一思考段、turn 结束/错误、
+流尾丢弃和模型降级均使用同一收口路径；已结束的行不被迟到的结束事件改写。
+不使用 hydration 时钟回填历史，不新增 UI 计时事实或协议字段；Desktop continuous 与
+Web replayable 共用该行。详见 [EA-TIMING-01](../../../../../docs/chat/reasoning-streaming-auto-collapse.md)。
+
 ## 入口链路
 
 ```txt

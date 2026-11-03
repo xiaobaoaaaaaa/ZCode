@@ -1845,6 +1845,7 @@ const ReasoningRowView = memo(function ReasoningRowView({
       <Reasoning
         className="w-full"
         isStreaming={streaming}
+        startedAt={row.createdAt}
         autoCollapseKey={streaming ? null : row.state}
         {...(durationSeconds !== undefined ? { duration: durationSeconds } : {})}
       >

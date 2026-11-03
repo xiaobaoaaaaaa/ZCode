@@ -130,6 +130,151 @@ function inputTextAppends(deltas: readonly ConversationDelta[]): string[] {
 
 // ── A 组：基础 turn 生命周期 ──
 
+describe("EA-TIMING-01 reasoning 耗时事实", () => {
+  const startedAt = 1_700_000_010_000;
+  const turnId = "turn-reasoning-timing";
+  const endings: Array<{
+    name: string;
+    type: SessionEventTypeUnion;
+    payload: unknown;
+    state: "complete" | "interrupted";
+  }> = [
+    {
+      name: "reasoning_end",
+      type: SessionEventType.ModelStreaming,
+      payload: { kind: "reasoning_end", delta: "", done: false },
+      state: "complete",
+    },
+    {
+      name: "下一思考段",
+      type: SessionEventType.ModelStreaming,
+      payload: { kind: "reasoning_start", delta: "", done: false },
+      state: "complete",
+    },
+    ...(["success", "cancelled"] as const).map((resultType) => ({
+      name: `turn_${resultType}`,
+      type: SessionEventType.TurnComplete,
+      payload: { response: "", tokenCount: 0, toolCallCount: 0, duration: 9000, resultType },
+      state: resultType === "success" ? ("complete" as const) : ("interrupted" as const),
+    })),
+    {
+      name: "turn_error",
+      type: SessionEventType.TurnError,
+      payload: { error: { message: "E2E_TIMING_ERROR", code: "MODEL_ERROR", retryable: false } },
+      state: "interrupted",
+    },
+    {
+      name: "tail_discarded",
+      type: SessionEventType.StreamRecoveryTailDiscarded,
+      payload: {
+        attemptId: "attempt",
+        anchorId: "anchor",
+        assistantMessageId: "assistant",
+        discardedReasoningBytes: 5,
+        discardedTextBytes: 0,
+        discardedToolCallIds: [],
+      },
+      state: "interrupted",
+    },
+    {
+      name: "model_fallback",
+      type: SessionEventType.TurnExecutionModelFallback,
+      payload: {
+        reason: "highspeed_request_failed",
+        fromModelSelection: { providerId: "source", modelId: "source" },
+        toModelSelection: { providerId: "target", modelId: "target" },
+      },
+      state: "interrupted",
+    },
+  ];
+
+  function reasoningLog() {
+    const log = new EventLog();
+    log.push(SessionEventType.SessionCreated, { mode: "default", contextWindow: 200_000 });
+    log.push(
+      SessionEventType.TurnStarted,
+      { turnNumber: 1, input: "E2E_TIMING" },
+      { turnId, timestampMs: startedAt - 1000 },
+    );
+    log.push(
+      SessionEventType.ModelStreaming,
+      { kind: "reasoning_start", delta: "", done: false },
+      { turnId, timestampMs: startedAt },
+    );
+    log.push(
+      SessionEventType.ModelStreaming,
+      { kind: "reasoning_delta", delta: "E2E_THOUGHT", done: false },
+      { turnId, timestampMs: startedAt + 1000 },
+    );
+    return log;
+  }
+
+  it.each(endings)("$name 收口、重放与两种 delivery 保留相同耗时", ({ type, payload, state }) => {
+    const log = reasoningLog();
+    log.push(type, payload, { turnId, timestampMs: startedAt + 5500 });
+    const { projection, snapshots, deltasPerEvent } = runAll(log.events);
+    const reasoning = projection.getSnapshot().rows.window.find((row) => row.kind === "reasoning");
+    expect(reasoning).toMatchObject({ createdAt: startedAt, state, durationMs: 5500 });
+    expect(conversationSnapshotSchema.parse(projection.getSnapshot()).rows.window).toContainEqual(
+      reasoning,
+    );
+    const liveRows = projection.getSnapshot().rows.window;
+    const replayRows = runAll(log.events).projection.getSnapshot().rows.window;
+    expect(replayRows).toEqual(liveRows);
+    for (const profile of [DELIVERY_PROFILES.continuous, DELIVERY_PROFILES.replayable]) {
+      const delivered = coalesceConversationDeltas(
+        filterConversationDeltasForProfile(deltasPerEvent.flat(), profile),
+      );
+      expect(applyConversationDeltas(snapshots[0]!, delivered).rows.window).toEqual(liveRows);
+    }
+    projection.applyEvent(
+      log.push(
+        SessionEventType.ModelStreaming,
+        { kind: "reasoning_end", delta: "", done: false },
+        { turnId, timestampMs: startedAt + 20000 },
+      ),
+    );
+    expect(
+      projection.getSnapshot().rows.window.find((row) => row.rowId === reasoning!.rowId),
+    ).toEqual(reasoning);
+  });
+
+  it("不同思考段独立起点，缺少 start 的 delta 也可收口，时钟回拨不产生负耗时", () => {
+    const log = reasoningLog();
+    log.push(
+      SessionEventType.ModelStreaming,
+      { kind: "reasoning_end", delta: "", done: false },
+      { turnId, timestampMs: startedAt + 5000 },
+    );
+    log.push(
+      SessionEventType.ModelStreaming,
+      { kind: "reasoning_delta", delta: "E2E_SECOND", done: false },
+      { turnId, timestampMs: startedAt + 10000 },
+    );
+    log.push(
+      SessionEventType.ModelStreaming,
+      { kind: "reasoning_end", delta: "", done: false },
+      { turnId, timestampMs: startedAt + 12000 },
+    );
+    log.push(
+      SessionEventType.ModelStreaming,
+      { kind: "reasoning_start", delta: "", done: false },
+      { turnId, timestampMs: startedAt + 20000 },
+    );
+    log.push(
+      SessionEventType.ModelStreaming,
+      { kind: "reasoning_end", delta: "", done: false },
+      { turnId, timestampMs: startedAt + 19000 },
+    );
+    expect(
+      runAll(log.events)
+        .projection.getSnapshot()
+        .rows.window.filter((row) => row.kind === "reasoning")
+        .map((row) => row.durationMs),
+    ).toEqual([5000, 2000, 0]);
+  });
+});
+
 describe("ProductProjection 黄金测试（L1）", () => {
   it("Highspeed 单 Turn output tokens 由权威投影累计且不受快照观察时机影响", () => {
     const log = new EventLog();

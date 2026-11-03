@@ -435,7 +435,7 @@
     "docs/knip/docs/src/styles/theme-light.css": "e2e85900fd43b5b563f56b9ce7e2a09f07d7420a78e80f0133efffeb8fce2aa0",
     "docs/knip/docs/src/util/post.ts": "6d7c45bd29035a73f1b67d24524760c7e317f367d32216de2c9a240dda7a40d1",
     "docs/knip/docs/tsconfig.json": "662b1f10a5e572b49a45669e4be9ee46c22f987dcf277c204948777b367df1cd",
-    "package.json": "cb8f9bf3e6de1f51dbd352fbd292d36aafb36191d31e2b443e2d0a07cc5396ae",
+    "package.json": "1688e6e7a4f673b9ab8cae4d72a8725e8048bfccaa221beea18b616d755aad09",
     "packages/client/package.json": "e76f441549130dc3e5e68072a36b6cb9044e19a6625f1e813f19a4def2b1b689",
     "packages/desktop/package.json": "15abc72031343d38d794b68d829b3d6bbc8ca8951e53cd7e41f3b90cfc7612ff",
     "packages/desktop/src/renderer/public/material-icons/3d.svg": "9527b849f0fba57ca7640e2717b3a19cb5f5e046712cbbd8b75d73af338c68fb",
@@ -1661,7 +1661,7 @@
     "packages/ui/src/components/ai-elements/prompt-input-textarea.tsx": "4798574a8f2fc8584a1c5585d9dd878dd19d76bd05603e77948ec12180649def",
     "packages/ui/src/components/ai-elements/prompt-input.tsx": "68a92e07c27774e9c1d63bccd12ec3ff38b4f89dd245b20bfffbbd052e6101c4",
     "packages/ui/src/components/ai-elements/queue.tsx": "9d84f6e15708519ec65e258d9843dc5f4d76f106fc85155f7dcf51f89474b695",
-    "packages/ui/src/components/ai-elements/reasoning.tsx": "ce51bcc011761a3f6a7f776d3079395812c3c251af30b5754d0e948dbd58d611",
+    "packages/ui/src/components/ai-elements/reasoning.tsx": "d924204963fb30b9fce6d1a2648c2a232bd2bcef0a7096a8dd4d02de06759ba2",
     "packages/ui/src/components/ai-elements/sandbox.tsx": "f521400dbaebe4c2a2fbcdcb8c18f98980c566169233beb137b22a093b44bbf0",
     "packages/ui/src/components/ai-elements/schema-display.tsx": "826d2e11423ee3bc0295c31936c347f06361335aa849626031aa0885e3530cdd",
     "packages/ui/src/components/ai-elements/shimmer.tsx": "5d06ffdff80a13453a0b61b67f588c48d838a20d9be2cd319ca2a97d441b3127",
@@ -19694,7 +19694,7 @@
         },
         {
           "file": "packages/ui/src/components/ai-elements/reasoning.tsx",
-          "sha256": "ce51bcc011761a3f6a7f776d3079395812c3c251af30b5754d0e948dbd58d611"
+          "sha256": "d924204963fb30b9fce6d1a2648c2a232bd2bcef0a7096a8dd4d02de06759ba2"
         },
         {
           "file": "packages/ui/src/components/ai-elements/sandbox.tsx",
