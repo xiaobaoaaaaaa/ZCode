@@ -250,6 +250,7 @@ export class PendingCommandRegistry {
       if (!this.acceptComposer(entry)) return;
       this.clearRecovery(entry);
       this.notifyResolution(entry.commandId, ack.status);
+      if (entry.replay.kind === "control") this.settle(entry.sessionId, entry.commandId);
       return;
     }
     if (ack.status === "failed" && ack.reasonCode === "fault.command.inputDiscardedOnRestart") {
@@ -306,6 +307,7 @@ export class PendingCommandRegistry {
         if (!this.acceptComposer(entry)) continue;
         this.clearRecovery(entry);
         this.notifyResolution(entry.commandId, item.result.status);
+        if (entry.replay.kind === "control") this.settle(entry.sessionId, entry.commandId);
       } else {
         this.rejectComposer(entry);
         this.notifyResolution(entry.commandId, "failed");
@@ -330,6 +332,14 @@ export class PendingCommandRegistry {
       }
     }
     for (const row of snapshot.rows.window) {
+      // 无消息继续只有 TurnStarted 的 header；不能等待永远不会生成的 userInput。
+      if (
+        row.kind === "turnHeader" &&
+        row.sourceCommandId &&
+        this.entries.get(keyOf(snapshot.sessionId, row.sourceCommandId))?.replay.kind === "control"
+      ) {
+        settled.add(row.sourceCommandId);
+      }
       if (row.kind === "userInput" && row.sourceCommandId) {
         settled.add(row.sourceCommandId);
       }

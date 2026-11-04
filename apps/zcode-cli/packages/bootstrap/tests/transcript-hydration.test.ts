@@ -137,6 +137,41 @@ function reduce(messages: MessageWithParts[]) {
 }
 
 describe("transcript→event 合成", () => {
+  it("无输入续跑的控制边界在冷恢复中保持独立轮次、命令身份和最终成功状态", () => {
+    const user = userMessage("u1", "original task", 1000);
+    const interrupted = assistantMessage("a1", "u1", "partial output", 1001);
+    delete interrupted.info.time.completed;
+    const control = assistantMessageWithParts("continue-boundary", "a1", [], 1002);
+    control.info.anchor = { controlTurn: "continue", sourceCommandId: "continue-command" };
+    control.info.semantics = {
+      origin: "system",
+      kind: "timeline_event",
+      uiVisibility: "hidden",
+      providerVisibility: "hidden",
+      transcriptVisibility: "hidden",
+    };
+    const answer = assistantMessage("a2", "continue-boundary", "remaining work done", 1003);
+    const { events, projection } = reduce([user, interrupted, control, answer]);
+    const starts = events.filter((e) => e.type === SessionEventType.TurnStarted);
+    expect(starts).toHaveLength(2);
+    expect(starts[1]?.payload).toMatchObject({
+      input: "",
+      inputVisibility: "model-only",
+      messageId: "continue-boundary",
+      inputId: "continue-command",
+    });
+    expect(
+      events.filter((e) => e.type === SessionEventType.TurnComplete).map((e) => e.payload),
+    ).toEqual([
+      expect.objectContaining({ resultType: "cancelled" }),
+      expect.objectContaining({ resultType: "success" }),
+    ]);
+    const snapshot = projection.getSnapshot();
+    expect(snapshot.rows.window.filter((row) => row.kind === "userInput")).toHaveLength(1);
+    expect(snapshot.rows.window.filter((row) => row.kind === "turnHeader")).toHaveLength(2);
+    expect(snapshot.control.phase).toBe("completedSuccess");
+  });
+
   it("冷恢复把缺少完成时间的 orphan assistant 收口为 completedInterrupted", () => {
     const user = userMessage("u-orphan", "执行任务", 1000);
     const orphan = assistantMessage("a-orphan", "u-orphan", "未完成的部分结果", 1001);

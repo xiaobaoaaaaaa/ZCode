@@ -1602,6 +1602,18 @@ export const zcodeTurnStartedEventPayloadSchema = z
   })
   .strict();
 const zcodeTurnSteerSourceSchema = z.enum(["plan_approval_feedback", "workflow_refine_feedback"]);
+// 无消息继续是 V4 控制命令，不属于 steer/input intent；两种协议共享其严格 payload。
+export const zcodeContinueTurnPayloadSchema = z
+  .object({
+    expectedTurnId: z.string().min(1),
+    expectedLogEpoch: z.string().min(1),
+    expectedHeldQueueItemIds: z.array(z.string().min(1)),
+    modelSelection: modelSelectionSchema.optional(),
+    mode: z.enum(["build", "edit", "plan", "yolo", "guarded"]).optional(),
+    planEnabled: z.boolean().optional(),
+  })
+  .strict();
+
 const zcodeTurnSteerCommandKindSchema = z.enum(["sendText", "sendGoalCommand", "compact"]);
 const zcodeTurnSteerDeliverySchema = z.enum(["queue", "guide"]);
 

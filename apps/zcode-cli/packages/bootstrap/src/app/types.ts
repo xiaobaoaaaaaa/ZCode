@@ -414,6 +414,12 @@ export interface ZCodeApp {
   updateTargetStatus(status: GoalStatus): Promise<SessionGoal | null>;
   clearTarget(): Promise<boolean>;
   continueActiveTarget(options?: SubmitPromptOptions): Promise<TurnResult | null>;
+  /** 从已保留上下文续跑，不创建用户输入或调用 UserPromptSubmit。 */
+  continueTurn(
+    options: Pick<SubmitPromptOptions, "abortSignal" | "inputId" | "traceContext" | "onEvent"> & {
+      executionSubmission: NonNullable<ExecuteTurnOptions["executionSubmission"]>;
+    },
+  ): Promise<TurnResult>;
   recordInputHistory(
     input: PromptInput,
     kind?: InputHistoryKind,

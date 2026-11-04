@@ -91,6 +91,15 @@ export async function hydrateMessageHistoryFromSession(input: {
     partCount = 0;
 
   for (const message of activeMessages) {
+    if (
+      message.info.role === "assistant" &&
+      message.info.semantics?.kind === "timeline_event" &&
+      message.info.anchor?.controlTurn === "continue"
+    ) {
+      // 控制边界不产生模型消息；与热续跑同样解除其前一轮的停止约束。
+      continueInterruptedContext(input.history);
+      continue;
+    }
     // 旧话题背景已由可查看文本附件替代；保留存储记录，但恢复时不能重新隐藏注入。
     if (
       message.info.role === "user" &&
@@ -723,4 +732,51 @@ function historyToolNameFromPart(part: ToolPart): string {
   return providerToolName !== undefined && typeof providerToolName === "string"
     ? providerToolName
     : part.tool;
+}
+
+export const USER_STOPPED_TOOL_RESULT_CONTENT =
+  "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
+
+export const CONTINUED_TOOL_CANCELLATION_CONTENT =
+  "Tool execution was cancelled before completion; partial side effects may remain.";
+
+/** 用户显式继续已经解除暂停；不补提示文本，也不让旧 STOP 指令阻止新一轮。 */
+export function continueInterruptedContext(history: MessageHistory): void {
+  const entries = history.borrowReadOnlyRuntimeEntries();
+  const markerIndex = entries.findLastIndex(isInterruptMarker);
+  if (markerIndex < 0 || entries.slice(markerIndex + 1).some(isRealUserInput)) return;
+  const previousBoundary = entries.findLastIndex(
+    (entry, index) => index < markerIndex && (isInterruptMarker(entry) || isRealUserInput(entry)),
+  );
+  history.replaceMessages(
+    entries.flatMap((entry, index): RuntimeMessageEntry[] => {
+      if (index === markerIndex) return [];
+      if (
+        index > previousBoundary &&
+        index < markerIndex &&
+        entry.kind !== "attachment" &&
+        entry.message.role === "tool" &&
+        entry.message.isError === true &&
+        entry.message.content === USER_STOPPED_TOOL_RESULT_CONTENT
+      ) {
+        // 只解除本次停止的命令语义；保留取消事实、调用身份和完成工具的结果。
+        return [
+          { ...entry, message: { ...entry.message, content: CONTINUED_TOOL_CANCELLATION_CONTENT } },
+        ];
+      }
+      return [entry];
+    }),
+  );
+}
+
+function isInterruptMarker(entry: RuntimeMessageEntry): boolean {
+  return entry.metadata?.source === INTERRUPT_MARKER_SOURCE;
+}
+
+function isRealUserInput(entry: RuntimeMessageEntry): boolean {
+  return (
+    entry.kind !== "attachment" &&
+    entry.message.role === "user" &&
+    entry.metadata?.source === "real_user"
+  );
 }

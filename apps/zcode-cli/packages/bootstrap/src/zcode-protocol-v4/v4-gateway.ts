@@ -2757,6 +2757,22 @@ export class ConversationV4Gateway {
     return item ?? null;
   }
 
+  getInterruptedTurnTarget(sessionId: string): { turnId: string; logEpoch: string } | null {
+    const snapshot = this.publishers.get(sessionId)?.getSnapshot();
+    if (
+      !snapshot ||
+      snapshot.control.phase !== "completedInterrupted" ||
+      snapshot.control.canStop ||
+      snapshot.control.stopState !== "idle" ||
+      snapshot.pendingInteractions.length > 0 ||
+      snapshot.goal?.status === "paused" ||
+      (snapshot.inputRouting.mode !== "startNow" && snapshot.inputRouting.mode !== "choice")
+    )
+      return null;
+    const turnId = snapshot.rows.window.findLast((row) => row.turnId)?.turnId;
+    return turnId ? { turnId, logEpoch: snapshot.logEpoch } : null;
+  }
+
   hasQueueItemKind(sessionId: string, kind: QueueItem["kind"]): boolean {
     return Boolean(
       this.publishers

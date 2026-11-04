@@ -136,6 +136,8 @@ export interface MessageProjectionAnchor {
   turnId?: TurnId;
   origin?: MessageAnchorOrigin;
   sourceCommandId?: string;
+  /** 无输入续跑的持久轮边界；只允许隐藏的 assistant timeline carrier 使用。 */
+  controlTurn?: "continue";
   /** 最终 assistant 固化当前 query 的历史轮次，供 cold hydration 精确恢复。 */
   historyRoundCount?: number;
   /** 新数据的 stable fork 固定边界；历史消息缺省，由唯一 resolver 无歧义时惰性补写。 */

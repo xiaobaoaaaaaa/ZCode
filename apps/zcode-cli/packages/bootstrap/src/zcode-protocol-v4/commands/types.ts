@@ -92,6 +92,8 @@ export interface V4SessionRecordView {
 export interface V4CommandCoreHost {
   /** 会话查找（同一注册表对象引用；不存在返回 undefined → handler 拒绝）。 */
   getRecord(sessionId: string): V4SessionRecordView | undefined;
+  /** 只读同一投影的可续跑中断目标；无候选或尚未停止返回 null。 */
+  getInterruptedTurnTarget?(sessionId: string): { turnId: string; logEpoch: string } | null;
   logger?: V4CommandLogger;
 
   // ── v4 原生能力（非过渡钩子）────────────────────────────────

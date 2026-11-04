@@ -1,5 +1,7 @@
 # Tool Change Chain Spec
 
+显式无输入续跑（2026-11-04）：停止时仍保存原有工具取消结果；只有用户点击继续的控制边界解除最近一轮模型上下文中的 STOP 等待文本，替换成“已取消、可能保留部分副作用”的事实，error 和 toolCallId 不变。历史记录、工具卡、权限和执行器不变，不自动重放工具；热续跑与冷恢复共用转换。回归覆盖未取消结果保持、普通新输入不变、续跑不增加用户消息及持久轮边界，详见 `../turn-cancellation.md`。
+
 工具 schema、顺序与描述是固定字节（tools 段字节进入缓存前缀）：`toToolJsonSchema` 按
 zod v4 toJSONSchema 的 key 顺序输出——`$schema` 在最前，`description`、`default` 在 `type` 前，
 数组的 `minItems`/`maxItems` 在 `type` 前，属性声明顺序不变；ToolSearch 输入 schema 走同一入口。
@@ -2068,9 +2070,11 @@ SubagentRunRequest.modelSelection → runner 执行 profile 副本及 registry �
 ModelFactory → 既有 child session/model-change 事件。ListModels 解除工作流专属灰度，保持 deferred。
 检查 schema/provider 文案、错误无启动、前后台、SendMessage、父/兄弟隔离及执行绑定拒绝；
 不新增权限、UI/V4 字段、存储迁移或模型请求旁路。规格和 SAM01–06 见 07-subagent.md。
+
 ## Personal 用户数据根
 
 独立 Desktop 用 `ZCODE_PROFILE_ROOT_DIR` 定位用户级配置与全局工作流档案，合同见 [导入与独立根](../imported-desktop-profile.md)。ListSavedWorkflows / RunWorkflow / SaveWorkflow 的全局查找与写入沿用同一 store，仅替换用户根；项目级覆盖、参数、结果、权限和历史格式不变。用户 skills/commands/instructions 同步跟随该根。验证官方根中的同名文件不被自动读取，Personal 根与项目根仍按原优先级工作。
+
 ## Session 整体关闭（2026-10-28）
 
 单任务 stop/restart → App.close → 各所属 runner 关闭准入、取消并等待真实执行与清理 → 释放资源。

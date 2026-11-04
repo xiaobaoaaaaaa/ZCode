@@ -22,6 +22,7 @@ import type { CliDefaultSelection } from "./cli-default-selection.js";
 type InputFacade = Pick<
   ZCodeApp,
   | "continueActiveTarget"
+  | "continueTurn"
   | "enqueueDeferredInput"
   | "recordInputHistory"
   | "editQueueItem"
@@ -162,6 +163,28 @@ export function createInputFacade(deps: CreateInputFacadeDeps): InputFacade {
   };
 
   return {
+    continueTurn: async (options) => {
+      const unsubscribe = options.onEvent
+        ? deps.runtime.subscribeEvents({ onSessionEvent: options.onEvent })
+        : undefined;
+      try {
+        await preparePromptBoundary(options);
+        // 继续是执行控制，不能用可见或隐藏的预制 user 消息驱动；已有上下文直接进循环。
+        return await deps.runtime.executeTurn("", undefined, {
+          abortSignal: options.abortSignal,
+          inputId: options.inputId,
+          executionSubmission: options.executionSubmission,
+          controlTurn: "continue",
+          inputVisibility: "model-only",
+          skipInputRecord: true,
+          skipUserPromptSubmitHooks: true,
+          continueActiveTargetAfterTurn: true,
+          traceContext: options.traceContext ?? deps.traceContext,
+        });
+      } finally {
+        unsubscribe?.();
+      }
+    },
     continueActiveTarget: async (options) => {
       const unsubscribe = options?.onEvent
         ? deps.runtime.subscribeEvents({ onSessionEvent: options.onEvent })

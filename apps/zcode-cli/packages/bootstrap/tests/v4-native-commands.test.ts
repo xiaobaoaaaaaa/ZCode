@@ -2088,3 +2088,128 @@ describe("supports 分流", () => {
     expect(executor.supports("unknownCommand" as never)).toBe(false);
   });
 });
+
+describe("continueTurn control command", () => {
+  const target = { turnId: "interrupted-1", logEpoch: "epoch-1" };
+  const payload = {
+    expectedTurnId: target.turnId,
+    expectedLogEpoch: target.logEpoch,
+    expectedHeldQueueItemIds: ["held-1"],
+    modelSelection: ORDINARY_MODEL_SELECTION,
+    mode: "guarded" as const,
+    planEnabled: false,
+  };
+  function setup() {
+    const completion = deferred<never>();
+    const app = makeApp({
+      continueTurn: vi.fn().mockReturnValue(completion.promise),
+      clearQueueItems: vi.fn(),
+      runtime: {
+        acquireForegroundPromotionLease: vi.fn().mockReturnValue({ kind: "acquired" }),
+        releaseForegroundPromotionLease: vi.fn(),
+      },
+    });
+    const record = makeRecord({ app });
+    const host = makeHost(record, {
+      getInterruptedTurnTarget: vi.fn().mockReturnValue(target),
+      getInputRoutingMode: () => "choice",
+      getQueueLength: () => 1,
+      getQueueItem: () => ({ queueItemId: "held-1" }) as never,
+      ensureModelReady: vi.fn(),
+      recordPersistentCommandFact: vi.fn(),
+    });
+    return { app, record, host, completion, executor: new V4CommandExecutor(host) };
+  }
+
+  it("starts without sendInput, preserves the queue and records a control receipt", async () => {
+    const { app, record, host, completion, executor } = setup();
+    await executor.execute(envelope("continueTurn", payload));
+    expect(app.sendInput).not.toHaveBeenCalled();
+    expect(app.clearQueueItems).not.toHaveBeenCalled();
+    expect(app.continueTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inputId: "cmd-1",
+        executionSubmission: expect.objectContaining({
+          modelSelection: ORDINARY_MODEL_SELECTION,
+          mode: "guarded",
+        }),
+      }),
+    );
+    expect(app.runtime.acquireForegroundPromotionLease).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: "idle-only", promotedInputId: "cmd-1" }),
+    );
+    expect(host.recordPersistentCommandFact).toHaveBeenCalledWith(
+      "s1",
+      "timeline",
+      expect.objectContaining({ status: "accepted", commandId: "cmd-1" }),
+      expect.anything(),
+    );
+    expect(record.activeAbortController).toBeDefined();
+    await expect(executor.execute(envelope("continueTurn", payload))).rejects.toMatchObject({
+      reasonCode: "activePrompt",
+    });
+    completion.resolve({} as never);
+    await settle();
+    expect(record.activeAbortController).toBeUndefined();
+    expect(app.runtime.releaseForegroundPromotionLease).toHaveBeenCalled();
+  });
+
+  it.each(["target", "epoch", "busy", "queue"])(
+    "rejects stale or unavailable %s without execution",
+    async (kind) => {
+      const { app, host, executor } = setup();
+      if (kind === "target") vi.mocked(host.getInterruptedTurnTarget!).mockReturnValue(null);
+      if (kind === "epoch")
+        vi.mocked(host.getInterruptedTurnTarget!).mockReturnValue({
+          ...target,
+          logEpoch: "epoch-2",
+        });
+      if (kind === "busy")
+        app.runtime.acquireForegroundPromotionLease.mockReturnValue({ kind: "busy" });
+      if (kind === "queue") host.getQueueLength = () => 2;
+      await expect(executor.execute(envelope("continueTurn", payload))).rejects.toBeDefined();
+      expect(app.continueTurn).not.toHaveBeenCalled();
+      expect(app.sendInput).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rechecks target after model readiness and releases the lease on failure", async () => {
+    const { app, host, executor } = setup();
+    host.ensureModelReady = async () => {
+      vi.mocked(host.getInterruptedTurnTarget!).mockReturnValue(null);
+    };
+    await expect(executor.execute(envelope("continueTurn", payload))).rejects.toMatchObject({
+      reasonCode: "proto.staleTarget",
+    });
+    expect(app.continueTurn).not.toHaveBeenCalled();
+    expect(app.runtime.releaseForegroundPromotionLease).toHaveBeenCalled();
+  });
+
+  it("facade prepares execution without input history or a fabricated prompt", async () => {
+    const executeTurn = vi.fn().mockResolvedValue({});
+    const prepare = vi.fn();
+    const history = vi.fn();
+    const facade = createInputFacade({
+      logger: { warn: vi.fn() } as never,
+      prepareUserExecutionBoundary: prepare,
+      runtime: { executeTurn } as never,
+      inputHistoryStore: { recordInputHistory: history } as never,
+      sessionId: "s1" as never,
+      traceContext: { traceId: "trace-1" } as never,
+    });
+    const executionSubmission = { ...payload, sourceCommandId: "cmd-1", admissionSeq: 1 };
+    await facade.continueTurn({ inputId: "cmd-1", executionSubmission });
+    expect(prepare).toHaveBeenCalledOnce();
+    expect(history).not.toHaveBeenCalled();
+    expect(executeTurn).toHaveBeenCalledWith(
+      "",
+      undefined,
+      expect.objectContaining({
+        skipInputRecord: true,
+        skipUserPromptSubmitHooks: true,
+        inputVisibility: "model-only",
+        executionSubmission,
+      }),
+    );
+  });
+});

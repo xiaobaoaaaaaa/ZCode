@@ -18,6 +18,11 @@ import {
   withUserStoppedToolResultContent,
 } from "../src/runtime/methods/interrupt-marker.js";
 import { createExternalTurnFaultError } from "../src/runtime/helpers/turn-errors.js";
+import { MessageHistoryImpl } from "../src/agent/message-history.js";
+import {
+  continueInterruptedContext,
+  CONTINUED_TOOL_CANCELLATION_CONTENT,
+} from "../src/agent/session-history-hydrator.js";
 
 describe("AgentRuntime turn cancellation", () => {
   // Bugfix 回归：用户主动取消（TurnCancelled）属于正常结束，事件流应以 TurnComplete(cancelled)
@@ -59,6 +64,53 @@ describe("AgentRuntime turn cancellation", () => {
   });
 
   describe("interrupt marker", () => {
+    it("explicit continuation clears only the latest pause and keeps tool cancellation facts", () => {
+      const history = new MessageHistoryImpl();
+      history.addEntries([
+        {
+          message: {
+            role: "tool",
+            content: USER_STOPPED_TOOL_RESULT_CONTENT,
+            toolCallId: "old",
+            isError: true,
+          },
+        },
+        {
+          message: { role: "user", content: "old stop" },
+          metadata: { source: "interrupt_marker" },
+        },
+        { message: { role: "user", content: "new task" }, metadata: { source: "real_user" } },
+        { message: { role: "tool", content: "completed", toolCallId: "ok", isError: false } },
+        {
+          message: {
+            role: "tool",
+            content: USER_STOPPED_TOOL_RESULT_CONTENT,
+            toolCallId: "cancelled",
+            isError: true,
+          },
+        },
+        {
+          message: { role: "user", content: "current stop" },
+          metadata: { source: "interrupt_marker" },
+        },
+      ]);
+      continueInterruptedContext(history);
+      const entries = history.toRuntimeEntries();
+      expect(entries).toHaveLength(5);
+      expect(entries[0]).toMatchObject({ message: { content: USER_STOPPED_TOOL_RESULT_CONTENT } });
+      expect(entries[1]).toMatchObject({ message: { content: "old stop" } });
+      expect(entries[3]).toMatchObject({ message: { content: "completed", isError: false } });
+      expect(entries[4]).toMatchObject({
+        message: {
+          content: CONTINUED_TOOL_CANCELLATION_CONTENT,
+          toolCallId: "cancelled",
+          isError: true,
+        },
+      });
+      continueInterruptedContext(history);
+      expect(history.toRuntimeEntries()).toEqual(entries);
+    });
+
     // 默认测试模型不合并相邻 user 内容，所以标记和前一条 prompt 都不补换行。
     // 只替换被取消的工具结果；已完成的结果、未停止的批次和 send-now 抢占都不动。
     it("rewrites only cancelled tool results of a user-stopped batch", () => {
@@ -190,6 +242,55 @@ describe("AgentRuntime turn cancellation", () => {
       await runtime.executeTurn("next prompt");
       // 宿主故障中止本轮也是中止：与用户停止一样留中断标记。
       expect(userTexts(requests[1]!)).toEqual(["first prompt", MARKER, "next prompt"]);
+    });
+
+    it("continues hot and cold without appending any user input", async () => {
+      const store = createRecordingMessageStore();
+      const requests: ModelInputMessage[][] = [];
+      const { build } = createCancelRuntime(store, requests, (runtime) =>
+        runtime.stopActiveForegroundExecution({ reason: "v4 session stopped" }),
+      );
+      const runtime = build();
+      await expect(runtime.executeTurn("original task")).rejects.toMatchObject({
+        type: CoreErrorType.TurnCancelled,
+      });
+      const userMessageCount = () => store.savedMessages.filter((m) => m.role === "user").length;
+      const before = userMessageCount();
+      const options = {
+        controlTurn: "continue" as const,
+        skipInputRecord: true,
+        skipUserPromptSubmitHooks: true,
+        inputVisibility: "model-only" as const,
+        executionSubmission: {
+          sourceCommandId: "continue-1",
+          admissionSeq: 1,
+          modelSelection: runtime.getSessionModelSelection(),
+          mode: "guarded" as const,
+          planEnabled: false,
+        },
+      };
+      await runtime.executeTurn("", undefined, options);
+      expect(userTexts(requests[1]!)).toEqual(["original task"]);
+      expect(userMessageCount()).toBe(before);
+      expect(runtime.getMode()).toBe("guarded");
+      const boundary = store.savedMessages.find((m) => m.anchor?.controlTurn === "continue");
+      expect(boundary).toMatchObject({
+        role: "assistant",
+        semantics: { kind: "timeline_event", providerVisibility: "hidden" },
+        anchor: { sourceCommandId: "continue-1" },
+      });
+      const completed = store.savedMessages.findLast((m) => m.anchor?.orderedMessageIds);
+      expect(completed?.anchor?.orderedMessageIds?.[0]).toBe(boundary?.id);
+      expect(completed).toMatchObject({ parentID: boundary?.id });
+      const resumed = build();
+      await resumed.resumeFromStore();
+      await resumed.executeTurn("", undefined, {
+        ...options,
+        executionSubmission: { ...options.executionSubmission, sourceCommandId: "continue-2" },
+      });
+      expect(userTexts(requests[2]!)).toEqual(["original task"]);
+      expect(userMessageCount()).toBe(before);
+      expect(requests[2]!.filter((m) => m.role === "assistant")).toHaveLength(1);
     });
 
     it("records no marker when a send-now preempts the turn", async () => {

@@ -11,6 +11,47 @@ import type {
 } from "../deps.js";
 import { emptyTokenUsageInfo } from "../helpers/index.js";
 import type { AgentRuntimeInternal } from "../internal.js";
+import { buildProjectionAnchor } from "./projection-anchor.js";
+
+/** 续跑没有用户消息，必须先落下独立控制边界，否则冷恢复会并回上一中断轮。 */
+export async function persistContinuationTurnBoundary(
+  this: AgentRuntimeInternal,
+  messageID: MessageId,
+  traceContext: TraceContext,
+  sourceCommandId?: string,
+): Promise<void> {
+  const selection = this.getSessionModelSelection();
+  await this.persistMessage(
+    {
+      id: messageID,
+      sessionID: this.sessionId,
+      role: "assistant",
+      parentID: this.latestConversationMessageId ?? messageID,
+      time: { created: Date.now() },
+      modelId: selection && createModelId(selection.modelId),
+      providerId: selection && createModelProviderId(selection.providerId),
+      reasoningLevel: selection?.options?.reasoningLevel,
+      mode: this.config.mode ?? "build",
+      planEnabled: this.getPlanEnabled(),
+      agent: this.config.agentName ?? "zcode-agent",
+      path: { cwd: this.workingDirectory, root: this.workspaceRoot },
+      cost: 0,
+      tokens: emptyTokenUsageInfo(),
+      semantics: {
+        origin: "system",
+        kind: "timeline_event",
+        uiVisibility: "hidden",
+        providerVisibility: "hidden",
+        transcriptVisibility: "hidden",
+      },
+      anchor: {
+        ...buildProjectionAnchor(traceContext, undefined, sourceCommandId),
+        controlTurn: "continue",
+      },
+    },
+    traceContext,
+  );
+}
 
 export function recordPendingModelChange(
   this: AgentRuntimeInternal,

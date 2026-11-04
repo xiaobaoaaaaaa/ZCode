@@ -19,6 +19,7 @@ export interface StartPromptTurnParamsBase {
   attachments?: TurnAttachment[];
   browserAmbientContext?: SendInputOptions["browserAmbientContext"];
   intent?: TurnInputIntentMetadata;
+  executionSubmission?: import("@zcode/core").ExecuteTurnOptions["executionSubmission"];
   /** 标准 Selection 的单次执行约束；不会改写 Session Selection。 */
   modelExecution?: SendInputOptions["modelExecution"];
   sharedContextRefs?: SendInputOptions["sharedContextRefs"];
@@ -93,7 +94,7 @@ export async function preflightPromptTurn(
   if (!usesExecutionSelection) {
     await host.ensureModelReady?.(record);
   }
-  const requestedSelection = params.intent?.modelSelection;
+  const requestedSelection = (params.executionSubmission ?? params.intent)?.modelSelection;
   const selectionFallback = params.modelExecution?.selectionFallback;
   const defersSelectionValidationToCore =
     usesExecutionSelection &&

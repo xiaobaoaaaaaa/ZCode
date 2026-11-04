@@ -20,14 +20,14 @@
       "kind": "main",
       "source": "synthetic",
       "timingPolicy": "controlled-stream",
-      "syntheticReason": "由真实停止与继续按钮驱动受控流；同一会话请求必须包含原任务及前轮上下文，每阶段仅匹配一次。"
+      "syntheticReason": "真实停止与无消息继续驱动受控流；请求保留原任务与前轮输出，禁止中英文预制继续消息和暂停队列正文，每阶段仅匹配一次。"
     },
     {
       "id": "continue-second",
       "kind": "main",
       "source": "synthetic",
       "timingPolicy": "controlled-stream",
-      "syntheticReason": "由真实停止与继续按钮驱动受控流；同一会话请求必须包含原任务及前轮上下文，每阶段仅匹配一次。"
+      "syntheticReason": "真实停止与无消息继续驱动受控流；请求保留原任务与前轮输出，禁止中英文预制继续消息和暂停队列正文，每阶段仅匹配一次。"
     },
     {
       "id": "continue-title",

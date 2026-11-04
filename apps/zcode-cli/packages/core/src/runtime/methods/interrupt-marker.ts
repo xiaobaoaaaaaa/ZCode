@@ -6,14 +6,12 @@ import type { RegularTurnLoopState } from "./turn-loop-state.js";
 import { buildProjectionAnchor } from "./projection-anchor.js";
 import { persistRuntimeReminderMessage } from "./runtime-reminder-persistence.js";
 import { commitTurnRequestEntries } from "./turn-output-token-continuation.js";
+import { USER_STOPPED_TOOL_RESULT_CONTENT } from "../../agent/session-history-hydrator.js";
+export { USER_STOPPED_TOOL_RESULT_CONTENT } from "../../agent/session-history-hydrator.js";
 
 /** 用户停止本轮后，下一次请求里模型看到的标记：模型请求阶段与工具执行阶段文字不同。 */
 const INTERRUPT_MARKER = "[Request interrupted by user]";
 const TOOL_USE_INTERRUPT_MARKER = "[Request interrupted by user for tool use]";
-
-/** 用户停止时，被取消的工具（未开始、执行中、等待权限）统一给模型这段文字。 */
-export const USER_STOPPED_TOOL_RESULT_CONTENT =
-  "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.";
 
 /**
  * 用户停止的工具批次：被取消的工具结果改用上面的固定文字。

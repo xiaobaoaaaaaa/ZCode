@@ -26,6 +26,7 @@ import {
 } from "./workspace-hook-review.js";
 import {
   zcodeBrowserAmbientContextSchema,
+  zcodeContinueTurnPayloadSchema,
   zcodeProtocolMcpServerSchema,
 } from "../zcode-protocol/index.js";
 import { highspeedMessageMetaSchema } from "../highspeed.js";
@@ -164,6 +165,7 @@ export const commandPayloadSchemas = {
     // 来自 activeWorks；CLI 用它拒绝会误杀后续无关执行的迟到 Stop。
     expectedForegroundExecutionId: z.string().min(1).optional(),
   }),
+  continueTurn: zcodeContinueTurnPayloadSchema,
   // compact 是输入型维护命令：idle 时立即执行，busy/held 时进入 FIFO。
   // 因为 admission 与当前 revision 无关，不走 CAS；sourceCommandId 提供幂等边界。
   compact: z.object({ modelSelection: modelSelectionSchema.optional() }),
@@ -330,6 +332,7 @@ export const COMMANDS_REQUIRING_BASE_REVISION: ReadonlySet<CommandType> = new Se
   "setFollowupMode",
   "pauseGoal",
   "resumeGoal",
+  "continueTurn",
 ]);
 
 export const ROW_TARGETING_COMMANDS: ReadonlySet<CommandType> = new Set([

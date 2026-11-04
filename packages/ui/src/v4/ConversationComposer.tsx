@@ -508,6 +508,11 @@ export interface ConversationComposerProps {
   onTextChange?: (text: string) => void;
   /** queue 撤回 admission 读取的完整 composer 占用态；附件包含上传中状态。 */
   onDraftStateChange?: (state: { hasContent: boolean; busy: boolean }) => void;
+  onContinue?: (
+    continuation: InterruptedContinuation,
+    submission: ComposerSubmissionConfig | null,
+    onCommandCreated: (commandId: string) => void,
+  ) => Promise<void>;
   onStop: () => void;
   /** 目录选中模型（providerId/modelId）；thought/revision 由宿主从最新投影补齐。 */
   onSelectModel: (
@@ -620,6 +625,7 @@ function ConversationComposerImpl({
   telemetryVisible = true,
   readPlanIdentitySnapshot,
   onSendText,
+  onContinue,
   onTextChange,
   onDraftStateChange,
   onStop,
@@ -1439,6 +1445,7 @@ function ConversationComposerImpl({
     continuationCandidate?.kind === "goal" && suppressGoalCommands ? null : continuationCandidate;
   const canContinue =
     continuation !== null &&
+    onContinue !== undefined &&
     !disabled &&
     !pending &&
     attachmentsReady &&
@@ -1456,16 +1463,11 @@ function ConversationComposerImpl({
       expectedHeldQueueItemIds?: readonly string[],
       existingTelemetrySeed?: ConversationPromptTelemetrySeed,
       requestedDelivery?: "startNow" | "queue" | "guide",
-      continueInterrupted?: InterruptedContinuation,
     ) => {
       const submittedAt = performance.timeOrigin + performance.now();
       // IME 候选期间 textRef 尚未接收最终 onChange；提交必须与 claim/恢复共用 Lexical 快照。
       const submittedDraft = snapshotDraftOfEditor();
-      const trimmed = continueInterrupted
-        ? continueInterrupted.kind === "goal"
-          ? "/goal resume"
-          : intl.formatMessage({ id: "chat.continuePrompt" })
-        : submittedDraft.text.trim();
+      const trimmed = submittedDraft.text.trim();
       const submittedQueueItemIds =
         snapshotRef.current?.queue.items.map((item) => item.queueItemId) ?? [];
       const hasPendingAttachments = attachmentsApi.attachments.length > 0;
@@ -1511,29 +1513,6 @@ function ConversationComposerImpl({
         }
         return;
       }
-      if (continueInterrupted) {
-        // 点击时重新核对快照与草稿，防止旧按钮事件在切换任务或状态回流后继续旧轮。
-        if (
-          disabled ||
-          draftMode ||
-          (continueInterrupted.kind === "goal" && suppressGoalCommands) ||
-          blockingRequestId ||
-          textRef.current.trim() ||
-          hasPendingAttachments ||
-          hasPendingCodeCommentContexts ||
-          hasPendingWebElementContexts ||
-          hasPendingPluginUiContexts ||
-          hasPendingPptxElementReferences ||
-          hasPendingConversationSelections ||
-          submittedShareContext ||
-          resolveInterruptedContinuation(snapshotRef.current)?.key !== continueInterrupted.key ||
-          continuedKeyRef.current === continueInterrupted.key
-        )
-          return;
-        // 继续保留暂停队列；CLI 仍按冻结 ID 裁决并发变化，不绕过 admission。
-        heldQueueDisposition = "keepQueueAndSend";
-        expectedHeldQueueItemIds = submittedQueueItemIds;
-      }
       // 草稿首发 accepted 后同一 composer 会原地从 __draft__ promotion 到
       // session scope；若成功清理时再读可变 ref，会误清新 scope，并把首条输入残留在
       // __draft__，下次新建任务又恢复。发送开始时冻结真正提交的 scope。
@@ -1570,16 +1549,6 @@ function ConversationComposerImpl({
       });
       pendingRef.current = true;
       setPending(true);
-      if (continueInterrupted) {
-        continuedKeyRef.current = continueInterrupted.key;
-        setContinuedKey(continueInterrupted.key);
-      }
-      const releaseContinuation = () => {
-        if (continueInterrupted && continuedKeyRef.current === continueInterrupted.key) {
-          continuedKeyRef.current = null;
-          setContinuedKey(null);
-        }
-      };
       // Bug 根因：草稿 intent 只保存用户显式改动，正常继承模型位于冻结初始化 config。
       // prewarm snapshot 尚未到达时若只读 draftConfig，send_btn 会错误落成空模型/glm。
       const telemetryConfig = telemetryDraftConfig ?? snapshotRef.current?.config ?? draftConfig;
@@ -1629,7 +1598,6 @@ function ConversationComposerImpl({
       let promptHistoryAfterAppend: readonly string[] | null = null;
       let promptHistoryWasPersisted = false;
       let editorClearedOptimistically = false;
-      let continuationAccepted = false;
       let submittedCommandId: string | null = null;
       const claimSubmittedDraft = () => {
         if (draftPersistTimerRef.current !== null) {
@@ -1679,8 +1647,6 @@ function ConversationComposerImpl({
       const settleSubmittedContent = async () => {
         const result = submissionDraftTransaction.finalize();
         if (!result) return;
-        // 正文已被权威接纳；后续附件交接异常不能解锁继续按钮，避免重复提交。
-        continuationAccepted = true;
         activeSubmissionDraftTransactionRef.current = null;
         if (
           result.applied &&
@@ -1750,7 +1716,6 @@ function ConversationComposerImpl({
         // 二次门禁：只消费预传完成的 ref，不在点击发送时回落上传。
         const readyAttachmentRefs = await attachmentsApi.prepareForSend();
         if (readyAttachmentRefs === null) {
-          releaseContinuation();
           if (telemetrySeed.localTtft)
             getLocalTtftObserver()?.exclude(telemetrySeed.localTtft, "rejected");
           // send_click 已上报，此处不落定会留下无配对的悬空样本，污染成功率分母。
@@ -1809,7 +1774,7 @@ function ConversationComposerImpl({
           editorClearedOptimistically = true;
         }
         const sendResult = await onSendText(promptText, {
-          submittedDraftText: continueInterrupted ? trimmed : submittedDraft.text,
+          submittedDraftText: submittedDraft.text,
           submission,
           ...(currentConversationSelections.length
             ? {
@@ -1844,7 +1809,6 @@ function ConversationComposerImpl({
             : {}),
         });
         if (sendResult === "blocked") {
-          releaseContinuation();
           if (telemetrySeed.localTtft)
             getLocalTtftObserver()?.exclude(telemetrySeed.localTtft, "rejected");
           // 产品 guard 是一次正常拒绝，不应借异常路径表达；回滚发送前暂记的 history，
@@ -1861,22 +1825,6 @@ function ConversationComposerImpl({
           return;
         }
         if (sendResult === "confirmationRequired") {
-          releaseContinuation();
-          if (continueInterrupted) {
-            // 队列可能被另一端改动；本次不清空、不自动重试，等待新快照后允许再点继续。
-            rollbackPromptHistory();
-            restoreSubmittedDraft();
-            if (telemetrySeed.localTtft)
-              getLocalTtftObserver()?.exclude(telemetrySeed.localTtft, "rejected");
-            conversationTelemetry?.settleSendResult({
-              seed: telemetrySeed,
-              sessionId: sessionId ?? null,
-              status: "fail",
-              reasonCode: "blocked",
-            });
-            sendAction.noop();
-            return;
-          }
           if (telemetrySeed.localTtft)
             getLocalTtftObserver()?.confirmation(telemetrySeed.localTtft, true);
           rollbackPromptHistory();
@@ -1900,7 +1848,6 @@ function ConversationComposerImpl({
         await settleSubmittedContent();
         sendAction.complete({ resultSource: "authority_ack", admissionResult: "accepted" });
       } catch (error) {
-        if (!continuationAccepted) releaseContinuation();
         rollbackPromptHistory();
         // 已结算事务不会恢复；只有未确定命令结果的传输失败才保留迟到权威结算订阅。
         restoreSubmittedDraft(true);
@@ -2071,10 +2018,66 @@ function ConversationComposerImpl({
   }, [onStop]);
 
   const handleContinueClick = useCallback(() => {
-    if (!continuation) return;
-    sendTriggerRef.current = "button";
-    void submit(undefined, undefined, undefined, undefined, continuation);
-  }, [continuation, submit]);
+    const current = resolveInterruptedContinuation(snapshotRef.current);
+    if (
+      !canContinue ||
+      !onContinue ||
+      !current ||
+      current.key !== continuation?.key ||
+      pendingRef.current ||
+      continuedKeyRef.current === current.key ||
+      snapshotDraftOfEditor().text.trim() ||
+      hasDraftToSubmit ||
+      targetSelectionPendingRef.current
+    )
+      return;
+    const submission = createSubmissionFromComposer?.() ?? null;
+    if (createSubmissionFromComposer && !submission) return;
+    pendingRef.current = true;
+    setPending(true);
+    continuedKeyRef.current = current.key;
+    setContinuedKey(current.key);
+    const release = () => {
+      if (continuedKeyRef.current !== current.key) return;
+      continuedKeyRef.current = null;
+      setContinuedKey(null);
+    };
+    let commandCreated = false;
+    // 控制命令不触碰草稿/附件/输入历史；传输结果未知时沿用原命令对账，不能重发。
+    void onContinue(current, submission, (commandId) => {
+      commandCreated = true;
+      let cleanup = () => undefined;
+      const unsubscribe = pendingCommandRegistry.subscribeResolution(commandId, (resolution) => {
+        cleanup();
+        if (
+          resolution !== "accepted" &&
+          resolution !== "duplicate" &&
+          resolution !== "authoritative"
+        )
+          release();
+      });
+      cleanup = () => {
+        unsubscribe();
+        commandResolutionCleanupsRef.current.delete(cleanup);
+      };
+      commandResolutionCleanupsRef.current.add(cleanup);
+    })
+      .catch((error) => {
+        if (!commandCreated) release();
+        logger.warn(`[v4-composer] 继续失败: ${String(error)}`);
+      })
+      .finally(() => {
+        pendingRef.current = false;
+        setPending(false);
+      });
+  }, [
+    canContinue,
+    onContinue,
+    continuation?.key,
+    snapshotDraftOfEditor,
+    hasDraftToSubmit,
+    createSubmissionFromComposer,
+  ]);
 
   // 发送键是 type="submit"，与 Enter 共用 handleEditorSubmit；DOM 事件顺序保证 click 早于
   // submit，故这里只置标记，由 submit() 读取并复位。

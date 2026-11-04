@@ -1117,8 +1117,8 @@ function mergeGoalVerificationEntryFacts(
 // modelChange marker 由投影在 TurnStarted 时对比 lastTurnModel 与 config 生成；
 // 冷恢复没有 ModelSelected 事件，这里按每轮的持久化选型事实重建。
 // 来源优先级：user prompt 的 model 快照（恒在场、与提交时 config 一致）；
-// preface 轮（无 user）取 assistant 消息事实。合成 timeline 宿主消息
-// （semantics.kind=timeline_event）的 model 是宿主兼容占位，不是本轮事实。
+// preface 轮（无 user）取 assistant 消息事实。普通 timeline 宿主消息的 model
+// 是兼容占位；显式续跑控制边界保存的是本轮实际冻结模型，可以恢复选型。
 interface HydratedTimelineModel {
   modelSelection: ModelSelection;
   previousModelSelection?: ModelSelection | null;
@@ -1145,7 +1145,8 @@ function turnModelSelectionOfUserMessage(message: MessageWithParts): ModelSelect
 
 function assistantModelSelectionOf(message: MessageWithParts): ModelSelection | null {
   if (message.info.role !== "assistant") return null;
-  if (message.info.semantics?.kind === "timeline_event") return null;
+  if (message.info.semantics?.kind === "timeline_event" && !isContinuationControlBoundary(message))
+    return null;
   if (!message.info.providerId || !message.info.modelId) return null;
   return sessionModelSelectionOfHydratedMessage({
     providerId: String(message.info.providerId),
@@ -1340,6 +1341,7 @@ function steerDeliveryOfMessage(message: MessageWithParts): "guide" | "queue" | 
  * 事实区分，统一按边界处理——内容不丢、无气泡，仅轮归属与 live 合流场景有已知差异。
  */
 function isTurnBoundaryStarter(message: MessageWithParts): boolean {
+  if (isContinuationControlBoundary(message)) return true;
   if (isRealUserTurnStarter(message)) {
     return steerDeliveryOfMessage(message) !== "guide";
   }
@@ -1347,6 +1349,15 @@ function isTurnBoundaryStarter(message: MessageWithParts): boolean {
   // 它本就是首条消息，但语义上仍是独立轮边界，不能被并进上一轮）。
   if (workflowLaunchOfMessage(message)) return true;
   return getConversationModelOnlyTurnTriggerSource(message) !== null;
+}
+
+function isContinuationControlBoundary(message: MessageWithParts): boolean {
+  // 持久化 JSON 只认明确的控制判别字段，不能把普通 assistant/空文本误当新轮。
+  return (
+    message.info.role === "assistant" &&
+    message.info.semantics?.kind === "timeline_event" &&
+    message.info.anchor?.controlTurn === "continue"
+  );
 }
 
 function backgroundResultOriginMetaOfMessage(
@@ -1881,12 +1892,17 @@ export function synthesizeEventsFromMessages(
       // 通知文本不进 rows），其后 assistant 归本轮——与 live 的 TurnStarted
       // (inputVisibility=model-only) 结构一致，不再并进上一轮。
       const wakeSource = getConversationModelOnlyTurnTriggerSource(message);
-      if (wakeSource) {
+      const controlBoundary = isContinuationControlBoundary(message);
+      if (wakeSource || controlBoundary) {
         turnNumber += 1;
         const turnId = `hydrate-turn-${turnNumber}`;
         lastTurnId = turnId;
         const turnStartedAtMs = messageCreatedAtMs(message) ?? baseMs + seq;
-        selectAcceptedTurnModel(turnModelSelectionOfUserMessage(message));
+        selectAcceptedTurnModel(
+          controlBoundary
+            ? assistantModelSelectionOf(message)
+            : turnModelSelectionOfUserMessage(message),
+        );
         push(
           SessionEventType.TurnStarted,
           {
@@ -1897,11 +1913,14 @@ export function synthesizeEventsFromMessages(
             input:
               wakeSource === "background_task" ? backgroundWakeInputOfMessage(message.parts) : "",
             inputVisibility: "model-only",
-            inputSource: wakeSource,
+            ...(wakeSource ? { inputSource: wakeSource } : {}),
+            ...(controlBoundary && typeof message.info.anchor?.sourceCommandId === "string"
+              ? { inputId: message.info.anchor.sourceCommandId }
+              : {}),
             ...(wakeSource === "background_task"
               ? { originMeta: backgroundResultOriginMetaOfMessage(message) }
               : {}),
-            // model-only trigger 同样是持久 user 实体；若不传 messageId，
+            // 触发消息或无输入控制记录都是持久边界；若不传 messageId，
             // cold 会退化到 hydrate-turn-N，live/cold productTurn 身份再次分叉。
             messageId: String(message.info.id),
           },

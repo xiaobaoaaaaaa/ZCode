@@ -2,6 +2,11 @@ import type { CommandEnvelope } from "@zcode/shared/zcode-protocol-v4";
 
 export type PendingCommandReplay =
   | {
+      /** 只保留查询身份，控制命令不能作为一条新消息重发。 */
+      kind: "control";
+      type: "continueTurn" | "resumeGoal";
+    }
+  | {
       kind: "input";
       type: "sendText" | "sendGoalCommand" | "compact" | "createSession";
       payload: Record<string, unknown>;
@@ -18,6 +23,9 @@ export type PendingCommandReplay =
     };
 
 export function pendingCommandReplayFor(envelope: CommandEnvelope): PendingCommandReplay | null {
+  if (envelope.type === "continueTurn" || envelope.type === "resumeGoal") {
+    return { kind: "control", type: envelope.type };
+  }
   if (
     envelope.type === "sendText" ||
     envelope.type === "sendGoalCommand" ||

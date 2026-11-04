@@ -40,6 +40,10 @@ describe("v4 input admission canonical intent", () => {
 
   it("非输入命令不创建 session_input", () => {
     expect(resolveInputCommandForAdmission(envelope("stop", {}), "s-parent", vi.fn())).toBeNull();
+    expect(isConversationInputAdmissionCommand("continueTurn")).toBe(false);
+    expect(
+      resolveInputCommandForAdmission(envelope("continueTurn", {}), "s-parent", vi.fn()),
+    ).toBeNull();
   });
 
   it("compact admission 保留 typed maintenance intent，不伪装成 sendText", () => {

@@ -1,5 +1,17 @@
 # Conversation Session Case Catalog
 
+## 中断后无消息续跑（CIC，2026-11-04）
+
+规格：[中断后从输入区直接继续](chat/continue-interrupted-session.md)。沿用正式用例
+`conversation-session-continue-interrupted.test.ts`，不改变其转正身份。
+
+| ID    | 前置与动作                                           | 必须断言                                                                                         |
+| ----- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| CIC01 | 停止后用键盘继续，再停止后双击继续                   | 同一 session；用户消息数量不增加；模型请求保留原任务与前轮输出且没有预制继续文字；每次只续跑一次 |
+| CIC02 | 暂停队列内有两项，再继续                             | 队列 ID/顺序不变，不自动 drain，不弹发送确认，不增加用户消息                                     |
+| CIC03 | 旧轮、旧 epoch、busy、模型准备期间目标变化、队列变化 | CLI 拒绝且不进入新执行、不创建输入；明确失败释放租约                                             |
+| CIC04 | ACK 丢失/重复命令；continuous 与 replayable 投影     | 既有 command 对账；同一无消息 turn 的开始/终态可投影，不合成 userInput                           |
+
 ## 会话 ID 兼容（SID，2026-10-28 accepted）
 
 规格：[Session identity compatibility](session-context-tool.md#session-identity-compatibility)。
@@ -5568,3 +5580,14 @@ profile 保持一致。旧无耗时终态显示“几秒”；不新增 UI 缓�
 验证：CLI 投影文件 248/248、浏览器 26/26（新增计时 14 项）通过，产物
 `packages/desktop/.e2e-artifacts/reasoning-timing-20261102/`。中断思考保持过程组外显边界；
 浏览器候选保持 pending，未将共享渲染和 delivery 投影检查宣称为完整桌面/实体手机远控 E2E。
+
+## 时间线刷新与浮层稳定性（TOS，2026-11-04）
+
+规格：docs/ui/chat-virtual-scroll.md。语义 accepted，浏览器候选保持 pending。
+
+| ID    | 前置与动作                                            | 断言                                                 |
+| ----- | ----------------------------------------------------- | ---------------------------------------------------- |
+| TOS01 | 打开失败原因 Tooltip，经过计时跳动及无位移行/流式更新 | 浮层保持打开；无人工 DOM scroll                      |
+| TOS02 | 选择已完成正文，经过计时跳动及无位移流式更新后提问    | 选区菜单保留，回调收到所选正文                       |
+| TOS03 | 内容溢出，打开 Tooltip/选区菜单后真实滚动             | 原有关闭行为保留                                     |
+| TOS04 | 前插 3000 行历史，原生 scroll 通知被合并              | 最后历史轮仍挂载，阅读锚点与跟随状态正确，无空白窗口 |

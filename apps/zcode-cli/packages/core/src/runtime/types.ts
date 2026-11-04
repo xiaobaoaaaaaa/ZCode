@@ -492,6 +492,13 @@ export interface ModelExecutionContext {
 }
 
 export interface ExecuteTurnOptionsBase {
+  /** 无输入续跑：用控制记录保留 live/cold 的轮边界，不生成用户消息。 */
+  controlTurn?: "continue";
+  /** 无输入控制命令冻结的执行配置；不伪造 canonical 用户 intent 或用户消息。 */
+  executionSubmission?: Pick<
+    TurnInputIntentMetadata,
+    "sourceCommandId" | "admissionSeq" | "modelSelection" | "mode" | "planEnabled"
+  >;
   /** 内存后台命令归属；不进入 canonical intent 或持久化模型默认。 */
   offPeakExecutionId?: string;
   executionSelection?: ModelSelection;

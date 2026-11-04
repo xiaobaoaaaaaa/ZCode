@@ -4916,3 +4916,107 @@ describe("detached subagent child publisher 生命周期（session-idle-deactiva
     expect(gateway.collectMemoryDiagnostics()).toMatchObject({ publishers: 1, detachedLive: 1 });
   });
 });
+
+describe("无消息继续的投影与命令对账", () => {
+  it.each(["desktop-continuous", "web-remote-replayable"])(
+    "%s 保留唯一用户输入并对继续命令去重",
+    async (clientMode) => {
+      const host = makeHost();
+      const gateway = makeGateway(host);
+      const log = new EventLog();
+      gateway.ingest("session-1", sessionCreated(log));
+      gateway.ingest(
+        "session-1",
+        log.push(
+          SessionEventType.TurnStarted,
+          {
+            turnNumber: 1,
+            input: "original task",
+            messageId: "user-original",
+          },
+          { turnId: "turn-1" },
+        ),
+      );
+      gateway.ingest(
+        "session-1",
+        log.push(
+          SessionEventType.TurnComplete,
+          {
+            resultType: "cancelled",
+            response: "partial",
+            duration: 10,
+            tokenCount: 0,
+            toolCallCount: 0,
+          },
+          { turnId: "turn-1" },
+        ),
+      );
+      const target = gateway.getInterruptedTurnTarget("session-1");
+      expect(target).toEqual({ turnId: "user-original", logEpoch: "epoch-1" });
+      const initial = await gateway.subscribe(subscribeParams({ clientMode }));
+      if (initial.initialFrame?.payload.kind !== "snapshot") throw new Error("missing snapshot");
+      const snapshot = initial.initialFrame.payload.snapshot;
+      const command = commandParams({
+        type: "continueTurn",
+        baseRevision: snapshot.revision,
+        payload: {
+          expectedTurnId: target!.turnId,
+          expectedLogEpoch: target!.logEpoch,
+          expectedHeldQueueItemIds: [],
+        },
+      });
+      host.executeImpl = async () => {
+        gateway.ingest(
+          "session-1",
+          log.push(
+            SessionEventType.TurnStarted,
+            {
+              turnNumber: 2,
+              input: "",
+              inputVisibility: "model-only",
+              inputId: "cmd-1",
+              messageId: "continuation-anchor",
+            },
+            { turnId: "turn-2" },
+          ),
+        );
+        gateway.ingest(
+          "session-1",
+          log.push(
+            SessionEventType.TurnComplete,
+            {
+              resultType: "success",
+              response: "continued answer",
+              duration: 10,
+              tokenCount: 0,
+              toolCallCount: 0,
+            },
+            { turnId: "turn-2" },
+          ),
+        );
+        return undefined;
+      };
+      const ack = await gateway.handleCommand(command);
+      expect(ack.status).toBe("accepted");
+      const duplicate = await gateway.handleCommand(command);
+      expect(["accepted", "duplicate"]).toContain(duplicate.status);
+      expect(host.executed).toHaveLength(1);
+      expect(host.inputAdmissions).toEqual([]);
+      expect(gateway.getInterruptedTurnTarget("session-1")).toBeNull();
+      const recovered = await gateway.subscribe(
+        subscribeParams({ clientMode, connectionId: "reconnected" }),
+      );
+      if (recovered.initialFrame?.payload.kind !== "snapshot")
+        throw new Error("missing recovered snapshot");
+      const final = recovered.initialFrame.payload.snapshot;
+      expect(final.rows.window.filter((row) => row.kind === "userInput")).toHaveLength(1);
+      expect(
+        final.rows.window.some(
+          (row) => row.kind === "turnHeader" && row.sourceCommandId === "cmd-1",
+        ),
+      ).toBe(true);
+      expect(final.control.phase).toBe("completedSuccess");
+      await gateway.dispose();
+    },
+  );
+});

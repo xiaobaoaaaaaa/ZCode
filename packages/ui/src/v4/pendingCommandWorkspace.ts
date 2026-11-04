@@ -14,7 +14,7 @@ export interface PendingCommandClientContext {
 interface WorkspaceScopedPendingCommand {
   clientContext?: PendingCommandClientContext;
   replay: {
-    kind: "input" | "sensitiveDigest";
+    kind: "input" | "sensitiveDigest" | "control";
     type: string;
     payload?: Record<string, unknown>;
   };

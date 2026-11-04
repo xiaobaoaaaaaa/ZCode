@@ -1,5 +1,23 @@
 # Conversation Session E2E Coverage Matrix
 
+## 中断后无消息续跑（CIC，2026-11-04）
+
+CIC01/CIC02：Fedora Electron 正式用例通过。最终运行
+`desktop-e2e-20261104035951315-p61075-d1fe5d12dec95479` 共 2/2 通过（其中一项是原有全局新任务导航验收）。
+真实 Composer/Host/stdio CLI 执行两次停止与继续，键盘和双击均通过；同一 session 用户气泡始终为一条，
+两项暂停队列 ID/顺序不变。受控模型回放要求保留原任务及前轮输出，排除预制继续文本、停止标记与队列正文。
+截图与请求证据位于该运行的 `.e2e-artifacts`；完成后的深色界面已核对。
+
+CIC03：CLI 命令回归通过旧轮/epoch、busy、模型准备期间目标改变和队列改变的拒绝与租约释放。
+CIC04：CLI continuous/replayable 投影、重复命令与恢复对账回归通过；未执行实体手机、生产 relay 或真实付费模型调用，
+端到端断网/ACK 丢失仍为 `partial`。新增冷恢复回归验证独立控制轮、commandId、成功终态及无新增用户消息，
+Core 验证热/冷上下文解除本次 STOP 语义、保留取消工具事实和稳定 fork 边界。
+Core 9 项及 Bootstrap 274 项定向回归通过。根 typecheck、Lint（83 warnings/0 errors）、CLI lint
+（72 warnings/0 errors，7 项既有上游行数诊断）、受影响包类型检查、架构、E2E 类型和 fixture 检查通过。
+CLI 聚合 typecheck 因缺少 `turbo` 无法运行，已使用 contracts/core build 与 bootstrap/core 独立类型检查验证修改范围。
+最初验收遇到缺失的 ChromeDriver 路径，改用本机可用驱动；旧动画等待在后台窗口暂停，改为检查主题实际状态。
+历史预制消息实现的通过记录不计入本次覆盖。
+
 ## 会话 ID 兼容 SID（2026-10-28）
 
 SID01–SID05 已接受，候选：
@@ -6051,3 +6069,19 @@ SAM01–06 的前置、动作、断言与证据见 [影响与验收](../subagent
 248/248 通过（新增 8 项），验证终态事件时间、重放与 Desktop continuous / Web replayable
 的一致性。产物 `packages/desktop/.e2e-artifacts/reasoning-timing-20261102/`，截图已核对。
 未运行打包桌面或实体手机远控 E2E，未转正或纳入 Docker。
+
+## TOS01–04 时间线刷新与浮层稳定性（2026-11-04，pending）
+
+状态：covered（共享 UI 浏览器范围，候选保持 pending）。入口
+`packages/ui/test/browser/manual-review/pending/conversation-overlay-stability.test.mjs`，8/8 通过。
+真实 Timeline/ToolLayout/选区菜单覆盖桌面/手机布局、深浅主题、中英文；固定数据不调用模型。
+旧实现在无位移流式更新后的选区菜单保留断言失败；修复后无人工 scroll，提问回调与真实滚动关闭均通过。
+3000 行前插在屏蔽原生 scroll 通知时仍挂载最后历史轮，底部误差不超过 1px。
+`conversation-timeline-resize.test.mjs` 的 resize、历史补齐和滚动记忆 12/12 通过。
+证据：`packages/desktop/.e2e-artifacts/timeline-overlay-20261104/`（20 项，含基线失败日志、JSON 和已核对截图）。
+不晋升正式/CI，不将手机布局当作实体手机或远程传输证据。
+
+Personal.7 合并发布复验：重新构建 Desktop 与 CLI 后，继续操作及长会话滚动两个 Electron spec
+共 3/3 通过（原继续 spec 含独立的新任务导航用例），产物
+`packages/desktop/.e2e-artifacts/desktop-e2e-20261104085358843-p76057-b2e5cbbc6b1e29f9/`。
+根 typecheck、E2E typecheck、Lint（83 warnings / 0 errors）、架构、fixture 与格式检查通过。

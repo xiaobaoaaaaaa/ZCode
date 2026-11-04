@@ -43,15 +43,23 @@
         "kind": "main",
         "source": "synthetic",
         "timingPolicy": "controlled-stream",
-        "syntheticReason": "由真实停止与继续按钮驱动受控流；同一会话请求必须包含原任务及前轮上下文，每阶段仅匹配一次。"
+        "syntheticReason": "真实停止与无消息继续驱动受控流；请求保留原任务与前轮输出，禁止中英文预制继续消息和暂停队列正文，每阶段仅匹配一次。"
       },
       "maxMatches": 1,
       "match": {
         "method": "POST",
         "pathIncludes": "/messages",
-        "lastUserMessageIncludes": ["继续刚才中断的任务，从当前进度接着完成。"],
         "bodyIncludes": ["E2E_CONTINUE_INTERRUPTED", "RESUME_INITIAL_RUNNING"],
-        "bodyExcludes": ["Generate a concise title", "CRITICAL: Respond with TEXT ONLY"]
+        "bodyExcludes": [
+          "Generate a concise title",
+          "CRITICAL: Respond with TEXT ONLY",
+          "继续刚才中断的任务，从当前进度接着完成。",
+          "Continue the interrupted task from where you left off.",
+          "E2E_CONTINUE_HELD_ONE",
+          "E2E_CONTINUE_HELD_TWO",
+          "[Request interrupted by user",
+          "STOP what you are doing and wait for the user"
+        ]
       },
       "response": {
         "statusCode": 200,
@@ -77,19 +85,23 @@
         "kind": "main",
         "source": "synthetic",
         "timingPolicy": "controlled-stream",
-        "syntheticReason": "由真实停止与继续按钮驱动受控流；同一会话请求必须包含原任务及前轮上下文，每阶段仅匹配一次。"
+        "syntheticReason": "真实停止与无消息继续驱动受控流；请求保留原任务与前轮输出，禁止中英文预制继续消息和暂停队列正文，每阶段仅匹配一次。"
       },
       "maxMatches": 1,
       "match": {
         "method": "POST",
         "pathIncludes": "/messages",
-        "lastUserMessageIncludes": ["Continue the interrupted task from where you left off."],
-        "bodyIncludes": [
-          "E2E_CONTINUE_INTERRUPTED",
-          "RESUME_RUNNING_ONE",
-          "继续刚才中断的任务，从当前进度接着完成。"
-        ],
-        "bodyExcludes": ["Generate a concise title", "CRITICAL: Respond with TEXT ONLY"]
+        "bodyIncludes": ["E2E_CONTINUE_INTERRUPTED", "RESUME_RUNNING_ONE"],
+        "bodyExcludes": [
+          "Generate a concise title",
+          "CRITICAL: Respond with TEXT ONLY",
+          "继续刚才中断的任务，从当前进度接着完成。",
+          "Continue the interrupted task from where you left off.",
+          "E2E_CONTINUE_HELD_ONE",
+          "E2E_CONTINUE_HELD_TWO",
+          "[Request interrupted by user",
+          "STOP what you are doing and wait for the user"
+        ]
       },
       "response": {
         "statusCode": 200,

@@ -65,6 +65,8 @@ import type { RegularTurnLoopState } from "./turn-loop-state.js";
 import { finishOutputTokenRecovery } from "./turn-output-token-continuation.js";
 import { recordTurnUsageFact } from "./usage-observability.js";
 import { persistStableForkCompletionBoundary } from "./stable-fork-boundary.js";
+import { persistContinuationTurnBoundary } from "./timeline-persistence.js";
+import { continueInterruptedContext } from "../../agent/session-history-hydrator.js";
 import {
   closeGoalStateChangeReminderDeferral,
   openGoalStateChangeReminderDeferral,
@@ -113,7 +115,7 @@ export async function executeTurn(
       // 原始 executeTurn 与协议 admission 共用接纳语义；Loop 开始后不再倒写旧选择。
       void acceptSubmissionModelSelection(
         this,
-        options?.intent,
+        options?.executionSubmission ?? options?.intent,
         options?.traceContext ?? this.rootTraceContext,
         options?.modelExecution,
       ).catch((error) => {
@@ -148,7 +150,7 @@ export async function executeTurnCommand(
   const offPeakTurn = prepareOffPeakTurn(this, options);
   options = offPeakTurn.options;
   const admittedModelSelection =
-    options?.intent?.modelSelection ??
+    (options?.executionSubmission ?? options?.intent)?.modelSelection ??
     (options && "executionSelection" in options
       ? options.executionSelection
       : this.getSessionModelSelection());
@@ -484,7 +486,7 @@ export async function executeTurnCommand(
         ? undefined
         : await applySubmissionExecutionState(
             this,
-            options?.intent,
+            options?.executionSubmission ?? options?.intent,
             turnTraceContext,
             options?.modelExecution,
             admittedModel,
@@ -500,6 +502,15 @@ export async function executeTurnCommand(
         options?.skipInputRecord === true
           ? (options.recordedInputMessageId ?? createMessageId())
           : createMessageId();
+      if (options?.controlTurn === "continue") {
+        await persistContinuationTurnBoundary.call(
+          this,
+          userMessageId,
+          turnTraceContext,
+          options.executionSubmission?.sourceCommandId,
+        );
+        continueInterruptedContext(this.messageHistory);
+      }
       // 附件展示元信息随 TurnStarted 下发（v4 投影 → userInput row.attachments）。
       // workspace checkpoint 挂在 user messageId 上；先生成 id 再发 TurnStarted，
       // v4 投影才能用 turn rowId 找回该轮文件 checkpoint，避免摘要有计数但展开查空。

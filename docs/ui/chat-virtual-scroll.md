@@ -39,6 +39,36 @@
 
 ## 滚动边界
 
+### 刷新与浮层生命周期（TOS01–04）
+
+`ConversationTimeline` 继续独占滚动位置与跟随状态。计时、行引用刷新和同高度的流式文本更新
+不得在没有视口位移时关闭失败原因 Tooltip、选区提问菜单等交互。真实滚动、取消选区和
+组件原有的关闭操作继续生效，不全局禁用浮层的滚动监听。
+
+虚拟列表的 offset 由 TanStack observer 接口接收。贴底或历史前插提交后，直接同步该 observer，
+不得用 DOM `scroll` 广播内部布局通知。同步读取当前视口位置，沿用库的滚动状态；卸载或
+替换订阅后，旧 commit 的通知失效。原生滚动和库的延迟结束通知也读取最新位置，避免旧
+offset 覆盖程序化落点。同步不增加持久状态、延时重试或新的滚动所有者。
+
+```mermaid
+sequenceDiagram
+  participant T as ConversationTimeline
+  participant V as Virtualizer offset observer
+  participant D as 浏览器滚动容器
+  participant O as Tooltip / 选区菜单
+  T->>D: 贴底 / 前插锚定，读取最终 scrollTop
+  T->>V: commit 后直接同步当前 offset
+  Note over T,O: 无位移刷新不广播 DOM scroll，浮层保持打开
+  D->>V: 真实 scroll，读取当前 offset
+  D->>O: 真实 scroll，沿用原关闭行为
+```
+
+验收入口：`node --test packages/ui/test/browser/manual-review/pending/conversation-overlay-stability.test.mjs`。
+真实共享组件覆盖桌面/手机布局、深浅主题；计时和同高度流式刷新保持浮层，选区菜单仍可
+提交提问，真实滚动关闭浮层；大量历史前插在原生 scroll 通知被合并时仍挂载正确窗口。
+既有 resize、历史补齐与滚动记忆回归继续执行。该修复只改变 renderer 内部观察接口，
+Desktop continuous 与手机 replayable 的投影/传输契约不变；布局模拟不代表实体手机远控验收。
+
 - 旧的 `useChatAutoFollow` 多 flag 自动吸底状态机已删除；当前只保留一个小的 bottom-lock 状态和普通手动滚动容器。
 - `ConversationTimeline` 使用一个小的 bottom-lock 状态：没有滚动记忆的新会话默认启用，消息追加、markdown/tool 详情撑高和 ResizeObserver 变化会继续写入最新底部 `scrollTop`。
 - 右下角“滚动到底部”按钮只由当前滚动条位置控制：滚动容器不在底部时显示，到达底部时隐藏；用户手动滚回底部附近或点击按钮滚到底部都会重新启用 bottom-lock，避免生成中内容继续变高时错过锁底。按钮所在底部浮层使用 `background` token 的向上渐变遮罩，避免压住末尾消息时产生生硬边界。

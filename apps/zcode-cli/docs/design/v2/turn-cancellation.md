@@ -40,12 +40,13 @@ TUI:
 - When the normal prompt input is empty, `Ctrl-C` is protected against
   accidental exits. When no local prompt owns the key and no copyable OpenTUI
   text selection exists, the first press only shows `Press Ctrl-C again to
-  exit.` and arms a short confirmation window. A second consecutive `Ctrl-C`
+exit.` and arms a short confirmation window. A second consecutive `Ctrl-C`
   inside that window aborts active work and closes the fullscreen TUI. Any
   non-`Ctrl-C` key, draft-clearing `Ctrl-C`, or confirmation timeout clears the
   pending exit.
 
 ZCode app-server:
+
 - `session/cancel` aborts the active prompt controller for that ZCode app-server session.
 - Repeated cancel notifications are idempotent.
 - Cancelling a missing or idle session is a no-op.
@@ -96,6 +97,35 @@ must not create provider-visible dangling tool calls on resume.
 - Cancelled turn events keep the original `traceId`, `sessionId`, `turnId`, and
   current phase so debug views can reconstruct where cancellation landed.
 
+## Explicit continuation after cancellation
+
+The shared App composer uses the V4 `continueTurn` control command after an
+interrupted turn. It carries the expected product turn ID, log epoch, revision,
+held queue IDs and the selected execution configuration. CommandInbox owns
+deduplication/CAS; the gateway supplies the authoritative interrupted target;
+the handler obtains an idle-only Core foreground lease before asynchronous
+preparation. A changed target, busy runtime, blocking interaction or stale queue
+rejects continuation without admitting a user input.
+
+The App input facade prepares the existing execution boundary and calls the
+serialized Core turn loop with no new input record, no UserPromptSubmit hook,
+and model-only TurnStarted visibility. Execution configuration is a frozen
+control submission, independent of a user input intent. There is no synthetic
+continue prompt in model history, transcript, session_input or input history.
+Control ACKs use the existing persistent command facts for reconnect queries.
+Goal continuation retains its separate resumeGoal semantics. Cancellation
+cleanup and existing interrupted tool results remain authoritative; continuation
+starts a new runtime turn, not a resurrected request or subprocess.
+
+Desktop continuous and Web replayable consume the same TurnStarted/TurnComplete
+facts and produce no userInput row for this operation. Regression evidence must
+check both projection modes, runtime/provider history, stale-target rejection,
+idle lease contention, held queue preservation and duplicate clicks.
+
+显式续跑在发布 TurnStarted 前保存无正文的 assistant 控制边界，语义为隐藏的 `timeline_event`，`anchor.controlTurn=continue`，不进入 provider context。冷恢复识别该边界并恢复 sourceCommandId、model-only 轮及稳定 fork 的消息范围，不能用不存在的用户消息 ID 关联新输出。
+
+控制边界同时解除最近一次 stop 对模型上下文的约束：移除该次中断标记，仅将该轮 cancelled 工具的固定 STOP 文本替换为保留失败与部分副作用可能性的取消事实。历史存储和 UI 不改写；普通新输入仍沿用已有中断标记语义。热续跑与冷恢复共享同一转换，不新增 user/system 提示。
+
 ## Tests
 
 Required coverage:
@@ -107,7 +137,7 @@ Required coverage:
 - TUI `Ctrl-C` with a non-empty normal prompt draft clears the draft and draft
   attachments without closing or aborting active output.
 - TUI first `Ctrl-C` with an empty normal prompt input shows `Press Ctrl-C again
-  to exit.` without closing; a second consecutive `Ctrl-C` exits.
+to exit.` without closing; a second consecutive `Ctrl-C` exits.
 - Core abort during model wait emits `turn_cancelled`.
 - Core abort after a model emits tool calls does not schedule tools.
 - Core abort reaches per-tool `AbortSignal` and subprocess adapters.

@@ -4,7 +4,6 @@ import {
   type Model,
   type ModelSelection,
   type TraceContext,
-  type TurnInputIntentMetadata,
 } from "@zcode/contracts";
 import { getCurrentModelInvocationContext } from "../deps.js";
 import type { AgentRuntimeInternal } from "../internal.js";
@@ -47,7 +46,7 @@ export function recordPublishedModelSelection(
 /** 串行接纳序号决定续跑选择；队列消费只能执行自己的快照，不能倒写较新的选择。 */
 export function acceptSubmissionModelSelection(
   runtime: AgentRuntimeInternal,
-  intent: TurnInputIntentMetadata | undefined,
+  intent: import("../types.js").ExecuteTurnOptions["executionSubmission"] | undefined,
   _traceContext: TraceContext,
   modelExecution?: Pick<
     import("../types.js").ModelExecutionContext,
@@ -134,7 +133,7 @@ export function createTurnModel(
  */
 export async function applySubmissionExecutionState(
   runtime: AgentRuntimeInternal,
-  intent: TurnInputIntentMetadata | undefined,
+  intent: import("../types.js").ExecuteTurnOptions["executionSubmission"] | undefined,
   traceContext: TraceContext,
   modelExecution?: import("../types.js").ModelExecutionContext,
   preparedModel?: Model,

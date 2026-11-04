@@ -8,7 +8,10 @@ import type {
   CommandResult,
 } from "@zcode/shared/zcode-protocol-v4";
 import { isHighspeedProviderId } from "@zcode/shared";
-import { createModelExecutionContext } from "../../../session-execution/index.js";
+import {
+  createModelExecutionContext,
+  runWithSessionResidencyFinalization,
+} from "../../../session-execution/index.js";
 import { mapAttachmentRefsToTurnAttachments } from "../attachment-refs.js";
 import {
   applyHeldQueueDisposition,
@@ -20,6 +23,7 @@ import {
 import { inputIntentMetadata } from "../input-intent.js";
 import {
   resolveTurnAutomationId,
+  preflightPromptTurn,
   startPromptTurn,
   turnBackgroundAttributionOf,
   V4PromptRejectedError,
@@ -27,6 +31,7 @@ import {
 import { requireRecord } from "../record-access.js";
 import type { V4CommandCoreHost, V4SessionRecordView, V4TurnExecution } from "../types.js";
 import { V4CommandNoopError } from "../../v4-gateway.js";
+import { commandAdmissionOf } from "../executor.js";
 
 /** 等 idle 轮询参数：25ms 间隔、5s 超时。 */
 const IDLE_POLL_INTERVAL_MS = 25;
@@ -438,4 +443,100 @@ export async function preemptActiveTurnAndWait(
   await waitForSessionIdle(record);
 }
 
-export const sessionFlowHandlers = { sendText, stop };
+/** 无消息继续：保留 CommandInbox/CAS 与 Core 前台租约，不绕过串行执行。 */
+async function continueTurn(
+  host: V4CommandCoreHost,
+  envelope: CommandEnvelope,
+): Promise<CommandResult | undefined> {
+  const record = requireRecord(host, envelope.sessionId);
+  const payload = envelope.payload as CommandPayloadMap["continueTurn"];
+  const assertTarget = () => {
+    const target = host.getInterruptedTurnTarget?.(record.app.sessionId);
+    if (
+      !target ||
+      target.turnId !== payload.expectedTurnId ||
+      target.logEpoch !== payload.expectedLogEpoch
+    ) {
+      throw new V4InputAdmissionRejectedError("proto.staleTarget", "interrupted turn changed");
+    }
+  };
+  if (record.activeAbortController)
+    throw new V4PromptRejectedError("activePrompt", "session is busy");
+  assertTarget();
+  const leaseId = `continue:${envelope.commandId}`;
+  const lease = record.app.runtime.acquireForegroundPromotionLease({
+    leaseId,
+    mode: "idle-only",
+    promotedInputId: envelope.commandId,
+  });
+  if (lease.kind !== "acquired") throw new V4PromptRejectedError("activePrompt", "session is busy");
+  const abortController = new AbortController();
+  record.activeAbortController = abortController;
+  const release = () => {
+    record.app.runtime.releaseForegroundPromotionLease(leaseId);
+    if (record.activeAbortController === abortController) record.activeAbortController = undefined;
+  };
+  try {
+    const executionSubmission = {
+      ...resolveSubmittedExecutionState(record, payload),
+      sourceCommandId: envelope.commandId,
+      admissionSeq: commandAdmissionOf(envelope).admissionSeq,
+    };
+    await preflightPromptTurn(host, record, {
+      content: "",
+      inputId: envelope.commandId,
+      executionSubmission,
+    });
+    // 准备期间可能收到 Stop 或旧投影更新；不能把迟到按钮作用到下一轮。
+    assertTarget();
+    if (abortController.signal.aborted)
+      throw new V4PromptRejectedError("activePrompt", "continuation was stopped");
+    await applyHeldQueueDisposition(
+      host,
+      record,
+      "keepQueueAndSend",
+      payload.expectedHeldQueueItemIds,
+    );
+    await host.recordPersistentCommandFact?.(
+      record.app.sessionId,
+      "timeline",
+      {
+        commandId: envelope.commandId,
+        status: "accepted",
+        revisionAtDecision: envelope.baseRevision ?? 0,
+      },
+      { commandType: "continueTurn", expectedTurnId: payload.expectedTurnId },
+    );
+    void runWithSessionResidencyFinalization(record, async () => {
+      let reason = "turn_continuation_completed";
+      try {
+        await record.app.continueTurn({
+          inputId: envelope.commandId,
+          abortSignal: abortController.signal,
+          traceContext: record.traceContext,
+          executionSubmission,
+        });
+      } catch (error) {
+        reason = "turn_continuation_failed";
+        host.logger?.warn?.("v4 turn continuation failed", {
+          sessionId: record.app.sessionId,
+          error: String(error),
+        });
+      } finally {
+        release();
+      }
+      await host.afterLegacyStateMutation?.(record, reason);
+    }).catch((error) => {
+      host.logger?.warn?.("v4 continuation finalization failed", {
+        sessionId: record.app.sessionId,
+        error: String(error),
+      });
+    });
+    return undefined;
+  } catch (error) {
+    release();
+    throw error;
+  }
+}
+
+export const sessionFlowHandlers = { sendText, stop, continueTurn };

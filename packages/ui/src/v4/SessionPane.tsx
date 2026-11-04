@@ -1,4 +1,8 @@
 import { useConfirmDialog } from "@/hooks/useConfirmDialog.js";
+import {
+  resolveInterruptedContinuation,
+  type InterruptedContinuation,
+} from "@/conversation-continuation/index.js";
 import { useSessionRuntimeRestart } from "@/app-shell/useWorkspaceSessionReload.js";
 import { isRequestVerificationConfigNetworkError } from "@/request-security-edition/errors.js";
 import { useShallow } from "zustand/react/shallow";
@@ -499,7 +503,7 @@ function submissionConfigFromCommand(
   const candidate =
     type === "createSession"
       ? (payload.firstInput as Record<string, unknown> | undefined)
-      : type === "sendText" || type === "sendGoalCommand"
+      : type === "sendText" || type === "sendGoalCommand" || type === "continueTurn"
         ? payload
         : undefined;
   if (!candidate?.modelSelection || !candidate.mode) return null;
@@ -2220,7 +2224,11 @@ export function SessionPane({
                     : {}),
                 },
               }
-            : undefined,
+            : type === "continueTurn" || type === "resumeGoal"
+              ? {
+                  workspace: { workspacePath, ...(workspaceIdentity ? { workspaceIdentity } : {}) },
+                }
+              : undefined,
       );
       // 首发等待预热时，闭包里的页面 lease 可能仍为空；按命令目标取得同一个投影 owner，
       // 避免漏记待投影输入造成 placeholder 闪回，也避免切页后把命令状态写进另一会话。
@@ -2388,6 +2396,47 @@ export function SessionPane({
     ],
   );
   dispatchCommandRef.current = dispatchCommand;
+
+  const handleContinue = useCallback(
+    async (
+      continuation: InterruptedContinuation,
+      submission: ComposerSubmissionConfig | null,
+      onCommandCreated: (commandId: string) => void,
+    ) => {
+      const current = snapshotRef.current;
+      if (
+        !sessionId ||
+        !current ||
+        current.sessionId !== sessionId ||
+        resolveInterruptedContinuation(current)?.key !== continuation.key
+      ) {
+        throw new Error("interrupted turn changed");
+      }
+      const turnId = current.rows.window.findLast((row) => row.turnId)?.turnId;
+      if (!turnId) throw new Error("interrupted turn is unavailable");
+      const ack = await dispatchCommand(
+        continuation.kind === "goal" ? "resumeGoal" : "continueTurn",
+        continuation.kind === "goal"
+          ? {}
+          : {
+              expectedTurnId: turnId,
+              expectedLogEpoch: current.logEpoch,
+              expectedHeldQueueItemIds: current.queue.items.map((item) => item.queueItemId),
+              ...submission,
+            },
+        sessionId,
+        current.revision,
+        current.logEpoch,
+        undefined,
+        undefined,
+        (envelope) => onCommandCreated(envelope.commandId),
+      );
+      if (ack.status !== "accepted" && ack.status !== "duplicate") {
+        throw new Error(ack.reasonCode ?? "continueTurn 被拒绝");
+      }
+    },
+    [dispatchCommand, sessionId],
+  );
 
   const handleFetchFileChanges = useCallback(
     (target: ConversationRowTarget, options: ConversationFileChangesRequestOptions) => {
@@ -5595,6 +5644,7 @@ export function SessionPane({
       telemetryVisible={telemetryVisible && conversationTelemetryForegroundEnabled}
       readPlanIdentitySnapshot={readPlanIdentitySnapshot}
       onSendText={handleSendText}
+      onContinue={handleContinue}
       highspeedCard={activeHighspeedCard}
       highspeedActivationCardId={highspeedActivationCardId}
       onHighspeedActivationApplied={handleHighspeedActivationApplied}

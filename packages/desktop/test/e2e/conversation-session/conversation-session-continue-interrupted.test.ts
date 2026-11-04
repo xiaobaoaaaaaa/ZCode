@@ -19,6 +19,8 @@ import {
 } from "../helpers/v4-conversation.js";
 
 const CONTINUE = '[data-testid="v4-composer-continue"]';
+const countUserRows = () =>
+  browser.execute(() => document.querySelectorAll('[class~="group/user-row"]').length);
 type PreferencesWindow = typeof window & {
   __testActions: {
     setTheme(theme: string): void;
@@ -61,12 +63,14 @@ describe("Continue interrupted conversation", () => {
     const initial = await waitForV4Pane((s) => s.canStop, "首轮没有开始执行");
     await clickV4Stop();
     await waitForContinue();
+    const originalUserRows = await countUserRows();
+    expect(originalUserRows).toBe(1);
     expect(await browser.$(CONTINUE).getAttribute("aria-label")).toBe("继续");
     await browser.saveScreenshot(
       join(process.env.ZCODE_E2E_ARTIFACT_DIR!, "continue-zh-light.png"),
     );
 
-    // 键盘激活空输入区的继续按钮，验证原有发送链路确实恢复本会话。
+    // 键盘激活独立控制命令；续跑不能通过隐藏用户气泡伪装成“没有发消息”。
     await browser.execute((selector) => {
       const button = document.querySelector<HTMLButtonElement>(selector)!;
       button.focus();
@@ -78,6 +82,7 @@ describe("Continue interrupted conversation", () => {
       initial.sessionId,
     );
     expect(await browser.$(CONTINUE).isExisting()).toBe(false);
+    expect(await countUserRows()).toBe(originalUserRows);
 
     await sendV4Prompt("E2E_CONTINUE_HELD_ONE: keep this queued.");
     await waitForV4QueueCount(1);
@@ -93,17 +98,10 @@ describe("Continue interrupted conversation", () => {
     await browser.waitUntil(
       async () => (await browser.$(CONTINUE).getAttribute("aria-label")) === "Continue",
     );
-    await browser.execute(async () => {
-      await Promise.all(
-        document
-          .getAnimations()
-          .filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
-          .map((animation) => animation.finished.catch(() => {})),
-      );
-      await new Promise<void>((resolve) =>
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-      );
-    });
+    // 后台窗口的 animation/rAF 会暂停，等待它们会挂起验收；直接检查主题生效条件。
+    await browser.waitUntil(() =>
+      browser.execute(() => document.documentElement.classList.contains("theme-zai-dark")),
+    );
     await browser.saveScreenshot(join(process.env.ZCODE_E2E_ARTIFACT_DIR!, "continue-en-dark.png"));
     // 同一事件循环内连点；fixture 每阶段只允许一次匹配，额外请求将使回放验收失败。
     await browser.execute((selector) => {
@@ -119,10 +117,12 @@ describe("Continue interrupted conversation", () => {
       queued.map((item) => item.queueItemId),
     );
     expect(await hasV4PausedQueueSendDialog()).toBe(false);
+    expect(await countUserRows()).toBe(originalUserRows);
     await releaseControlledReplay("continue-second");
     await waitForV4TimelineContaining("RESUME_FINISHED", 30000);
     await waitForV4Pane((s) => !s.canStop, "继续后的任务没有结束");
     expect(await browser.$(CONTINUE).isExisting()).toBe(false);
+    expect(await countUserRows()).toBe(originalUserRows);
     expect((await getV4QueueItems()).map((item) => item.queueItemId)).toEqual(
       queued.map((item) => item.queueItemId),
     );

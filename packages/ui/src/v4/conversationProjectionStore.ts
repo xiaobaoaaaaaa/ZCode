@@ -1571,6 +1571,9 @@ export class ConversationProjectionStore {
       inputProjectionIds.add(item.sourceCommandId);
     }
     for (const row of snapshot.rows.window) {
+      if (row.kind === "turnHeader" && row.sourceCommandId) {
+        acknowledged.add(row.sourceCommandId);
+      }
       if (row.kind === "userInput" && row.sourceCommandId) {
         acknowledged.add(row.sourceCommandId);
         if (row.origin === "realUser") inputProjectionIds.add(row.sourceCommandId);

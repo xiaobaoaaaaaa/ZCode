@@ -17,7 +17,7 @@ import {
   type WheelEvent as ReactWheelEvent,
 } from "react";
 import { flushSync } from "react-dom";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { observeElementOffset, useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
 import { ArrowDownIcon } from "lucide-react";
 import { TID_V4_TIMELINE, TID_V4_TIMELINE_BOTTOM } from "@zcode/shared/test-ids";
 import type {
@@ -877,6 +877,35 @@ function ConversationTimelineImpl({
   }, []);
 
   const [measuredLayoutRevision, commitMeasuredLayout] = useState(0);
+  const offsetSubscriptionRef = useRef<{ element: HTMLDivElement; sync: () => void } | null>(null);
+  const observeTimelineOffset = useCallback(
+    (
+      instance: Virtualizer<HTMLDivElement, Element>,
+      onOffset: (offset: number, isScrolling: boolean) => void,
+    ) => {
+      const element = instance.scrollElement;
+      if (!element) return;
+      // 原生 observer 的延迟 scroll-end 可能携带前插前的 offset；统一回读当前 DOM，
+      // 避免内部同步后又被旧落点覆盖。滚动状态仍由库的原生 observer 持有。
+      const notify = (_offset: number, isScrolling: boolean) =>
+        onOffset(element.scrollTop, isScrolling);
+      const subscription = {
+        element,
+        sync: () => {
+          if (instance.scrollOffset !== element.scrollTop) {
+            notify(element.scrollTop, instance.isScrolling);
+          }
+        },
+      };
+      offsetSubscriptionRef.current = subscription;
+      const cleanup = observeElementOffset(instance, notify);
+      return () => {
+        if (offsetSubscriptionRef.current === subscription) offsetSubscriptionRef.current = null;
+        cleanup?.();
+      };
+    },
+    [],
+  );
   const virtualizer = useVirtualizer({
     count: virtualizedUnits.length,
     getScrollElement,
@@ -884,6 +913,7 @@ function ConversationTimelineImpl({
     overscan: ROW_OVERSCAN,
     getItemKey,
     measureElement,
+    observeElementOffset: observeTimelineOffset,
     // headerSlot（分享导入的只读块）与虚拟列表同处一个滚动容器，
     // 且高度可观。不告知这段偏移，虚拟窗口会按 scrollTop 直接索引 item，
     // 渲染窗口整体偏移一个 header 高度，用户滚到的区域会是空白。
@@ -1204,10 +1234,14 @@ function ConversationTimelineImpl({
     [buildCurrentScrollMemoryState, scrollMemoryKey],
   );
 
-  const notifyScrollObserversAfterCommit = useCallback((element: HTMLDivElement) => {
+  const syncVirtualizerOffsetAfterCommit = useCallback((element: HTMLDivElement) => {
+    const subscription = offsetSubscriptionRef.current;
+    if (subscription?.element !== element) return;
     scheduleMicrotask(() => {
-      if (scrollRef.current !== element) return;
-      element.dispatchEvent(new Event("scroll"));
+      // 无位移的流式/计时刷新曾广播 scroll，误关失败 Tooltip 与选区提问菜单。
+      // 只通知 virtualizer；真实 DOM 滚动继续走原生事件，旧订阅的 commit 不再生效。
+      if (offsetSubscriptionRef.current !== subscription) return;
+      subscription.sync();
     });
   }, []);
 
@@ -1251,12 +1285,12 @@ function ConversationTimelineImpl({
     syncTurnNavigatorViewport(element);
     userAdjustedScrollSinceRestoreRef.current = false;
     cacheCurrentScrollMemoryState(element);
-    notifyScrollObserversAfterCommit(element);
+    syncVirtualizerOffsetAfterCommit(element);
   }, [
     cacheCurrentScrollMemoryState,
     responsiveCenteredEmptyLayout,
     markProgrammaticScroll,
-    notifyScrollObserversAfterCommit,
+    syncVirtualizerOffsetAfterCommit,
     syncTurnNavigatorViewport,
   ]);
 
@@ -1934,9 +1968,9 @@ function ConversationTimelineImpl({
       cacheCurrentScrollMemoryState(element);
       // 一次前插数千行时，measurement cache 与 scrollTop 会在同一 commit
       // 更新，Chromium 可能合并掉原生 scroll 通知，virtualizer 仍按旧 offset 挂载首屏，
-      // 形成“滚动条在底部、正文却空白”。commit 后按最终落点补发只读通知；若同帧存在
-      // 用户 wheel/pointer 意图，handleScroll 仍会优先识别为 user，不夺回滚动权。
-      notifyScrollObserversAfterCommit(element);
+      // 形成“滚动条在底部、正文却空白”。commit 后直接同步虚拟列表的最终 offset，
+      // 不广播会关闭浮层的 DOM scroll，也不改变 handleScroll 的用户意图裁决。
+      syncVirtualizerOffsetAfterCommit(element);
     }
     // 待恢复的离底记忆拥有当前 commit 的坐标系；不能让 prepend 把临时 clamp 值再次
     // 平移。恢复 effect 会在同一 commit 的下一帧按最终内容高度重放原始位置。
