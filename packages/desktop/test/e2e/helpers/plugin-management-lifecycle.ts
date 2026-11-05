@@ -27,6 +27,7 @@ import {
   waitForWorkspaceApp,
 } from "./desktop-app.js";
 import { dismissOccupationOnboarding } from "#e2e/helpers/occupation-onboarding";
+import { resolveE2EStorageRoot } from "./e2e-runtime-paths.js";
 
 export const PLUGIN_LIFECYCLE_MARKETPLACE_ID = "e2e-plugin-lifecycle-market";
 export const PLUGIN_LIFECYCLE_MARKETPLACE_NAME = "E2E Plugin Lifecycle Market";
@@ -178,8 +179,7 @@ export async function corruptLifecycleMarketplaceManifest(
 
 function lifecycleManagedPluginRoot(homeDir: string): string {
   return join(
-    homeDir,
-    ".zcode",
+    resolveE2EStorageRoot(homeDir),
     "cli",
     "plugins",
     "marketplaces",
@@ -236,7 +236,8 @@ export async function seedInlineLifecyclePlugin(): Promise<string> {
     ].join("\n"),
   );
 
-  const configPath = join(homeDir, ".zcode", "cli", "config.json");
+  // Personal 夹具必须写入实际隔离根，否则故障注入或内联配置不会影响被测 CLI。
+  const configPath = join(resolveE2EStorageRoot(homeDir), "cli", "config.json");
   const config = await readJsonRecord(configPath);
   const plugins = isRecord(config.plugins) ? config.plugins : {};
   const enabledPlugins = isRecord(plugins.enabledPlugins) ? plugins.enabledPlugins : {};

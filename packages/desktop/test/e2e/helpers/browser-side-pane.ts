@@ -6,6 +6,8 @@
  * “一个 spec 绿另一个红”的假信号。
  */
 
+import { TID_SIDE_PANE_TOGGLE } from "@zcode/shared/test-ids";
+
 export async function openFirstBrowserTab(): Promise<void> {
   if (await clickOpenTabBrowserItem()) {
     await waitForTabCount(1);
@@ -44,19 +46,10 @@ export async function ensureSidePaneEntryVisible(): Promise<void> {
         ),
       );
       if (visible) return true;
-      // 与产品 ⌥⌘B 共用真实 workspace shortcut，初始收起态与已展开态都兼容。
-      await browser.execute(() => {
-        window.dispatchEvent(
-          new KeyboardEvent("keydown", {
-            key: "b",
-            code: "KeyB",
-            altKey: true,
-            metaKey: true,
-            bubbles: true,
-            cancelable: true,
-          }),
-        );
-      });
+      // 固定的 macOS 快捷键在 Linux/Windows 不生效；点击同一产品按钮并等真实入口出现。
+      await browser.execute((toggleTestId) => {
+        document.querySelector<HTMLButtonElement>(`[data-testid="${toggleTestId}"]`)?.click();
+      }, TID_SIDE_PANE_TOGGLE);
       return false;
     },
     {

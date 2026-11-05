@@ -1,4 +1,4 @@
-import { isAbsolute, relative, sep } from "node:path";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import {
   isAuxiliarySessionKind,
   isReadonlyAgentSessionKind,
@@ -1290,9 +1290,14 @@ async function createSessionWithProjection<T>(
     if (await context.deps.sessionStore?.getSession(sessionId))
       throw new ProtocolRequestError(-32602, "sessionId already exists");
     let result!: T;
-    await getSessionLifecycle(context).initialize(sessionId, async () => {
-      result = await materializeCreatedSession(context, { ...params, sessionId }, trace, project);
-    });
+    await getSessionLifecycle(context).initialize(
+      sessionId,
+      async () => {
+        result = await materializeCreatedSession(context, { ...params, sessionId }, trace, project);
+      },
+      params.workspace,
+      "create",
+    );
     return result;
   } finally {
     claims.delete(sessionId);
@@ -1467,9 +1472,13 @@ export async function activateSessionForResume(
   options: { reusePersistedMessages?: boolean; persistedMessages?: MessageWithParts[] } = {},
 ): Promise<ActivatedSessionForResume> {
   let activated: ActivatedSessionForResume | undefined;
-  await getSessionLifecycle(context).initialize(params.sessionId, async () => {
-    activated = await activateSessionRuntime(context, params, options);
-  });
+  await getSessionLifecycle(context).initialize(
+    params.sessionId,
+    async () => {
+      activated = await activateSessionRuntime(context, params, options);
+    },
+    params.workspace,
+  );
   const record = activated?.record ?? context.sessions.get(params.sessionId);
   if (!record) throw new Error("Session runtime unavailable after initialization");
   return activated ?? { record };
@@ -1597,13 +1606,10 @@ async function repairLegacyRemoteSessionWorkspaceForResume(
   context: ZCodeProtocolAgentServerContext,
   session: SessionInfo,
 ): Promise<SessionInfo> {
-  if (session.workspaceID || !context.deps.sessionStore?.repairLegacyRemoteSessionWorkspace) {
+  const legacyRemote = resolveLegacyRemoteSessionWorkspace(context, session);
+  if (!legacyRemote || !context.deps.sessionStore?.repairLegacyRemoteSessionWorkspace)
     return session;
-  }
   const legacyWorkspaceDirectory = session.path ?? session.directory;
-  if (session.directory !== legacyWorkspaceDirectory) return session;
-  const legacyRemote = resolveLegacyRemoteWorkspace(context, legacyWorkspaceDirectory);
-  if (!legacyRemote) return session;
 
   const repaired = await context.deps.sessionStore.repairLegacyRemoteSessionWorkspace({
     sessionID: session.id,
@@ -1658,6 +1664,17 @@ async function repairLegacyRemoteSessionWorkspaceForResume(
   return refreshed;
 }
 
+/** 预检与原子修复共享精确识别规则；识别本身只读，不能提前改写历史。 */
+function resolveLegacyRemoteSessionWorkspace(
+  context: ZCodeProtocolAgentServerContext,
+  session: SessionInfo,
+) {
+  const directory = session.path ?? session.directory;
+  return !session.workspaceID && session.directory === directory
+    ? resolveLegacyRemoteWorkspace(context, directory)
+    : null;
+}
+
 function resolveLegacyRemoteWorkspace(
   context: ZCodeProtocolAgentServerContext,
   legacyWorkspaceDirectory: string,
@@ -1702,15 +1719,26 @@ async function resolvePersistedDirectorySession(
   let current: SessionInfo | null = session;
   while (current && current.time.deleted === undefined && !visited.has(current.id)) {
     visited.add(current.id);
-    const path = current.path || current.directory;
-    const key = current.workspaceID?.trim() || path;
+    // 旧 WSL 记录先按上游原子修复的同一规则只读解释，避免激活预检挡住可恢复历史。
+    const legacy = resolveLegacyRemoteSessionWorkspace(context, current);
+    const identity = current.workspaceID?.trim() || legacy?.workspaceIdentity;
+    const path = legacy?.workspacePath ?? (current.path || current.directory);
+    const key = identity || path;
+    const samePath =
+      workspace &&
+      (path === workspace.workspacePath ||
+        (isAbsolute(path) &&
+          isAbsolute(workspace.workspacePath) &&
+          resolve(path) === resolve(workspace.workspacePath)));
+    const sameIdentity =
+      key === expectedKey || (!identity && !workspace?.workspaceIdentity?.trim() && samePath);
     // 未协商目录来源的旧 metadata 查询保留同 workspace 的原合同。
     if (
       !resolveOwner &&
       children.length === 0 &&
       workspace &&
-      path === workspace.workspacePath &&
-      key === expectedKey
+      samePath &&
+      sameIdentity
     )
       return current;
     if (isAuxiliarySessionKind(current.taskType)) {
@@ -1719,7 +1747,7 @@ async function resolvePersistedDirectorySession(
       current = (await context.deps.sessionStore?.getSession(current.parentID)) ?? null;
       continue;
     }
-    if (workspace && (path !== workspace.workspacePath || key !== expectedKey)) return null;
+    if (workspace && (!samePath || !sameIdentity)) return null;
     for (const child of children) {
       const childPath = child.path || child.directory;
       const identity = child.workspaceID?.trim();
@@ -1739,6 +1767,38 @@ async function resolvePersistedDirectorySession(
     return current;
   }
   return null;
+}
+
+/** 激活前验证既有会话归属；restart 必须在释放旧实例之前调用。 */
+export async function validateSessionActivationWorkspace(
+  context: ZCodeProtocolAgentServerContext,
+  sessionId: string,
+  workspace?: ZCodeWorkspaceRef,
+): Promise<void> {
+  if (!workspace) return; // 旧协议调用仍由持久记录提供上下文。
+  const active = context.sessions.get(sessionId);
+  if (active) {
+    // key 相同不保证显式 identity 相同；与在途操作一样逐字段校验，避免错误请求关闭原实例。
+    if (
+      active.workspace.workspaceKey !== workspace.workspaceKey ||
+      active.workspace.workspacePath !== workspace.workspacePath ||
+      active.workspace.workspaceIdentity !== workspace.workspaceIdentity ||
+      active.workspace.remoteSessionId !== workspace.remoteSessionId
+    )
+      throw new Error("project.session-lineage-invalid");
+    return;
+  }
+  const session = await getPersistedSession(context, sessionId);
+  if (
+    !session ||
+    !(await resolvePersistedDirectorySession(
+      context,
+      session,
+      workspace,
+      context.sessionDirectorySourceEnabled === true,
+    ))
+  )
+    throw new Error("project.session-lineage-invalid");
 }
 
 export async function listSessions(context: ZCodeProtocolAgentServerContext, rawParams: unknown) {
@@ -2394,11 +2454,15 @@ export async function forkSession(context: ZCodeProtocolAgentServerContext, rawP
 export async function registerForkedSession(
   ...args: Parameters<typeof registerForkedSessionRuntime>
 ) {
-  const [context, , fork] = args;
+  const [context, record, fork] = args;
   let result: Awaited<ReturnType<typeof registerForkedSessionRuntime>> | undefined;
-  await getSessionLifecycle(context).initialize(fork.forkedSessionId, async () => {
-    result = await registerForkedSessionRuntime(...args);
-  });
+  await getSessionLifecycle(context).initialize(
+    fork.forkedSessionId,
+    async () => {
+      result = await registerForkedSessionRuntime(...args);
+    },
+    record.workspace,
+  );
   if (!result) throw new Error("Fork runtime already initialized");
   return result;
 }
