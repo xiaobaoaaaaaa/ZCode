@@ -79,3 +79,9 @@ CLI 投影所有权。用户已授权五平台构建及资产核验通过后正�
 本版从 `v3.17.1-personal.7` 合入官方 `v3.17.2` 公开源码，保留 Personal 适配。
 用户已授权合入并发布；五平台构建、启动检查与服务器资产核验全部通过后正式公开并设为 Latest。
 冲突规则、来源和验收范围见 [合入规格](../specs/upstream-3.17.2-personal-release.md)。
+
+## 3.17.2-personal.2
+
+本版从 `v3.17.2-personal.1` 合入开源 Windows 电脑控制。用户授权推送 personal.2；
+沿用五平台构建、启动检查与草稿资产聚合流程，本次推送不修改自动公开规则。
+功能范围、状态所有者与验收证据见 [实现规格](../desktop/opensource-windows-computer-use.md)。
