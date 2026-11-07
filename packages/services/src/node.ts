@@ -611,16 +611,11 @@ import {
   type CuaPermissionStatusResult,
 } from "#src/cua-permission-broker/index.js";
 import {
-  resolveWindowsCuaRuntime,
   WindowsCuaDevRuntimeResolutionError,
   type WindowsCuaRuntime,
 } from "#src/cua-permission-broker/windowsCuaDevRuntime.js";
 import { createCanonicalCuaHelperInstaller } from "./cua-permission-broker/cuaHelperInstaller.js";
-import { WindowsCuaHelperHost } from "#src/cua-permission-broker/windowsCuaDevHelperHost.js";
-import {
-  getStableCuaPipeName,
-  resolveStableCuaWinRecipe,
-} from "#src/cua-permission-broker/stableCuaTransport.js";
+import { getStableCuaPipeName } from "#src/cua-permission-broker/stableCuaTransport.js";
 import { HELPER_APP_NAME } from "@zcode/zcode-cua/broker/helperConstants";
 import { resolveBrokerSocketPath } from "@zcode/zcode-cua/broker/socketPath";
 import {
@@ -1099,27 +1094,8 @@ export function createDefaultCuaProductHelper(
       });
     host = macPermissionHost;
   } else {
-    host = createWindowsCuaHelperHost({
-      resolveRuntime:
-        options.resolveWindowsRuntime ??
-        (() =>
-          resolveWindowsCuaRuntime({
-            platform,
-            env,
-            resourcesPath: options.resourcesPath,
-            arch: options.arch,
-            electronVersion: options.electronVersion,
-          })),
-      createHost:
-        options.createWindowsHost ??
-        ((runtime) =>
-          new WindowsCuaHelperHost({
-            runtime,
-            logger,
-            mintSocketPath: () => getStableCuaPipeName(),
-          })),
-      logger,
-    });
+    // 开源包没有私有 Windows runtime recipe；复用公开 Host 契约，按需启动系统 UIA 后端。
+    host = createProductCuaHelperHost({ platform, env, logger });
   }
   const resolver = createCuaProductMcpServerResolver(host, {
     hasActiveTurn: options.hasActiveTurn,
@@ -2414,16 +2390,17 @@ export function createLocalServices(options: {
           [ZCODE_CUA_PLUGIN_AUTHORITY_ENV_KEY]: randomBytes(16).toString("hex"),
         };
         if (process.platform === "win32") {
-          const recipe = await resolveStableCuaWinRecipe();
-          if (recipe) {
-            cuaProductHelperEnv["ZCODE_CUA_WIN_HELPER_RECIPE"] = JSON.stringify({
-              ...recipe,
-              hostPid: process.pid,
-            });
+          const helper = await getOrCreateDefaultCuaProductHelper(context);
+          if (helper) {
+            const transport = await helper.host.start();
+            cuaProductHelperEnv = {
+              [BROKER_SOCKET_ENV]: transport.socketPath,
+              [ZCODE_CUA_PLUGIN_AUTHORITY_ENV_KEY]: transport.pluginAuthority,
+            };
           } else {
             cuaProductHelperEnv = {
               [BROKER_UNAVAILABLE_ENV]:
-                "broker_unavailable: windows helper recipe could not be resolved",
+                "broker_unavailable: Windows control requires a local desktop Host",
             };
           }
         }

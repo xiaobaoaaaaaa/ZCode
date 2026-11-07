@@ -2,6 +2,13 @@ version: 1
 
 # 存量模块先标记为 legacy；新模块或完成迁移的模块设置 managed: true。
 modules:
+  - id: cua-windows-open
+    roots: [packages/zcode-cua/windows]
+    managed: true
+    requires: [zcode-cli]
+    publicEntrypoints: [packages/zcode-cua/windows/index.js, packages/zcode-cua/windows/contract.ts]
+    layers: {adapters: "."}
+    owner: computer-use
   - id: rpc
     roots: [packages/rpc/src]
     managed: false

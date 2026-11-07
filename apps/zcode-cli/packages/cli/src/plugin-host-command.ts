@@ -6,6 +6,7 @@ import {
   getCapturedZCodeCuaBrokerCredentials,
   ZCODE_CUA_BROKER_SOCKET_ENV_KEY,
   ZCODE_CUA_NODE_REPL_HOST_ENV_KEY,
+  ZCODE_CUA_PLUGIN_AUTHORITY_ENV_KEY,
 } from "@zcode/shared/runtime-env";
 import { ZCODE_CUA_OFFICIAL_PLUGIN_ID, ZCODE_PLUGIN_ID_ENV_KEY } from "@zcode/shared/mcp";
 import type { RunContext } from "@zcode/shared-types";
@@ -53,16 +54,24 @@ export async function runPluginHostCommand(ctx: RunContext, argv: string[]): Pro
 
     const originalArgv = process.argv;
     const originalBrokerSocket = process.env[ZCODE_CUA_BROKER_SOCKET_ENV_KEY];
+    const originalBrokerAuthority = process.env[ZCODE_CUA_PLUGIN_AUTHORITY_ENV_KEY];
     // shared node_repl 把同一凭据组恢复到环境，由 broker bridge 读取；旧的独立 CUA
     // MCP 不再拥有执行入口。
     process.argv = [process.execPath, serverPath, ...serverArgs];
     if (capturedBrokerCredentials.socket && process.env[ZCODE_CUA_NODE_REPL_HOST_ENV_KEY] === "1") {
       process.env[ZCODE_CUA_BROKER_SOCKET_ENV_KEY] = capturedBrokerCredentials.socket;
+      // Windows 开源 broker 使用 Host 铸造的 authority 鉴权；socket 和 authority 必须成对恢复。
+      process.env[ZCODE_CUA_PLUGIN_AUTHORITY_ENV_KEY] = capturedBrokerCredentials.pluginAuthority;
     }
     try {
       await module.main();
     } finally {
       process.argv = originalArgv;
+      if (originalBrokerAuthority === undefined) {
+        delete process.env[ZCODE_CUA_PLUGIN_AUTHORITY_ENV_KEY];
+      } else {
+        process.env[ZCODE_CUA_PLUGIN_AUTHORITY_ENV_KEY] = originalBrokerAuthority;
+      }
       if (originalBrokerSocket === undefined) {
         delete process.env[ZCODE_CUA_BROKER_SOCKET_ENV_KEY];
       } else {

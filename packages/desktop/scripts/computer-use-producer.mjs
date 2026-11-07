@@ -5,7 +5,7 @@ import { dirname, resolve } from "node:path";
  * 判定当前安装的 `@zcode/zcode-cua` 是闭源真实 producer 还是开源占位包。
  *
  * 闭源构建使用 workspace 内 `packages/zcode-cua` 的真实 producer；开源导出把该目录整体换成占位包，
- * 占位包在 package.json 声明 `zcodeCuaPlaceholder: true`，所有能力 fail-closed。
+ * `zcodeCuaPlaceholder: true` 表示不提供私有原生产物；开源 Windows 后端随 JS bundle 分发。
  * 开发、构建与打包里只服务于真实 Computer Use 的步骤（构建 Helper、暂存插件原生依赖、
  * Windows Helper 资源、打包后的 Helper 校验）都以本判定为门，检测不到真实 producer 时跳过，
  * 不能因为缺少私有产物让开源树的入口失败。规范见 docs/desktop/computer-use-producer-detection.md。

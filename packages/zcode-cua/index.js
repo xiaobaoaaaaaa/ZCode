@@ -1,6 +1,9 @@
-const UNAVAILABLE_TEXT = "Computer Use is not available in this build.";
+import { createBrokerRuntime } from "./windows/index.js";
+const UNAVAILABLE_TEXT =
+  "Computer Use requires the Windows desktop app and an enabled Computer Use plugin.";
 
-export function createComputerUseRuntime(_options) {
+export function createComputerUseRuntime(options) {
+  if (options?.brokerSocketPath) return createBrokerRuntime(options);
   return {
     async execute() {
       return {

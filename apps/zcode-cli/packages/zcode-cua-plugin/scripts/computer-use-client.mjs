@@ -74,6 +74,11 @@ const MUTATING_METHODS = new Set([
 
 /** broker 错误码 → SDK 错误码。未知码归 INTERNAL，绝不静默成功。 */
 const ERROR_CODE_BY_BROKER = Object.freeze({
+  STALE_STATE: "STALE_STATE",
+  CONTROL_STOPPED: "CONTROL_STOPPED",
+  SCREEN_LOCKED: "SCREEN_LOCKED",
+  APP_NOT_FOUND: "APP_NOT_FOUND",
+  AMBIGUOUS_APP: "AMBIGUOUS_APP",
   permission_denied: "PERMISSION_DENIED",
   not_authorized: "NOT_AUTHORIZED",
   launch_failed: "LAUNCH_FAILED",

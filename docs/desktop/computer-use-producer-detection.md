@@ -3,7 +3,9 @@
 ## 规则
 
 Computer Use 的真实实现来自 workspace 包 `@zcode/zcode-cua`（producer）。开源导出用 `packages/zcode-cua`
-占位包替换它，占位包在 `package.json` 声明 `zcodeCuaPlaceholder: true`，所有能力 fail-closed。
+兼容包替换它，清单保留 `zcodeCuaPlaceholder: true`，表示没有私有原生 Helper 产物。
+开源 Windows 后端由系统 UIA 实现并内联进入正常 bundle，不依赖下表的私有构建步骤；
+macOS/Linux 和私有 Helper/PiP 接口仍不可用。规则见 [开源 Windows 电脑控制](opensource-windows-computer-use.md)。
 
 占位包保留公共 `build` 和 `tsconfig.json` 入口，构建只检查随包类型声明。
 日志回调的 traceId 与参数类型和真实 producer 一致，使公共调用方无需按发行版本分支。

@@ -4,34 +4,42 @@ export const OFFICIAL_CUA_FRAME_MODEL_CONTENT_PROTECTION = "official_cua_frame_v
 
 export const OFFICIAL_CUA_IMAGE_INLINE_BASE64_BYTES = 200 * 1024;
 
-export function isOfficialCuaImageRefText(_text) {
-  return false;
+export function isOfficialCuaImageRefText(text) {
+  return parseFrame(text) !== undefined;
 }
 
-export function containsOfficialCuaImageRefCredentialText(_text) {
-  return false;
+export function containsOfficialCuaImageRefCredentialText(text) {
+  return isOfficialCuaImageRefText(text);
 }
 
-export function containsImageRefAuthority(_text) {
-  return false;
+export function containsImageRefAuthority(text) {
+  return isOfficialCuaImageRefText(text);
 }
 
-export function parseOfficialCuaImageRef(_text) {
-  return undefined;
+export function parseOfficialCuaImageRef(text) {
+  const ref = parseFrame(text);
+  return ref ? { ...ref, authority: ref.frame_id } : undefined;
 }
 
-export function readRasterEnvelopeIdentity(_input) {
-  return undefined;
+export function readRasterEnvelopeIdentity(input) {
+  return rasterIdentity(input);
 }
 
 export async function preserveOfficialCuaFrameResult(result) {
-  return result;
+  return preserveFrame(result);
 }
 
-export function attestOfficialCuaFrameContent(_content, _expectedKind) {
-  return undefined;
+export function attestOfficialCuaFrameContent(content, expectedKind) {
+  return attestFrame(content, expectedKind);
 }
 
-export function findOfficialCuaFrameContentPair(_content) {
-  return undefined;
+export function findOfficialCuaFrameContentPair(content) {
+  return framePair(content);
 }
+import {
+  parseFrame,
+  framePair,
+  rasterIdentity,
+  attestFrame,
+  preserveFrame,
+} from "./windows/index.js";

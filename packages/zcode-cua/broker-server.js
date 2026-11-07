@@ -1,5 +1,6 @@
 import { CuaHelperError } from "./broker.js";
 import { HELPER_APP_NAME } from "./broker-helper-constants.js";
+import { createWindowsHost } from "./windows/index.js";
 
 export const HELPER_ADDON_ENV = "ZCODE_CUA_HELPER_ADDON";
 export const WINDOWS_DEV_CONTROL_PROTOCOL = "zcode-cua-windows-dev/v1";
@@ -74,9 +75,12 @@ export class CuaHelperLifecycleManager {
     this.#current = undefined;
   }
   async acquire(options) {
+    if (this.#disposed) return undefined;
     if (typeof options?.isAdmitted === "function" && !options.isAdmitted()) {
       return undefined;
     }
+    // 开源占位曾每次覆盖当前 Host，导致跨 workspace 重建 pipe、遗失旧 owner。
+    if (this.#current && options?.shouldRetainCurrent?.(this.#current)) return this.#current;
     const managed = options?.create?.();
     this.#current = managed;
     return managed;
@@ -88,6 +92,7 @@ export class CuaHelperLifecycleManager {
     return this.#disposed;
   }
   async dispose(managed) {
+    if (this.#disposed) return;
     this.#disposed = true;
     await this.#dispose?.(managed ?? this.#current);
   }
@@ -97,7 +102,8 @@ export class CuaProductHelperWorkspaceRegistry {
   setEnabled(_context, _enabled) {}
 }
 
-export function createProductCuaHelperHost(_options) {
+export function createProductCuaHelperHost(options = {}) {
+  if ((options.platform ?? process.platform) === "win32") return createWindowsHost(options);
   return createUnavailableCuaHelperHost();
 }
 

@@ -42,6 +42,7 @@ export async function main() {
     socketVisibleAtImport,
     socketVisibleAtMain: process.env.ZCODE_CUA_PERMISSION_BROKER_SOCKET !== undefined,
     tokenVisibleAtMain: process.env.ZCODE_CUA_PERMISSION_BROKER_TOKEN !== undefined,
+    authorityVisibleAtMain: process.env.ZCODE_CUA_PLUGIN_AUTHORITY !== undefined,
   }));
 }`,
       );
@@ -87,6 +88,7 @@ export async function main() {
         socketVisibleAtImport: false,
         socketVisibleAtMain: false,
         tokenVisibleAtMain: false,
+        authorityVisibleAtMain: false,
       });
 
       const brokerSocket = join(directory, "broker.sock");
@@ -116,6 +118,7 @@ export async function main() {
         socketVisibleAtMain: true,
         // token 已从凭据组删除，宿主不再恢复它。
         tokenVisibleAtMain: false,
+        authorityVisibleAtMain: true,
       });
 
       // 非 node_repl 宿主必须在插件 import 前被拒绝，不能因入口提前分流绕过产品鉴权。

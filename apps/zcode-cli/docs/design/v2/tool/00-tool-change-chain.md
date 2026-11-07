@@ -2182,3 +2182,10 @@ stdio stderr → adapter 有界缓冲与脱敏 → 已有 `McpServerStatus.error
 界面处理建议只按已有 `failureKind` 国际化，不按错误文本分流；`tools/call`、工具结果、
 权限、重试和错误分类不变。展示契约见根 `docs/settings-mcp-list.md`，CLI 回归在
 `packages/adapters/tests/mcp.test.ts`，App 使用候选 E2E，不恢复业务单测。
+
+# 开源 Windows Computer Use（2026-11-07）
+
+沿用官方 computer-use skill → node_repl ledger → CUA bridge → runtime → Host broker，新增 Windows UIA adapter 替换不可用占位。
+schema/权限/取消/会话隔离由 broker 再校验；输入串行、stop 终态、错误携带 action_sent，不重放输入。
+结果沿用 MCP content、structuredContent 和应用身份元数据进入模型及 UI/V4，不新增 App 协议。
+完整规则见根目录 `docs/desktop/opensource-windows-computer-use.md`。

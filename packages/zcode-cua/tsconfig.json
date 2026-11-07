@@ -6,5 +6,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["*.d.ts"]
+  "include": ["*.d.ts", "windows/*.ts"]
 }
