@@ -114,3 +114,5 @@ flowchart LR
   A --> G
   G --> P[发布者核验服务器资产后公开]
 ```
+
+Android CI 显式通过固定提交的 setup-java/setup-android 准备 JDK21 与 SDK，再安装 platform36.1/build-tools36.1.0，不依赖 runner 默认 PATH 中存在 sdkmanager。

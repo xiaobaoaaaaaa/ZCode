@@ -110,7 +110,8 @@ class RemoteControlAppTest {
                         android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytes() }
                     }
                     waitFor("return from picker") {
-                        automation.rootInActiveWindow?.packageName?.toString() == "com.example.zcode_mobile"
+                        // 正式与调试 applicationId 分离后，返回目标以实际测试包为准，不能硬编码源码 namespace。
+                        automation.rootInActiveWindow?.packageName?.toString() == InstrumentationRegistry.getInstrumentation().targetContext.packageName
                     }
                 }
                 assertEquals("ready", js(scenario, "document.body.dataset.state"))
