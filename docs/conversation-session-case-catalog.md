@@ -5657,3 +5657,14 @@ ensureReady/restart 必须拒绝，原实例不关闭且 generation 不变；正
 以隔离目录的真实 settingService 保存、重建服务读取验证。范围不包含远控配对/重连。
 
 EA-PHASE-01：三次工具运行/结束交替不折叠，同 key 保持；正文边界关闭旧组，下一工具阶段只展开新组；手动打开旧组/关闭新组跨阶段优先，完成后重挂载默认收起。
+
+## 待引导撤回（2026-11-08）
+
+用户确认：撤回成功放回发起端输入框；已有草稿时阻止撤回。规格：`docs/ui/pending-guide-withdraw.md`。
+
+| Case | Setup / Action | Assertions / Evidence |
+| --- | --- | --- |
+| GW01 | active turn 等待模型响应，提交 guide，空 Composer 点击撤回 | 待引导消失、原文恢复；同一 session 的原请求继续 pending、空草稿时 Stop 仍可用；queue 与请求中均无撤回输入；Electron + CLI/网络 |
+| GW02 | 同 GW01，但输入框另有草稿，点击撤回后清空再撤回 | 首次不发删除、消息与草稿保留；第二次恢复原文；Electron + 权威 snapshot |
+| GW03 | 人为暂停撤回落库、guide 消费落库或旧投影读取，并同时发起另一动作 | 撤回先赢则 guide 不写上下文；消费先赢或读取期间 turn 切换则撤回 false/noop、不取消 session_input；写库失败解锁保留输入、不误删邻项；CLI 可控 Promise 回归 |
+| GW04 | 目标已消费、两端操作或 ACK 前切换绑定 | 不恢复旧消息、不串写新 Composer；沿用 queue edit 的 ACK/绑定保护，shared owner；定向代码检查，跨端实跑待补 |

@@ -60,7 +60,7 @@ restore request 必须幂等。目标已被消费或被另一端删除时，`del
 
 `compact` 队列项只显示 `/compact` 命令文本，不在文本前增加维护命令图标。它继续通过“立即执行”按钮和不可编辑行为与普通消息区分。
 
-`guide` 是对 active turn 的引导语义，不作为普通 queue item 提供编辑、删除或立即发送。Stop 只停止当前执行；queue 是否 held/续跑由 CLI projection 明确表达。Goal 暂停、恢复和 queue drain 也由 CLI reducer/handler 统一裁决。
+`guide` 是对 active turn 的引导语义，不在普通 queue 面板提供操作；尚未消费时在待引导消息旁提供“撤回”，成功后恢复到发起端 Composer，规则见 [待引导撤回](./pending-guide-withdraw.md)。已进入消费边界的 guide 不可撤回，不提供立即发送。Stop 只停止当前执行；queue 是否 held/续跑由 CLI projection 明确表达。Goal 暂停、恢复和 queue drain 也由 CLI reducer/handler 统一裁决。
 
 ## 当前入口
 

@@ -155,10 +155,22 @@ Drain 只允许发生在 tool calling loop 的安全边界：
 1. 初始 user input 已经进入 history 后，不能在第一次 model request 之前 drain pending input。
 2. 每次模型返回 tool calls 后，必须先把 assistant tool calls 加进 history。
 3. 必须执行并注入所有对应 tool results。
-4. 在下一次 model request 构造 messages 前 drain pending input。同一边界按 admission FIFO 一次取出全部已等待的 guide（遇到 send-now 已预留的 guide 停下）。每条 guide 的 user message 与 session input promote 提交后，立即写入它自己的 `turn_steer_drained`：记录、移出队列与显示都按条完成，组装请求时才合并。提交成功后 guide 才进入本轮历史。中途某条提交失败时，本轮以错误结束；前面已提交的 guide 已完整显示，失败的与之后的 guide 仍留在队列里，也不进入之后的请求。下一次请求归因到最后一条的 query；最后一条带意图的 guide 决定模型选择、权限模式与 Plan 意图（工具结果追加的 guide 没有意图，不参与）；工具隐藏列表取并集。取出开始后不再中途检查停止：停止在逐条提交期间到达时，本批其余 guide 仍按条提交，显示在本轮，不退回队列；停止在本批提交完之后生效，本轮不再请求模型，以停止结束并留中断标记。下一轮请求照常：工具结果之后依次是这些 guide、中断标记与新输入，没有悬空的 tool call。
+4. 在下一次 model request 构造 messages 前 drain pending input。同一边界按 admission FIFO 一次取出全部已等待的 guide（遇到 send-now 或撤回已预留的 guide 停下）。每条 guide 的 user message 与 session input promote 提交后，立即写入它自己的 `turn_steer_drained`：记录、移出队列与显示都按条完成，组装请求时才合并。提交成功后 guide 才进入本轮历史。中途某条提交失败时，本轮以错误结束；前面已提交的 guide 已完整显示，失败的与之后的 guide 仍留在队列里，也不进入之后的请求。下一次请求归因到最后一条的 query；最后一条带意图的 guide 决定模型选择、权限模式与 Plan 意图（工具结果追加的 guide 没有意图，不参与）；工具隐藏列表取并集。取出开始后不再中途检查停止：停止在逐条提交期间到达时，本批其余 guide 仍按条提交，显示在本轮，不退回队列；停止在本批提交完之后生效，本轮不再请求模型，以停止结束并留中断标记。下一轮请求照常：工具结果之后依次是这些 guide、中断标记与新输入，没有悬空的 tool call。
 5. 如果模型已经给出 no-tool final response，但 pending input 已存在，则本 turn 不结束，先记录 assistant response，再 drain pending input，继续下一次 model request。
 
 这个顺序保证 provider 永远不会看到 dangling tool call，也不会看到 user message 插入 assistant tool call 与 tool result 之间。
+
+### 待引导撤回（2026-11-08）
+
+交互与事件顺序见根 `docs/ui/pending-guide-withdraw.md`。复用 `deleteQueueItem` →
+`removePendingInputById`，runtime 仍是唯一 owner。撤回在第一次 await 前临时占用原有
+`pendingInputReservations`；取消状态写库成功后按稳定 ID 删除 pending input，发布
+`TurnSteerDiscarded(user_removed)`，ACK 成功后发起端恢复草稿。失败释放自己取得的占用。
+
+Drain 从 pendingInputs 同步取出是不可撤回边界；旧事件投影不能把已开始消费的输入
+当成 held queue。读取投影前后的 active turn 身份都要参与校验，避免异步读取期间
+turn 结束或切换导致误取消。回归覆盖撤回/消费两种胜者、重复撤回、写库失败、
+读取旧投影时切轮及 await 期间前序输入被消费；不得误删邻项或改变当前模型请求。
 
 后台通知和子 agent 回信（runtime command 队列的 `task-notification` / `subagent-message`）只在带新输入的请求前取出：完整工具批次之后，或文本回复后续上 guide 时，与输入附件同一时机。Stop hook 续跑、流重试、模型降级、Start Plan 排队重试、上下文超限恢复、闲时换票、输出上限续写都重发同一份输入，不取队列；通知留在队列里，本轮结束后开新一轮。轮次已停止时不再取出任何挂起输入：工具批次结算后或文本回复之后、开始取出之前发现已停止，直接结束本轮，挂起的 guide 退回队列（`guide.turnInterrupted`），通知留在队列里。
 

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type {
   AttachmentRef,
   CommandAck,
@@ -37,7 +38,7 @@ interface ConversationTurnRowProps {
   assistantCodeCommentCards?: AssistantCodeCommentCard[];
   assistantCodeCommentProjectionEnabled?: boolean;
   reasoningContentVariant?: "default" | "nested";
-  userInputStatus?: string;
+  userInputStatus?: ReactNode;
 }
 
 export function ConversationTurnRow({

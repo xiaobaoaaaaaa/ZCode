@@ -7,6 +7,7 @@ import { ConnectedBotGroupDeliveryAction } from "@/v4/BotGroupDeliveryAction.js"
 import { useIsOfficeMode } from "@/hooks/useInterfaceMode.js";
 import {
   type ComponentProps,
+  type ReactNode,
   memo,
   useCallback,
   useEffect,
@@ -270,7 +271,7 @@ export interface ConversationRowViewProps {
   /** 嵌套在工具 Group 内时去掉 Reasoning 内容的重复左导线与缩进。 */
   reasoningContentVariant?: "default" | "nested";
   /** renderer-only 提交状态；不写入协议 row，也不冒充已 drain 的历史事实。 */
-  userInputStatus?: string;
+  userInputStatus?: ReactNode;
   /**
    * 一轮对用户是一个回复：非最后一段 text 不显示任何
    * action（复制/fork 都没有），入口只在轮尾段。
@@ -938,7 +939,7 @@ const SingleUserInputRowView = memo(function SingleUserInputRowView({
   context: ConversationRowRenderContext;
   onEdit?: UserInputEditHandler;
   editWorkspaceRewindAvailability?: EditWorkspaceRewindAvailability;
-  status?: string;
+  status?: ReactNode;
 }) {
   const { intl } = useZCodeIntl();
   // 引擎尾注折叠：正文只到 epilogueStart，

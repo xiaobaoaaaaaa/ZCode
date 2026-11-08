@@ -6179,6 +6179,10 @@ export function SessionPane({
                   selectionPanelLayoutContainerRef={conversationLayoutContainerRef}
                   rows={timelineSnapshot?.rows.window ?? []}
                   pendingGuides={timelineSnapshot ? pendingGuideProjection?.pendingGuides : []}
+                  onWithdrawPendingGuide={!readOnly && sessionId ? handleEditQueueItem : undefined}
+                  withdrawingGuideItemId={
+                    queueEditActiveForCurrentComposer ? queueEditOperation.queueItemId : null
+                  }
                   apiRetry={timelineSnapshot?.control.apiRetry ?? null}
                   totalCount={timelineSnapshot?.rows.totalCount ?? 0}
                   sessionKey={sessionId ?? "draft"}

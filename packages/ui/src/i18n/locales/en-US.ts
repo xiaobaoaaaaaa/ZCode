@@ -6007,8 +6007,8 @@ const enUS: Record<string, string> = {
   "chat.queue.runNow": "Run now",
   "chat.queue.edit": "Edit",
   "chat.queue.editDraftConflict":
-    "Send or clear the current draft before editing a queued message.",
-  "chat.queue.editRestoreFailed": "Couldn't return the queued message to the composer. Try again.",
+    "Send or clear the current draft before withdrawing a message.",
+  "chat.queue.editRestoreFailed": "Couldn't withdraw the message to the composer. It may already be in use. Try again.",
   "chat.queue.remove": "Remove queued message",
   "chat.queue.turnSteer.steering": "Steering conversation",
   "chat.queue.paused.stopped": "The queue was paused because you stopped the current response",
@@ -6022,6 +6022,7 @@ const enUS: Record<string, string> = {
   "chat.queue.sendConfirm.clear": "Clear queue",
   "chat.queue.sendConfirm.keep": "Send message",
   "chat.message.turnSteer.guided": "Conversation steered",
+  "chat.message.turnSteer.withdraw": "Withdraw",
   "chat.message.turnSteer.pending": "Waiting to steer the current run…",
   "chat.followup.guideCurrent": "Steer current run",
   "chat.followup.sendNow": "Send now",

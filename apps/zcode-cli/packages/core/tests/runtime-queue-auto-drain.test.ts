@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   completeExternalQueueDrain,
   drainPendingInput,
+  removePendingInputById,
+  discardHeldPendingInputById,
   hasInlineGuidePendingInput,
 } from "../src/runtime/methods/steering.js";
 
@@ -99,5 +101,139 @@ describe("guide 行内 drain 的外层 FIFO 门", () => {
         payload: expect.objectContaining({ pendingInputIds: ["current-guide"] }),
       }),
     ]);
+  });
+});
+
+describe("待引导撤回与上下文消费互斥 GW03", () => {
+  function setup() {
+    const guide = {
+      id: "guide",
+      input: "withdraw this guide",
+      queuedAt: new Date(0),
+      delivery: "guide",
+      turnId: "turn-current",
+    };
+    const future = { ...guide, id: "future", input: "future work", delivery: "queue" };
+    const traceContext = { traceId: "trace-withdraw" } as never;
+    const activeTurn = { pendingInputs: [guide, future], turnId: "turn-current", traceContext };
+    const runtime = {
+      activeTurn,
+      pendingInputReservations: new Map<string, string>(),
+      sessionStore: { settleSessionInput: vi.fn(async (_input: unknown) => undefined) },
+      rebuildProjection: vi.fn(async () => ({
+        pendingSteerInputs: [{ pendingInputId: guide.id, targetTurnId: activeTurn.turnId }],
+      })),
+      appendEvent: vi.fn(async (_event: unknown) => undefined),
+      createEvent: vi.fn((_type, payload) => ({ payload })),
+      messageHistory: { addEntries: vi.fn() },
+      persistUserPrompt: vi.fn(async () => undefined),
+      sessionId: "session-withdraw",
+      workingDirectory: "/workspace",
+      discardHeldPendingInputById(
+        id: string,
+        trace: unknown,
+        reservationId?: string,
+        reason?: "user_removed" | "promoted",
+      ) {
+        return discardHeldPendingInputById.call(
+          runtime as never,
+          id,
+          trace as never,
+          reservationId,
+          reason,
+        );
+      },
+    };
+    const remove = () =>
+      removePendingInputById.call(runtime as never, {
+        pendingInputId: guide.id,
+        reason: "user_removed",
+        traceContext,
+      });
+    const drain = () =>
+      drainPendingInput.call(runtime as never, {
+        activeTurn: activeTurn as never,
+        events: [],
+        traceContext,
+      });
+    return { runtime, guide, future, remove, drain };
+  }
+
+  it("撤回落库期间不能被 drain 或第二次撤回取走", async () => {
+    const { runtime, guide, future, remove, drain } = setup();
+    const write = Promise.withResolvers<void>();
+    runtime.sessionStore.settleSessionInput.mockImplementationOnce(() => write.promise);
+    const deleting = remove();
+    await expect(drain()).resolves.toBeUndefined();
+    await expect(remove()).resolves.toBe(false);
+    write.resolve();
+    await expect(deleting).resolves.toBe(true);
+    expect(runtime.activeTurn.pendingInputs).toEqual([future]);
+    expect(runtime.persistUserPrompt).not.toHaveBeenCalled();
+    expect(runtime.messageHistory.addEntries).not.toHaveBeenCalled();
+    expect(runtime.sessionStore.settleSessionInput).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ id: guide.id, status: "cancelled" }),
+    );
+    expect(runtime.pendingInputReservations.size).toBe(0);
+  });
+
+  it("消费已取出但 drained 投影尚未发布时不能按 held 项撤回", async () => {
+    const { runtime, remove, drain } = setup();
+    const entered = Promise.withResolvers<void>();
+    const write = Promise.withResolvers<void>();
+    runtime.persistUserPrompt.mockImplementationOnce(async () => {
+      entered.resolve();
+      await write.promise;
+    });
+    const consuming = drain();
+    await entered.promise;
+    await expect(remove()).resolves.toBe(false);
+    expect(runtime.sessionStore.settleSessionInput).not.toHaveBeenCalled();
+    write.resolve();
+    await consuming;
+    expect(runtime.messageHistory.addEntries).toHaveBeenCalledOnce();
+    expect(runtime.pendingInputReservations.size).toBe(0);
+  });
+
+  it("撤回写库失败时保留输入并解除占用，允许随后正常消费", async () => {
+    const { runtime, guide, remove, drain } = setup();
+    runtime.sessionStore.settleSessionInput.mockRejectedValueOnce(new Error("write failed"));
+    await expect(remove()).rejects.toThrow("write failed");
+    expect(runtime.activeTurn.pendingInputs[0]).toBe(guide);
+    expect(runtime.appendEvent).not.toHaveBeenCalled();
+    expect(runtime.pendingInputReservations.size).toBe(0);
+    await drain();
+    expect(runtime.messageHistory.addEntries).toHaveBeenCalledOnce();
+  });
+
+  it("读取旧投影期间 turn 已切换，也不能把刚消费的 guide 当成 held 撤回", async () => {
+    const { runtime, guide, remove, drain } = setup();
+    await drain();
+    const projection = Promise.withResolvers<{
+      pendingSteerInputs: Array<{ pendingInputId: string; targetTurnId: string }>;
+    }>();
+    runtime.rebuildProjection.mockImplementationOnce(() => projection.promise);
+    const deleting = remove();
+    runtime.activeTurn = { ...runtime.activeTurn, turnId: "turn-next", pendingInputs: [] };
+    projection.resolve({
+      pendingSteerInputs: [{ pendingInputId: guide.id, targetTurnId: "turn-current" }],
+    });
+    await expect(deleting).resolves.toBe(false);
+    expect(runtime.sessionStore.settleSessionInput).not.toHaveBeenCalled();
+    expect(runtime.pendingInputReservations.size).toBe(0);
+  });
+
+  it("撤回 await 期间前面的 guide 被消费，不得按旧 index 删除 future 邻项", async () => {
+    const { runtime, guide, future, remove, drain } = setup();
+    runtime.activeTurn.pendingInputs.unshift({ ...guide, id: "earlier", input: "earlier guide" });
+    const write = Promise.withResolvers<void>();
+    runtime.sessionStore.settleSessionInput.mockImplementationOnce(() => write.promise);
+    const deleting = remove();
+    await drain();
+    write.resolve();
+    await expect(deleting).resolves.toBe(true);
+    expect(runtime.activeTurn.pendingInputs).toEqual([future]);
+    expect(runtime.persistUserPrompt).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(runtime.messageHistory.addEntries.mock.calls)).not.toContain(guide.input);
   });
 });

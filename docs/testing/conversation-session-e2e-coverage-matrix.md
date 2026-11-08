@@ -6193,3 +6193,18 @@ CLI 定向回归已通过：V4 两种投递模式的并发 workspace 隔离、�
 EA-PHASE-01：同一 execution-history 入口新增 main/background/timeline × desktop/mobile 阶段稳定性场景；测试连续工具间隙、正文边界、下一过程组、手动优先和历史重挂载。保持 partial，未替代 Electron 或真实远控端到端验证。
 
 2026-11-08 personal.4：阶段修复后的完整浏览器回归38/38通过；补强为连续追加不同toolCallId后，EA-AUTO-01/EA-PHASE-01共12/12通过。类型与架构检查通过，Lint 0错误、84条已有警告。
+
+## 待引导撤回（GW，2026-11-08）
+
+| Case | Evidence plan | Status |
+| --- | --- | --- |
+| GW01/GW02 | `conversation-session/manual-review/pending/conversation-session-guide-withdraw.test.ts`，受控流 + UI + queue + 请求记录 | covered，本地 Linux Electron；仍为 pending，未提升 CI |
+| GW03 | CLI `runtime-queue-auto-drain.test.ts`，两种竞态、双撤回、落库失败、投影读取时切轮及邻项保护 | covered，联合 `runtime-tool-loop.test.ts` 183 项通过 |
+| GW04 | 复用 SessionPane queue edit 的绑定/ACK 门禁；桌面 continuous 与手机 replayable 共用 deleteQueueItem | 实现检查，跨端运行未验证 |
+
+2026-11-08 本地回放 `desktop-e2e-20261108-151141-173`：1 spec / 1 test 通过，无 skipped。
+补充异步投影读取的切轮保护后重建 CLI，最终回放 `desktop-e2e-20261108-151343-600`
+再次 1/1 通过；bootstrap queue/commands 112 项通过。
+首次启动因 ChromeDriver 下载版本与启动路径不一致失败，以现有 `CHROMEDRIVER_PATH`
+指定可用驱动解决。首轮用例断言曾把“恢复草稿后 Stop 改为发送键”误当作 idle；改为核对
+同一请求仍 pending、清空草稿时 Stop 仍存在，再以 Escape 验证停止不清空草稿。未修改产品行为。

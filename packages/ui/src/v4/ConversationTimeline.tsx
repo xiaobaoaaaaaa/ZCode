@@ -276,6 +276,8 @@ export interface ConversationTimelineProps {
   compactForRemoteControl?: boolean;
   /** CLI 权威 queue 中等待 model-step 注入的 guide；只改变 renderer 落位。 */
   pendingGuides?: readonly QueueItem[];
+  onWithdrawPendingGuide?: (queueItemId: string) => Promise<void>;
+  withdrawingGuideItemId?: string | null;
   /** runtime memory 状态，只交给当前 live turn，不进入历史虚拟列表。 */
   apiRetry?: ApiRetryState | null;
   /** 投影全序行数（rows.totalCount；窗口截断后大于 rows.length，仅用于滚动条估计/诊断）。 */
@@ -385,6 +387,8 @@ function ConversationTimelineImpl({
   rows,
   compactForRemoteControl = false,
   pendingGuides = EMPTY_PENDING_GUIDES,
+  onWithdrawPendingGuide,
+  withdrawingGuideItemId = null,
   apiRetry = null,
   totalCount,
   sessionKey,
@@ -2283,6 +2287,8 @@ function ConversationTimelineImpl({
                   <ConversationPendingGuideList
                     context={rowContext}
                     items={pendingGuides}
+                    onWithdraw={onWithdrawPendingGuide}
+                    withdrawingItemId={withdrawingGuideItemId}
                     turnId={
                       liveUnit?.turnId ??
                       rows.at(-1)?.productTurnId ??

@@ -1168,6 +1168,7 @@ nodes:
         file: "apps/zcode-cli/packages/core/src/runtime/methods/steering.ts"
     invariants:
       - "3.12.2: all new and cold-resumed runtimes normalize compatibility budget inputs to preflight-v1; runtime preferences never await client/configs for budgeting."
+      - "Pending guide withdrawal uses deleteQueueItem and restores only the initiating composer after authoritative success; runtime removal and inline consumption are mutually exclusive. Consumed guides and stale active-turn projections cannot be withdrawn."
 
   - id: "capability.selection-side-chat"
     kind: "capability"

@@ -733,6 +733,31 @@ export async function removePendingInputById(
 ): Promise<boolean> {
   const reservationId = this.pendingInputReservations.get(options.pendingInputId);
   if (reservationId && reservationId !== options.reservationId) return false;
+  // 撤回也必须在首次 await 前占用输入；否则 settle 写库时 tool-batch drain 会消费同一 guide。
+  const removalReservationId = options.reservationId ?? `remove:${options.pendingInputId}`;
+  const ownsReservation = !reservationId;
+  if (ownsReservation) {
+    this.pendingInputReservations.set(options.pendingInputId, removalReservationId);
+  }
+  try {
+    return await removePendingInputUnlocked.call(this, {
+      ...options,
+      reservationId: removalReservationId,
+    });
+  } finally {
+    if (
+      ownsReservation &&
+      this.pendingInputReservations.get(options.pendingInputId) === removalReservationId
+    ) {
+      this.pendingInputReservations.delete(options.pendingInputId);
+    }
+  }
+}
+
+async function removePendingInputUnlocked(
+  this: AgentRuntimeInternal,
+  options: Parameters<typeof removePendingInputById>[0],
+): Promise<boolean> {
   const activeTurn = this.activeTurn;
   const index =
     activeTurn?.pendingInputs.findIndex(
@@ -749,7 +774,11 @@ export async function removePendingInputById(
     );
   }
   await settleRemovedSessionInput(this, options.pendingInputId, options.reason);
-  activeTurn.pendingInputs.splice(index, 1);
+  // 其他 guide 可在落库期间先出队；按稳定 ID 重找，不能用 await 前的下标误删邻项。
+  const currentIndex = activeTurn.pendingInputs.findIndex(
+    (item) => item.id === options.pendingInputId,
+  );
+  if (currentIndex >= 0) activeTurn.pendingInputs.splice(currentIndex, 1);
   const event = createSessionEvent(
     SessionEventType.TurnSteerDiscarded,
     this.sessionId,
@@ -790,9 +819,19 @@ export async function discardHeldPendingInputById(
 ): Promise<boolean> {
   const currentReservation = this.pendingInputReservations.get(pendingInputId);
   if (currentReservation && currentReservation !== reservationId) return false;
+  const activeTurnIdBeforeRead = this.activeTurn?.turnId;
   const projection = await this.rebuildProjection();
   const held = projection.pendingSteerInputs.find((item) => item.pendingInputId === pendingInputId);
-  if (!held) return false;
+  // 当前 turn 的 guide 已同步被 drain 取出、但 drained 事件可能仍在写库。
+  // 此时旧投影不是 held queue；不能撤回已开始提交的上下文并向 UI 返回成功。
+  // 读取投影期间 turn 也可能结束/切换，必须同时守住 await 前后的身份。
+  if (
+    !held ||
+    held.targetTurnId === activeTurnIdBeforeRead ||
+    held.targetTurnId === this.activeTurn?.turnId
+  ) {
+    return false;
+  }
   await settleRemovedSessionInput(this, pendingInputId, reason);
   const event = createSessionEvent(
     SessionEventType.TurnSteerDiscarded,

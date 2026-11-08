@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "caseName": "conversation-session-guide-withdraw",
+  "spec": "./test/e2e/conversation-session/conversation-session-guide-withdraw.test.ts",
+  "fixtures": [
+    {
+      "id": "guide-withdraw-base",
+      "description": "待引导撤回的受控响应与禁止撤回消息进入请求",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "controlled-stream",
+        "source": "synthetic",
+        "syntheticReason": "稳定制造 provider 已接收但 assistant 尚未输出的运行窗口。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": [
+          "E2E_HOLD_STREAM",
+          "E2E_GUIDE_WITHDRAW_BASE"
+        ],
+        "bodyExcludes": [
+          "Generate a concise title",
+          "CRITICAL: Respond with TEXT ONLY"
+        ],
+        "lastUserMessageIncludes": [
+          "E2E_GUIDE_WITHDRAW_BASE"
+        ]
+      },
+      "response": {
+        "statusCode": 200,
+        "delayMs": 60000,
+        "text": {
+          "id": "guide-withdraw-base",
+          "inputTokens": 80,
+          "outputTokens": 8,
+          "text": "base-response-after-guide-window"
+        }
+      }
+    },
+    {
+      "id": "guide-withdraw-forbidden",
+      "description": "待引导撤回的受控响应与禁止撤回消息进入请求",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "maxMatches=0 防止把 guide 错误实现为 startNow 抢占或自动消费 future queue。"
+      },
+      "maxMatches": 0,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": [
+          "E2E_GUIDE_WITHDRAW_PENDING"
+        ],
+        "bodyExcludes": [
+          "Generate a concise title",
+          "CRITICAL: Respond with TEXT ONLY"
+        ]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": {
+          "id": "guide-withdraw-forbidden",
+          "inputTokens": 90,
+          "outputTokens": 8,
+          "text": "modified-key-ok"
+        }
+      }
+    }
+  ]
+}

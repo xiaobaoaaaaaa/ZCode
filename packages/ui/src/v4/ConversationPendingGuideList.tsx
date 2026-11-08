@@ -1,4 +1,5 @@
 import { memo, useMemo } from "react";
+import { Button } from "@/components/ui/button.js";
 import type { QueueItem, UserInputRow } from "@zcode/shared/zcode-protocol-v4";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { ConversationTurnRow } from "@/v4/ConversationTurnRow.js";
@@ -8,6 +9,8 @@ interface ConversationPendingGuideListProps {
   context: ConversationRowRenderContext;
   items: readonly QueueItem[];
   turnId: string;
+  onWithdraw?: (queueItemId: string) => Promise<void>;
+  withdrawingItemId?: string | null;
 }
 
 function pendingGuideRow(item: QueueItem, turnId: string): UserInputRow {
@@ -31,6 +34,8 @@ function ConversationPendingGuideListImpl({
   context,
   items,
   turnId,
+  onWithdraw,
+  withdrawingItemId = null,
 }: ConversationPendingGuideListProps) {
   const { intl } = useZCodeIntl();
   const rows = useMemo(() => items.map((item) => pendingGuideRow(item, turnId)), [items, turnId]);
@@ -40,12 +45,30 @@ function ConversationPendingGuideListImpl({
   return (
     // 待引导消息直接渲染行，绕过了普通轮容器；补齐输入框 dock 的水平留白，避免气泡和状态贴边。
     <div data-v4-pending-guide-list="true" className="flex flex-col gap-5 px-4 pt-5">
-      {rows.map((row) => (
+      {rows.map((row, index) => (
         <ConversationTurnRow
           key={row.sourceCommandId}
           row={row}
           context={context}
-          userInputStatus={status}
+          userInputStatus={
+            <span className="inline-flex items-center gap-2">
+              {status}
+              {onWithdraw ? (
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  className="h-auto px-0 text-ui-sm"
+                  data-v4-pending-guide-withdraw="true"
+                  disabled={withdrawingItemId !== null || items[index]?.dispatch.state !== "queued"}
+                  aria-busy={withdrawingItemId === row.entityId}
+                  onClick={() => void onWithdraw(row.entityId!)}
+                >
+                  {intl.formatMessage({ id: "chat.message.turnSteer.withdraw" })}
+                </Button>
+              ) : null}
+            </span>
+          }
         />
       ))}
     </div>

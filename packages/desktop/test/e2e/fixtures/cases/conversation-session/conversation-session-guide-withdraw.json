@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "caseName": "conversation-session-guide-withdraw",
+  "spec": "./test/e2e/conversation-session/conversation-session-guide-withdraw.test.ts",
+  "providerFixtures": [
+    "./test/e2e/fixtures/upstream/common.json",
+    "./test/e2e/fixtures/upstream/conversation-session/conversation-session-guide-withdraw.json"
+  ],
+  "fileFixtures": [],
+  "requests": [
+    {
+      "id": "guide-withdraw-base",
+      "kind": "main",
+      "timingPolicy": "controlled-stream",
+      "source": "synthetic",
+      "syntheticReason": "稳定制造 provider 已接收但 assistant 尚未输出的运行窗口。"
+    },
+    {
+      "id": "guide-withdraw-forbidden",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "maxMatches=0 防止把 guide 错误实现为 startNow 抢占或自动消费 future queue。"
+    }
+  ]
+}

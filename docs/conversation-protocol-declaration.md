@@ -414,6 +414,8 @@ queueItemId 和提交时间/排序。恢复草稿只属于发起端 renderer，�
 upload/adopt，删除、runtime restart 和 staged cleanup 也不得误清。没有本地 object URL 的图片退化显示
 文件名和类型图标，不扩展下载协议。
 
+待引导撤回复用 `deleteQueueItem` 与原端 Composer restore。runtime 在首次 await 前互斥认领撤回/消费；已被 drain 摘出的 active-turn 输入，即使旧 queue 投影尚未更新，也不得按 held 项删除。撤回成功后不进入上下文；消费先赢则 noop、不恢复。草稿冲突与绑定保护沿用 queue edit，详见 `docs/ui/pending-guide-withdraw.md`。
+
 guide 与普通 queue 只共享输入事实和 admission FIFO，不共享消费触发器：
 
 ```text

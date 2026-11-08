@@ -5606,8 +5606,8 @@ const zhCN: Record<string, string> = {
   // compact 队列项曾单独显示“立即执行”，与同一队列中的即时动作文案不一致。
   "chat.queue.runNow": "立即",
   "chat.queue.edit": "编辑",
-  "chat.queue.editDraftConflict": "请先发送或清空当前草稿，再编辑队列消息。",
-  "chat.queue.editRestoreFailed": "未能把队列消息退回输入框，请重试。",
+  "chat.queue.editDraftConflict": "请先发送或清空当前草稿，再撤回消息。",
+  "chat.queue.editRestoreFailed": "未能撤回消息，可能已开始处理，请重试。",
   "chat.queue.remove": "移除待发送消息",
   "chat.queue.turnSteer.steering": "正在引导对话",
   "chat.queue.paused.stopped": "由于你中断了当前响应，队列已暂停",
@@ -5620,6 +5620,7 @@ const zhCN: Record<string, string> = {
   "chat.queue.sendConfirm.clear": "清空队列",
   "chat.queue.sendConfirm.keep": "发送消息",
   "chat.message.turnSteer.guided": "已引导对话",
+  "chat.message.turnSteer.withdraw": "撤回",
   "chat.message.turnSteer.pending": "等待引导当前任务…",
   "chat.followup.guideCurrent": "引导当前任务",
   "chat.followup.sendNow": "立即发送",
