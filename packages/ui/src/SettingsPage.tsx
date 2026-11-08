@@ -1372,6 +1372,21 @@ export function SettingsPage({
     },
     [updateSharedSettings],
   );
+  const handleExecutionActivityAutoExpandEnabledChange = useCallback(
+    async (enabled: boolean) => {
+      await runSettingsActionAsync({
+        featureId: "settings.tool_grouping",
+        action: "toggle_execution_activity_auto_expand",
+        trigger: "switch",
+        operation: () => updateSharedSettings({ executionActivityAutoExpandEnabled: enabled }),
+        completed: {
+          resultSource: "shared_settings",
+          stateAfter: enabled ? "enabled" : "disabled",
+        },
+      });
+    },
+    [updateSharedSettings],
+  );
   const handleToolGroupingExploreEnabledChange = useCallback(
     async (enabled: boolean) => {
       await runSettingsActionAsync({
@@ -1889,6 +1904,12 @@ export function SettingsPage({
                               }
                               messageStreamShowReasoning={messageStreamShowReasoning}
                               messageStreamShowTodos={messageStreamShowTodos}
+                              executionActivityAutoExpandEnabled={
+                                sharedSettings?.executionActivityAutoExpandEnabled ?? false
+                              }
+                              onExecutionActivityAutoExpandEnabledChange={
+                                handleExecutionActivityAutoExpandEnabledChange
+                              }
                               toolGroupingExploreEnabled={toolGroupingExploreEnabled}
                               toolGroupingTerminalEnabled={toolGroupingTerminalEnabled}
                               toolGroupingChangesEnabled={toolGroupingChangesEnabled}

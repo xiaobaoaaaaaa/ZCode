@@ -85,3 +85,10 @@ CLI 投影所有权。用户已授权五平台构建及资产核验通过后正�
 本版从 `v3.17.2-personal.1` 合入开源 Windows 电脑控制。用户授权推送 personal.2；
 沿用五平台构建、启动检查与草稿资产聚合流程，本次推送不修改自动公开规则。
 功能范围、状态所有者与验收证据见 [实现规格](../desktop/opensource-windows-computer-use.md)。
+
+## 3.17.2-personal.3
+
+本版在 `release/3.17.2-personal.2` 的源码基础上增加可选的运行过程自动展开，保留该版
+Windows 电脑控制。personal.2 仍为草稿，未覆盖或修改其资产。用户已授权提交、推送、
+打包及正式发布；五平台构建、启动检查和服务器资产核验通过后公开 personal.3 并设为 Latest。
+行为及验证见 [执行过程规格 EA-AUTO-01](../ui/execution-activity-collapse.md)。

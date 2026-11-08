@@ -486,7 +486,11 @@ function ConversationAssistantWorkItems({
         group.kind === "item" ? (
           renderItem(group.item)
         ) : (
-          <ExecutionActivityGroup key={`activity:${group.key}`} activity={group}>
+          <ExecutionActivityGroup
+            key={`activity:${group.key}`}
+            activity={group}
+            autoExpandRunning={context.executionActivityAutoExpandEnabled}
+          >
             {group.items.map(renderItem)}
           </ExecutionActivityGroup>
         ),

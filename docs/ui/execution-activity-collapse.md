@@ -2,7 +2,7 @@
 
 ## 行为
 
-所有工作段（运行中、完成后历史和子代理详情），将连续可见的思考、普通工具调用、文件读取/修改和终端操作显示为一个默认收起的“执行过程”分组。摘要按类别显示思考、读取、编辑、终端、浏览器等操作次数以及运行状态；单个过程项也从收起状态开始，后续流式追加到同一组，不重置用户已选择的展开状态。
+所有工作段（运行中、完成后历史和子代理详情），将连续可见的思考、普通工具调用、文件读取/修改和终端操作显示为一个默认收起的“执行过程”分组。可通过通用设置启用运行态自动展开，规则见 EA-AUTO-01。摘要按类别显示思考、读取、编辑、终端、浏览器等操作次数以及运行状态；单个过程项也从收起状态开始，后续流式追加到同一组，不重置用户已选择的展开状态。
 
 点击分组或使用键盘展开后，使用现有的 reasoning、ToolCallBlock、Explore/Execute/Changes 子分组和文件 Diff 展示；内部原有按钮和操作保持不变。已有的思考显示开关与工具分组设置继续决定展开后的内容。
 
@@ -175,3 +175,39 @@ timelineOnly 入口还遗漏开关。所有 ConversationAssistantWorkItems 入�
 根类型、受影响 CLI 包类型、E2E 类型与架构检查通过；根 Lint 84 warnings / 0 errors，CLI Lint
 72 warnings / 0 errors（另 7 项原样上游行数诊断）。CLI 总类型入口缺少 turbo，改用 bootstrap
 包级类型检查并成功完成桌面所需的完整 CLI 构建。没有进行实体手机配对或 Windows/macOS 原生验证。
+
+## EA-AUTO-01：可选自动展开运行过程（2026-11-08）
+
+通用设置新增“自动展开正在执行的过程”，共享设置字段
+`executionActivityAutoExpandEnabled`，缺省 false，沿用现有设置服务保存、广播和加载。
+开启后，没有手动选择的过程组以自身 `running` 决定展开；结束或关闭设置后收起。
+手动展开/收起优先于自动规则，直到该组卸载；流式追加不重置选择。
+重新挂载按当前设置及运行事实重新计算，完成态历史始终默认收起。
+只展开外层执行过程，内层工具与思考维持原有规则。普通轮、后台轮和子代理共用规则。
+
+所有者：设置服务持有偏好；CLI/projection 持有运行事实；ExecutionActivityGroup
+仅持有当前挂载组的手动选择，V4 context 传递偏好，不新增订阅或写入路径。
+
+```mermaid
+flowchart LR
+  S[设置 Switch] --> P[现有共享设置服务]
+  P --> H[SessionPane 设置 hook]
+  H --> V[V4 context]
+  C[CLI continuous / replayable 投影] --> R[group.running]
+  V --> G[过程组：手动选择优先，否则偏好且 running]
+  R --> G
+  U[用户点击] --> G
+```
+
+验收：默认关闭、开关即时生效、运行自动展开、结束自动收起、手动选择优先、
+重挂载与完成历史默认收起；主轮/后台/timeline × 桌面/手机由现有真实组件浏览器
+入口验证。不将该展示层验证等同于远控配对/重连或设置服务持久化 E2E。
+
+验证记录（2026-11-08）：历史/耗时/自动展开浏览器回归 32/32 通过；增强工具追加、
+手动选择跨运行状态变化及截图可见性断言后，EA-AUTO-01 6/6 通过。使用本机 Chromium
+通过 CHROME_EXECUTABLE_PATH 启动，截图在 execution-history 产物目录。真实 settingService
+隔离目录验证默认值、开关保存、磁盘与重建服务读取及非法类型拒绝均通过。
+根 typecheck、桌面 typecheck:e2e、architecture:check --changed 通过；Lint 为 0 errors /
+84 warnings。改动源码格式检查与 git diff --check 通过；catalog/matrix 两份文档的整文件
+格式检查存在 HEAD 基线已有差异，未扩大本功能范围重排历史内容。未执行完整 Electron
+设置交互及手机远控重连验收，保持 partial。

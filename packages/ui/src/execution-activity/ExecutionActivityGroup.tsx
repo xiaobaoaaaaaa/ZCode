@@ -15,11 +15,15 @@ import {
 export function ExecutionActivityGroup({
   activity,
   children,
+  autoExpandRunning = false,
 }: {
   activity: ExecutionActivityDescriptor;
   children: ReactNode;
+  autoExpandRunning?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [manualOpen, setManualOpen] = useState<boolean | null>(null);
+  // 自动展开是运行事实的派生值；用户手动选择后，流式更新不能抢回开合状态。
+  const open = manualOpen ?? (autoExpandRunning && activity.running);
   const { intl } = useZCodeIntl();
   const label = intl.formatMessage({ id: "chat.executionActivity.title" });
   const summaries = [
@@ -43,7 +47,7 @@ export function ExecutionActivityGroup({
   return (
     <Collapsible
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={setManualOpen}
       data-execution-activity={activity.key}
       data-activity-running={String(activity.running)}
     >

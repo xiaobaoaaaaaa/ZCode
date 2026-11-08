@@ -6177,3 +6177,15 @@ CLI 定向回归已通过：V4 两种投递模式的并发 workspace 隔离、�
 桌面/手机交互沿用 HF01–02 和 SLR 综合候选。本轮实跑 covered：`desktop-e2e-20261102054133648-p182647-caa0869ba42a5410`，Linux Electron 与 390×844 触屏 Chromium，2 spec / 3 test 全通过，无 skipped 或自动重试。没有新增 UI 行为，既有 case 断言保持不变；不自动晋升 formal/CI。
 
 已就绪实例 identity 预检补全回归（2026-11-02）：CLI 协议验证仅替换/删除 identity 的 ensureReady/restart 均拒绝，原实例不关闭且 generation 不变；3 文件 183 项通过。正常 HF01–02 / SLR 交互 covered：`desktop-e2e-20261102060952670-p190384-9867bbf844a8e3cd`，Linux Electron 与触屏 Chromium，2 spec / 3 test 全通过，无自动重试。矛盾 identity 参数由协议回归覆盖，不宣称原生 SSH/WSL E2E。
+
+## EA-AUTO-01：可选自动展开运行过程
+
+状态：partial（浏览器验收通过，尚无 Electron 端到端证据）。入口为
+`packages/ui/test/browser/manual-review/pending/execution-history.test.mjs`，主轮/后台/timeline
+× 桌面/手机；验收设置切换、运行/结束、手动选择优先、重挂载及完成态历史。
+真实设置服务隔离目录运行验证：默认 false、保存 true、重建服务与磁盘读取、保存 false
+和拒绝非 boolean 均通过。尚未执行真实 SettingsPage 到会话的 Electron/远控完整链路。
+
+2026-11-08：该文件初次完整回归 32/32 通过；补充工具追加、手动展开跨工具状态更新
+及稳定布局截图断言后，EA-AUTO-01 6/6 通过。截图产物：
+`packages/desktop/.e2e-artifacts/execution-history/auto-{main,background,timeline}-{false,true}-manual-open.png`。

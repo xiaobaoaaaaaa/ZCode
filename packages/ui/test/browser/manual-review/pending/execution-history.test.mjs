@@ -275,3 +275,87 @@ for (const ending of ["complete", "interrupted"])
       await page.close();
     }
   });
+
+for (const mobile of [false, true])
+  for (const mode of ["main", "background", "timeline"])
+    test(`EA-AUTO-01 ${mode}/${mobile ? "mobile" : "desktop"}`, { timeout: 30000 }, async () => {
+      const page = await browser.newPage({
+        viewport: { width: mobile ? 390 : 1200, height: 900 },
+        isMobile: mobile,
+        hasTouch: mobile,
+      });
+      try {
+        await page.clock.setFixedTime(timingStart + 5000);
+        await page.goto(
+          `${origin}fixture?scenario=timing&autoExpand=true&mobile=${mobile}&mode=${mode}`,
+        );
+        const trigger = page.getByTestId("execution-activity-trigger");
+        async function expectOpen(value) {
+          await page.waitForFunction(
+            (value) =>
+              document
+                .querySelector('[data-testid="execution-activity-trigger"]')
+                ?.getAttribute("aria-expanded") === String(value),
+            value,
+          );
+        }
+        await expectOpen(true);
+        const toggle = page.getByRole("button", {
+          name: "Toggle auto expand",
+          exact: true,
+        });
+        await toggle.click();
+        await expectOpen(false);
+        await toggle.click();
+        await expectOpen(true);
+        await trigger.click();
+        await expectOpen(false);
+        await toggle.click();
+        await toggle.click();
+        await expectOpen(false);
+        const key = await page
+          .locator("[data-execution-activity]")
+          .getAttribute("data-execution-activity");
+        await page.getByRole("button", { name: "Append running tool", exact: true }).click();
+        await expectOpen(false);
+        assert.equal(
+          await page.locator("[data-execution-activity]").getAttribute("data-execution-activity"),
+          key,
+        );
+
+        await page.getByRole("button", { name: "Remount", exact: true }).click();
+        await expectOpen(true);
+        await page.getByRole("button", { name: "Finish reasoning", exact: true }).click();
+        await expectOpen(true);
+        await page.getByRole("button", { name: "Finish tool", exact: true }).click();
+        await expectOpen(false);
+        await trigger.click();
+        await expectOpen(true);
+        await page.getByRole("button", { name: "Append running tool", exact: true }).click();
+        await expectOpen(true);
+        await page.getByRole("button", { name: "Finish tool", exact: true }).click();
+        await expectOpen(true);
+        await page.getByTestId("chat-reasoning-trigger").waitFor({ state: "visible" });
+        await page.locator('[data-tool-call-id="auto-expand-bash"]').waitFor({ state: "visible" });
+        await page.waitForFunction(() =>
+          document
+            .querySelector("[data-execution-activity]")
+            ?.getAnimations({ subtree: true })
+            .every((animation) => animation.playState !== "running"),
+        );
+        assert.equal(
+          await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+          true,
+        );
+        await page.screenshot({ path: join(artifacts, `auto-${mode}-${mobile}-manual-open.png`) });
+        await page.getByRole("button", { name: "Finish turn", exact: true }).click();
+        await page.getByText("E2E_TIMING_DONE", { exact: true }).waitFor();
+        await page.getByRole("button", { name: "Remount", exact: true }).click();
+        const history = page.locator('[data-testid^="chat-assistant-history-trigger"]');
+        if ((await history.count()) && (await history.getAttribute("aria-expanded")) !== "true")
+          await history.click();
+        await expectOpen(false);
+      } finally {
+        await page.close();
+      }
+    });

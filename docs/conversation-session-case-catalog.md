@@ -5647,3 +5647,10 @@ ensureReady/restart/resume 必须被拒，同工作区共享一次启动；两�
 HF / SLR 激活隔离补充：已有远程实例就绪后，仅替换或删除 workspaceIdentity、保持其他字段不变，
 ensureReady/restart 必须拒绝，原实例不关闭且 generation 不变；正确身份继续可用。由 CLI 协议
 回归直接构造矛盾参数覆盖，正常桌面/手机入口继续沿用 HF/SLR E2E，不增加 UI 行为。
+
+## EA-AUTO-01：可选自动展开运行过程
+
+已接受：通用设置默认关闭；开启后运行过程自动展开，结束收起；手动开合优先，
+流式追加不覆盖；卸载重挂载按当前偏好和运行状态决定。普通、后台与 timelineOnly
+入口复用同一规则。验收采用 execution-history 浏览器真实组件场景；设置持久化
+以隔离目录的真实 settingService 保存、重建服务读取验证。范围不包含远控配对/重连。

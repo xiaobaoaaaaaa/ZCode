@@ -3514,6 +3514,9 @@ const enUS: Record<string, string> = {
     "Show full reasoning inside the message stream. When off, the first reasoning item in each turn remains visible.",
   "settings.messageStreamShowTodos": "Show todos",
   "settings.messageStreamShowTodosDescription": "Show Todo tool cards inside the message stream. ",
+  "settings.executionActivityAutoExpand": "Auto-expand running activities",
+  "settings.executionActivityAutoExpandDescription":
+    "Automatically expand running activities and collapse them when finished. Manual choices take priority.",
   "settings.toolGroupingExplore": "Group exploration tools",
   "settings.toolGroupingExploreDescription":
     "Group consecutive reads and searches into an Explore section.",

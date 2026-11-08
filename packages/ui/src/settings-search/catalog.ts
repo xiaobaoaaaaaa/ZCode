@@ -49,6 +49,11 @@ const SETTING_ROWS: readonly (readonly [SettingsSectionId, string, string])[] = 
     "settings.messageStreamShowReasoningDescription",
   ],
   ["general", "settings.messageStreamShowTodos", "settings.messageStreamShowTodosDescription"],
+  [
+    "general",
+    "settings.executionActivityAutoExpand",
+    "settings.executionActivityAutoExpandDescription",
+  ],
   ["general", "settings.toolGroupingExplore", "settings.toolGroupingExploreDescription"],
   ["general", "settings.toolGroupingTerminal", "settings.toolGroupingTerminalDescription"],
   ["general", "settings.toolGroupingChanges", "settings.toolGroupingChangesDescription"],

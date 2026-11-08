@@ -85,11 +85,13 @@ function Fixture() {
 }
 
 function TimingFixture() {
+  const [autoExpand, setAutoExpand] = useState(query.get("autoExpand") === "true");
   const [startedAt, setStartedAt] = useState(start);
   const [generation, setGeneration] = useState(0);
   const [endedAt, setEndedAt] = useState<number | null>(null);
   const [turnEnded, setTurnEnded] = useState(false);
   const [mountKey, setMountKey] = useState(0);
+  const [toolStatus, setToolStatus] = useState<"running" | "success" | null>(null);
   const interrupted = query.get("ending") === "interrupted";
   const timingBase = {
     turnId: `timing-${generation}`,
@@ -115,11 +117,25 @@ function TimingFixture() {
       state: endedAt === null ? "streaming" : interrupted ? "interrupted" : "complete",
       ...(endedAt === null ? {} : { durationMs: endedAt - startedAt }),
     },
-    ...(turnEnded
+    ...(toolStatus
       ? [
           {
             ...timingBase,
             rowId: 4,
+            kind: "toolCall" as const,
+            toolCallId: "auto-expand-bash",
+            toolName: "Bash",
+            status: toolStatus,
+            inputText: '{"command":"echo auto-expand"}',
+            ...(toolStatus === "success" ? { output: { text: "E2E_AUTO_LOG" } } : {}),
+          },
+        ]
+      : []),
+    ...(turnEnded
+      ? [
+          {
+            ...timingBase,
+            rowId: 5,
             kind: "assistantText" as const,
             text: "E2E_TIMING_DONE",
             state: "complete" as const,
@@ -130,6 +146,9 @@ function TimingFixture() {
   const [unit] = buildConversationTurnRenderUnits(rows, { nowMs: Date.now() });
   return (
     <>
+      <button onClick={() => setAutoExpand((value) => !value)}>Toggle auto expand</button>
+      <button onClick={() => setToolStatus("running")}>Append running tool</button>
+      <button onClick={() => setToolStatus("success")}>Finish tool</button>
       <button onClick={() => setEndedAt(Date.now())}>Finish reasoning</button>
       <button onClick={() => setTurnEnded(true)}>Finish turn</button>
       <button onClick={() => setMountKey((key) => key + 1)}>Remount</button>
@@ -139,6 +158,7 @@ function TimingFixture() {
           setGeneration((value) => value + 1);
           setEndedAt(null);
           setTurnEnded(false);
+          setToolStatus(null);
         }}
       >
         New thought
@@ -152,6 +172,7 @@ function TimingFixture() {
           codePreviewSettings: DEFAULT_CODE_PREVIEW_SETTINGS,
           compactForRemoteControl: mobile,
           messageStreamShowReasoning: true,
+          executionActivityAutoExpandEnabled: autoExpand,
         }}
         onFeedbackChange={() => undefined}
       />

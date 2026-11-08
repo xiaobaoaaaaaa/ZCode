@@ -163,6 +163,7 @@ export function GeneralSectionContent({
   setNotificationSoundEnabled,
   messageStreamShowReasoning,
   messageStreamShowTodos,
+  executionActivityAutoExpandEnabled,
   toolGroupingExploreEnabled,
   toolGroupingTerminalEnabled,
   toolGroupingChangesEnabled,
@@ -185,6 +186,7 @@ export function GeneralSectionContent({
   onAutoDownloadAndInstallUpdatesChange,
   onMessageStreamShowReasoningChange,
   onMessageStreamShowTodosChange,
+  onExecutionActivityAutoExpandEnabledChange,
   onToolGroupingExploreEnabledChange,
   onToolGroupingTerminalEnabledChange,
   onToolGroupingChangesEnabledChange,
@@ -235,6 +237,7 @@ export function GeneralSectionContent({
   setNotificationSoundEnabled: (enabled: boolean) => void;
   messageStreamShowReasoning: boolean;
   messageStreamShowTodos: boolean;
+  executionActivityAutoExpandEnabled: boolean;
   toolGroupingExploreEnabled: boolean;
   toolGroupingTerminalEnabled: boolean;
   toolGroupingChangesEnabled: boolean;
@@ -257,6 +260,7 @@ export function GeneralSectionContent({
   onAutoDownloadAndInstallUpdatesChange: (enabled: boolean) => Promise<void>;
   onMessageStreamShowReasoningChange: (enabled: boolean) => Promise<void>;
   onMessageStreamShowTodosChange: (enabled: boolean) => Promise<void>;
+  onExecutionActivityAutoExpandEnabledChange: (enabled: boolean) => Promise<void>;
   onToolGroupingExploreEnabledChange: (enabled: boolean) => Promise<void>;
   onToolGroupingTerminalEnabledChange: (enabled: boolean) => Promise<void>;
   onToolGroupingChangesEnabledChange: (enabled: boolean) => Promise<void>;
@@ -934,6 +938,26 @@ export function GeneralSectionContent({
               checked={messageStreamShowTodos}
               onCheckedChange={(checked) => {
                 void onMessageStreamShowTodosChange(checked);
+              }}
+            />
+          }
+        />
+        <SettingsRow
+          searchId="settings.executionActivityAutoExpand"
+          label={intl.formatMessage({
+            id: "settings.executionActivityAutoExpand",
+          })}
+          description={intl.formatMessage({
+            id: "settings.executionActivityAutoExpandDescription",
+          })}
+          control={
+            <Switch
+              aria-label={intl.formatMessage({
+                id: "settings.executionActivityAutoExpand",
+              })}
+              checked={executionActivityAutoExpandEnabled}
+              onCheckedChange={(checked) => {
+                void onExecutionActivityAutoExpandEnabledChange(checked);
               }}
             />
           }
