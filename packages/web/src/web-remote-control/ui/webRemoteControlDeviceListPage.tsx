@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronRightIcon, LaptopIcon, RefreshCwIcon } from "lucide-react";
+import { ChevronRightIcon, EyeOffIcon, LaptopIcon, RefreshCwIcon } from "lucide-react";
 import { Button } from "@zcode/ui/button";
 import { DevicePlatformIcon, getDevicePlatformLabel } from "@zcode/ui/device-platform-icon";
 import { WebRemoteControlBrand } from "#src/web-remote-control/ui/webRemoteControlBrand.js";
@@ -19,6 +19,8 @@ import { WebRemoteControlSwitchAccountDialog } from "#src/web-remote-control/ui/
 const copyByLocale = {
   "zh-CN": {
     title: "选择电脑",
+    hide: (name: string) => `在此手机隐藏 ${name}`,
+    restoreHidden: (count: number) => `恢复隐藏的电脑（${count}）`,
     switchAccount: "切换",
     switchAccountFallback: "切换账号",
     refresh: "刷新",
@@ -34,6 +36,8 @@ const copyByLocale = {
   },
   "en-US": {
     title: "Choose a computer",
+    hide: (name: string) => `Hide ${name} on this phone`,
+    restoreHidden: (count: number) => `Restore hidden computers (${count})`,
     switchAccount: "Switch",
     switchAccountFallback: "Switch account",
     refresh: "Refresh",
@@ -64,6 +68,8 @@ interface WebRemoteControlDeviceListPageProps {
   onSelect(sid: string): void;
   onRefresh(): void;
   onSwitchAccount(): void;
+  onHide?(mid: string): void;
+  onRestoreHidden?(): void;
   /** 多连接弹层的“启动于”相对时间基准，测试注入。 */
   now?: () => number;
 }
@@ -116,12 +122,14 @@ function DeviceSection({
   copy,
   selectable,
   onOpen,
+  onHide,
 }: {
   label: string;
   devices: WebRemoteControlDeviceGroup[];
   copy: DeviceListCopy;
   selectable: boolean;
   onOpen(device: WebRemoteControlDeviceGroup): void;
+  onHide?(mid: string): void;
 }) {
   if (devices.length === 0) return null;
   const nameCounts = new Map<string, number>();
@@ -138,35 +146,51 @@ function DeviceSection({
           const online = device.onlineConnections.length > 0;
           const multiple = device.onlineConnections.length > 1;
           return (
-            <li key={device.deviceMid}>
-              <WebRemoteControlDeviceRow
-                first={index === 0}
-                // 全离线行原生禁用；在线行在刷新中/失败时也暂不可选，沿用入口 admission。
-                disabled={!online || !selectable}
-                onClick={() => onOpen(device)}
-                dimmed={!online}
-                leading={<DeviceTile platform={device.platform} online={online} />}
-                trailing={
-                  online ? (
-                    <>
-                      {multiple ? (
-                        <span className="shrink-0 text-ui-sm text-foreground-subtle">
-                          {copy.connections(device.onlineConnections.length)}
-                        </span>
-                      ) : null}
-                      <ChevronRightIcon
-                        aria-hidden="true"
-                        className="size-4 shrink-0 text-foreground-subtlest"
-                      />
-                    </>
-                  ) : null
-                }
-              >
-                <span className="block truncate text-ui-base font-medium">{name}</span>
-                <span className="mt-0.5 block truncate text-ui-sm text-foreground-subtle">
-                  {describeDevice(device, copy, (nameCounts.get(name) ?? 0) > 1)}
-                </span>
-              </WebRemoteControlDeviceRow>
+            <li key={device.deviceMid} className="flex items-center">
+              <div className="min-w-0 flex-1">
+                <WebRemoteControlDeviceRow
+                  first={index === 0}
+                  // 全离线行原生禁用；在线行在刷新中/失败时也暂不可选，沿用入口 admission。
+                  disabled={!online || !selectable}
+                  onClick={() => onOpen(device)}
+                  dimmed={!online}
+                  leading={<DeviceTile platform={device.platform} online={online} />}
+                  trailing={
+                    online ? (
+                      <>
+                        {multiple ? (
+                          <span className="shrink-0 text-ui-sm text-foreground-subtle">
+                            {copy.connections(device.onlineConnections.length)}
+                          </span>
+                        ) : null}
+                        <ChevronRightIcon
+                          aria-hidden="true"
+                          className="size-4 shrink-0 text-foreground-subtlest"
+                        />
+                      </>
+                    ) : null
+                  }
+                >
+                  <span className="block truncate text-ui-base font-medium">{name}</span>
+                  <span className="mt-0.5 block truncate text-ui-sm text-foreground-subtle">
+                    {describeDevice(device, copy, (nameCounts.get(name) ?? 0) > 1)}
+                  </span>
+                </WebRemoteControlDeviceRow>
+              </div>
+              {onHide ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="mr-1 shrink-0 text-foreground-subtle"
+                  disabled={!selectable}
+                  aria-label={copy.hide(name)}
+                  title={copy.hide(name)}
+                  onClick={() => onHide(device.deviceMid)}
+                >
+                  <EyeOffIcon className="size-4" aria-hidden="true" />
+                </Button>
+              ) : null}
             </li>
           );
         })}
@@ -233,6 +257,8 @@ export function WebRemoteControlDeviceListPage({
   onSelect,
   onRefresh,
   onSwitchAccount,
+  onHide,
+  onRestoreHidden,
   now = () => Date.now(),
 }: WebRemoteControlDeviceListPageProps) {
   const copy = copyByLocale[locale];
@@ -283,6 +309,17 @@ export function WebRemoteControlDeviceListPage({
             {copy.error}
           </p>
         ) : null}
+        {(view.hiddenDeviceCount ?? 0) > 0 && onRestoreHidden ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className="mt-3 text-ui-sm text-foreground-subtle"
+            disabled={view.loading}
+            onClick={onRestoreHidden}
+          >
+            {copy.restoreHidden(view.hiddenDeviceCount ?? 0)}
+          </Button>
+        ) : null}
         <div aria-busy={view.loading}>
           {view.devices.length > 0 ? (
             <>
@@ -292,6 +329,7 @@ export function WebRemoteControlDeviceListPage({
                 copy={copy}
                 selectable={selectable}
                 onOpen={openDevice}
+                onHide={onHide}
               />
               <DeviceSection
                 label={copy.offline}
@@ -299,6 +337,7 @@ export function WebRemoteControlDeviceListPage({
                 copy={copy}
                 selectable={selectable}
                 onOpen={openDevice}
+                onHide={onHide}
               />
               <p className="px-1 pt-3 text-ui-sm leading-5 text-foreground-subtlest">
                 {copy.notFound}

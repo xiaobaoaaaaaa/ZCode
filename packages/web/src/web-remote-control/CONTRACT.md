@@ -9,11 +9,16 @@ bootstrap 请求只读取响应。version guard 校验当前请求代际与版�
 失效通知按 bridge identity 幂等消费，raw adapter 的首次 degraded 转换是唯一恢复入口。
 恢复中的已选任务不因 bootstrap 工作区候选缺席而丢失；缺席目标沿既有 Host 任务导航核验，
 明确离线的候选保留断线语义，无 taskId 的草稿不进入任务导航。不得缓存旧 remoteSessionId。
-上述恢复规则要求显式提供 preferredWorkspaceKey；冷启动与整页刷新复用初始选择器，旧导航
-缺席或离线时优先选择可 bridge 的 workspace，不对缺席目标发起 Host 任务导航。
+上述恢复规则要求显式提供 preferredWorkspaceKey；同页恢复保持既有目标。冷启动与整页刷新先查
+当前 origin/账号/电脑的导航偏好，仅当 workspace 仍在 bootstrap 且可 bridge 时使用；否则复用
+初始选择器，旧导航缺席或离线时优先选择可 bridge 的 workspace，不对缺席目标发起 Host 任务导航。
 
 每个 bridge 的 RPC client 受 acknowledged adapter 的生命周期信号约束。degraded/dispose
 终结在途及尚未初始化的调用，迟到回包无效；同 bridge 的挂起、短断线和 replay 不撤销信号。
 未提交草稿由既有 Composer 失败处理恢复，已登记命令继续由 query/snapshot 对账。
 
 完整语义见 [Relay V2 spec](../../../../docs/web-remote-control/relay-v2-pairing.md)。
+
+Android 显式 `devices=1` 入口消费参数后进入设备列表，禁止本轮自动落点。导航与隐藏偏好按 origin/账号隔离；
+设备导航再按 MID（无 MID 时 SID）隔离。导航只保存 workspaceKey/taskId，冷启动用 bootstrap 校验 workspace；
+隐藏只过滤列表与自动落点，不修改 relay 设备事实。偏好 IO 归 app 层，UI 只通过契约回调操作。

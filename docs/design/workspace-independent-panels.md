@@ -11,7 +11,8 @@ SPT-E2E-000 的圆角 token 验收区分 Side Pane 状态：展开时仅检查 S
 ## 平台外沿尺寸（2026-10-09，取代下文历史尺寸）
 
 - Windows 工作区右侧、底部、顶部额外间隔和 Sidebar 收起后的左留白均为 6px；Linux 均保留 4px，主面板圆角保留 12px。
-- Windows 设置页同步右侧、底部和顶部 6px 留白与 6px 圆角；导航与内容相接的左侧不增加间距。macOS、Web、手机保持现有规则。
+- Windows 设置页同步右侧、底部和顶部 6px 留白与 6px 圆角；导航与内容相接的左侧不增加间距。macOS 保持现有规则。
+- Android 平板及宽屏 Web 远控（可用宽度至少 768px）沿用 Linux 的 4px 面板外沿留白、12px 圆角与弱边框，草稿页也提供共享 WorkspaceHeader；小于 768px 继续手机 Home/Chat 与抽屉布局。窗口大小只决定布局，远控能力与 replayable 链路不变，详见 [Android 平板合同](../mobile-remote-control-android.md#平板与可调整窗口)。
 - 新任务、会话、插件、Automations 复用共享工作区边界，终端和 Side Pane 同步圆角；对话与 Side Pane 之间为 3px 拖动热区，Sidebar 和 Terminal 保留 4px。
 - 拖动指示线保留 2px、foreground-subtlest/50、沿边延伸及现有显隐规则。Sidebar 指示线端点按平台外沿留白加圆角内缩，Windows 为 12px，Linux 为 16px。
 - SPT-E2E-000 验证平台尺寸、收起左留白和拖动，UP-00 验证设置页；平台函数单测覆盖 Linux、Windows 能力未知、普通和最大化窗口。

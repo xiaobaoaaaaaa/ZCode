@@ -3,82 +3,50 @@ package com.example.zcode_mobile.remote
 import android.net.Uri
 import com.example.zcode_mobile.BuildConfig
 
-private const val ZCODE_REMOTE_SCHEME = "zcode"
-private const val ZCODE_REMOTE_HOST = "remote"
-
+/** 导航白名单只表达可信入口，不承担设备身份或账号鉴权。 */
 object RemoteControlUrlPolicy {
-    fun resolve(raw: String?): String? {
-        val trimmed = raw?.trim().orEmpty()
-        if (trimmed.isEmpty()) {
-            return null
-        }
-
-        val uri = runCatching { Uri.parse(trimmed) }.getOrNull() ?: return null
-        return resolve(uri)
-    }
+    fun resolve(raw: String?): String? = runCatching {
+        raw?.trim()?.takeIf { it.isNotEmpty() && it.length <= 8192 }?.let { resolve(Uri.parse(it)) }
+    }.getOrNull()
 
     fun resolve(uri: Uri?): String? {
-        if (uri == null) {
-            return null
+        uri ?: return null
+        if (uri.scheme == "zcode" && uri.host == "remote" && uri.userInfo == null && uri.port == -1) {
+            return Uri.parse(BuildConfig.REMOTE_CONTROL_DEFAULT_URL).buildUpon()
+                .encodedQuery(uri.encodedQuery).encodedFragment(uri.encodedFragment).build().toString()
         }
-
-        if (uri.scheme == ZCODE_REMOTE_SCHEME && uri.host == ZCODE_REMOTE_HOST) {
-            return buildDefaultRemoteUrl(uri)
-        }
-
-        if (isAllowedRemoteUrl(uri)) {
-            return uri.toString()
-        }
-
-        return null
+        if (!isAllowedRemoteUrl(uri)) return null
+        // Bugfix: 旧二维码 /remote 是遗留路由，统一进入已有账号和 MID 恢复机制的 v4。
+        return if (uri.path?.trimEnd('/') == "/remote") uri.buildUpon().path("/remote/v4").build().toString()
+        else uri.toString()
     }
 
-    fun isAllowedRemoteUrl(raw: String?): Boolean {
-        val uri = runCatching { Uri.parse(raw?.trim().orEmpty()) }.getOrNull() ?: return false
-        return isAllowedRemoteUrl(uri)
-    }
+    fun isAllowedRemoteUrl(raw: String?): Boolean = resolve(raw) != null
 
-    private fun buildDefaultRemoteUrl(uri: Uri): String {
-        val base = Uri.parse(BuildConfig.REMOTE_CONTROL_DEFAULT_URL).buildUpon()
-        uri.encodedQuery?.let { base.encodedQuery(it) }
-        uri.encodedFragment?.let { base.encodedFragment(it) }
-        return base.build().toString()
+    fun isAllowedInWebView(uri: Uri): Boolean {
+        if (resolve(uri) != null) return true
+        // Bugfix: OAuth 必须与发起方保留相同 WebView 存储，外部浏览器无法读取 pending nonce。
+        return uri.scheme == "https" && uri.userInfo == null && uri.port in listOf(-1, 443) &&
+            uri.host?.lowercase() in setOf("chat.z.ai", "bigmodel.cn", "open.bigmodel.cn")
     }
 
     private fun isAllowedRemoteUrl(uri: Uri): Boolean {
-        val scheme = uri.scheme?.lowercase()
-        val host = uri.host?.lowercase().orEmpty()
-        val path = uri.path.orEmpty()
-
-        if (scheme == "https" && host == "zcode.z.ai" && path.startsWith("/remote")) {
-            return true
-        }
-
-        if (!BuildConfig.DEBUG) {
-            return false
-        }
-
-        // Bugfix: 开发机真机调试时二维码会指向局域网 Vite 地址。
-        // 生产包仍只允许 zcode.z.ai，debug 包才放开测试域、本机和局域网 http/https，避免远控壳变成任意浏览器。
-        if (!path.startsWith("/remote")) {
-            return false
-        }
-        if (host == "zcode.z.ai") {
-            return scheme == "https"
-        }
-        return (scheme == "http" || scheme == "https") && isDebugHost(host)
+        if (uri.userInfo != null || (uri.fragment?.length ?: 0) > 4096) return false
+        val path = uri.path?.trimEnd('/')
+        // Bugfix: startsWith 接受 /remote-evil；私网前缀匹配会错误信任 10.attacker.example。
+        if (path !in setOf("/remote", "/remote/v4", "/remote/__test__")) return false
+        val host = uri.host?.lowercase() ?: return false
+        if (uri.scheme == "https" && host == "zcode.z.ai" && uri.port in listOf(-1, 443)) return true
+        return BuildConfig.DEBUG && uri.scheme in setOf("http", "https") && isDebugHost(host)
     }
 
     private fun isDebugHost(host: String): Boolean {
-        if (host == "localhost" || host == "127.0.0.1" || host == "10.0.2.2") {
-            return true
-        }
-        if (host.endsWith(".local")) {
-            return true
-        }
-        if (host.startsWith("192.168.") || host.startsWith("10.")) {
-            return true
-        }
-        return Regex("^172\\.(1[6-9]|2\\d|3[0-1])\\.").containsMatchIn(host)
+        if (host == "localhost" || host == "::1" || host == "[::1]") return true
+        if (host.endsWith(".local") && host.matches(Regex("[a-z0-9.-]+"))) return true
+        val bytes = host.split('.').map { it.toIntOrNull() ?: return false }
+        if (bytes.size != 4 || bytes.any { it !in 0..255 }) return false
+        return bytes[0] == 127 || bytes[0] == 10 ||
+            (bytes[0] == 192 && bytes[1] == 168) ||
+            (bytes[0] == 172 && bytes[1] in 16..31)
     }
 }

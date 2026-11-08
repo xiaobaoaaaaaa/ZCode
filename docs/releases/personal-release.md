@@ -49,7 +49,7 @@ macOS 使用 ad-hoc 签名，不代表 Developer ID 签名或公证；Windows �
   关于窗口的实际版本，并检查 PE x64 头与隔离目录的实际写入，不为测试弱化发行包。
 - 聚合阶段核对五个目标的 commit、版本、启动结果和全部哈希，缺失或篡改即失败。
 - Release 构建开启 Personal 更新；`release-manifest.json` 的每项资产同时记录 SHA-256 与 base64 SHA-512，后者供应用内下载校验。更新通道、平台安装范围及首次手动升级要求见 [Personal 更新规格](../desktop/personal-app-update.md)。
-- 仅上传约定的 13 个安装包、`SHA256SUMS` 和 `release-manifest.json`；调试日志和截图留在 Actions artifacts。
+- 上传约定的 13 个桌面安装包、Android APK、`android-release.json`、`SHA256SUMS` 和 `release-manifest.json`；调试日志和截图留在 Actions artifacts。
 - 发布标签只在版本完成后使用。已公开的同版本发布不覆盖；后续修改递增个人版序号。
 - 包内保留上游第三方声明，重新生成输入清单并运行基础检查。上游清单中已登记的材料缺口必须保留并披露，不能声称严格材料审计通过。
 
@@ -92,3 +92,25 @@ CLI 投影所有权。用户已授权五平台构建及资产核验通过后正�
 Windows 电脑控制。personal.2 仍为草稿，未覆盖或修改其资产。用户已授权提交、推送、
 打包及正式发布；五平台构建、启动检查和服务器资产核验通过后公开 personal.3 并设为 Latest。
 行为及验证见 [执行过程规格 EA-AUTO-01](../ui/execution-activity-collapse.md)。
+
+## 3.17.2-personal.4：桌面与 Android 联合发布
+
+用户授权完成正式发布。沿用五平台桌面合同，新增 Android 签名 release APK job；
+两个构建均成功才聚合草稿，再核验远端资产哈希并公开。桌面 release-manifest.json 保持原合同，
+APK 使用独立 android-release.json（版本、versionCode、源码提交、包名、SHA256及签名证书摘要），
+共同 SHA256SUMS 覆盖 APK 和 Android 元数据。Android 不改变桌面更新选择器。
+Android applicationId 固定为 io.github.xiaobaoaaaaaa.zcode，versionName 跟随根版本，
+versionCode 由 packages/android/version.properties 的唯一计数器管理，每次发行必须递增。
+正式签名仅使用本机仓库外权限0600密钥与 GitHub Actions secrets，不使用debug签名；
+缺少签名变量的release构建失败。初版不提供应用内自动更新，用户从Release下载覆盖安装。
+新增工程回归验证元数据、版本/commit不匹配和APK篡改；签名用apksigner验证，
+本机模拟器验证正式APK冷启动。桌面、共享Web与原生壳的其他验收沿用本轮记录。
+
+```mermaid
+flowchart LR
+  C[同一版本与commit] --> D[五平台桌面构建及启动检查]
+  C --> A[Android签名构建及签名校验]
+  D --> G[草稿聚合与SHA256核验]
+  A --> G
+  G --> P[发布者核验服务器资产后公开]
+```

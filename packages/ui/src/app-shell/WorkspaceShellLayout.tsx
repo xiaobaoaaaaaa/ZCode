@@ -462,7 +462,13 @@ const WorkspaceShellLayoutContent = memo(function WorkspaceShellLayoutComponent(
   const isLinuxDesktop = Boolean(isDesktop && !isMacDesktop && !isWindowsDesktop);
   const isWebRemoteControlShell = Boolean(webRemoteControlWorkspaceSwitcher);
   // Windows/Linux 原先遗漏外层留白，导致独立面板贴住窗口边缘；桌面统一使用 4px 间距。
-  const hasDesktopPanelInset = isMacDesktop || isWindowsDesktop || isLinuxDesktop;
+  const [isWebRemoteControlMobileViewport, setIsWebRemoteControlMobileViewport] = useState(
+    getIsWebRemoteControlMobileViewport,
+  );
+  const isWideWebRemoteControlShell = isWebRemoteControlShell && !isWebRemoteControlMobileViewport;
+  // 平板远控复用桌面分栏外沿；只派生布局条件，不伪造平台身份或开启桌面专属能力。
+  const hasWorkspacePanelInset =
+    isMacDesktop || isWindowsDesktop || isLinuxDesktop || isWideWebRemoteControlShell;
   const usesInlineWindowControls = Boolean(isWindowsDesktop || isLinuxDesktop);
   const workspaceShellRadiusOptions = {
     isMacDesktop,
@@ -474,7 +480,7 @@ const WorkspaceShellLayoutContent = memo(function WorkspaceShellLayoutComponent(
   const workspaceResizeHandleInsetPx = resolveWorkspaceShellResizeHandleInsetPx(
     workspaceShellRadiusOptions,
   );
-  const collapsedSidebarWidthPx = hasDesktopPanelInset ? (isWindowsDesktop ? 6 : 4) : 0;
+  const collapsedSidebarWidthPx = hasWorkspacePanelInset ? (isWindowsDesktop ? 6 : 4) : 0;
   const [isWebRemoteControlNavigationCollapsed, setIsWebRemoteControlNavigationCollapsed] =
     useState(() => (isWebRemoteControlShell ? consumeWebRemoteControlCollapseIntent() : false));
   const [webRemoteControlNavigationHeightPx, setWebRemoteControlNavigationHeightPx] = useState(
@@ -512,9 +518,6 @@ const WorkspaceShellLayoutContent = memo(function WorkspaceShellLayoutComponent(
       handleOpenFileManager(target);
     },
     [handleOpenFileManager],
-  );
-  const [isWebRemoteControlMobileViewport, setIsWebRemoteControlMobileViewport] = useState(
-    getIsWebRemoteControlMobileViewport,
   );
   const [isWebRemoteControlNavigationDragging, setIsWebRemoteControlNavigationDragging] =
     useState(false);
@@ -921,7 +924,13 @@ const WorkspaceShellLayoutContent = memo(function WorkspaceShellLayoutComponent(
       collapseSidebarIfStillNarrow();
     };
 
+    let lastWindowWidthPx = window.innerWidth;
     const handleWindowResize = () => {
+      const nextWindowWidthPx = window.innerWidth;
+      // Bugfix: TAB-05 在 800px 宽度保持不变、仅缩短高度时复现文件面板误收起。
+      // IME/系统栏只改变高度，不应重排用户打开的面板；也不取消之前真实宽度变化的待执行检查。
+      if (nextWindowWidthPx === lastWindowWidthPx) return;
+      lastWindowWidthPx = nextWindowWidthPx;
       if (conversationAutoCollapseResizeTimerRef.current !== null) {
         window.clearTimeout(conversationAutoCollapseResizeTimerRef.current);
       }
@@ -2153,12 +2162,13 @@ const WorkspaceShellLayoutContent = memo(function WorkspaceShellLayoutComponent(
   );
   const sidePanePanel = renderSidePanePanel();
   // 修复原因：Draft 之前维护一套独立轻量 header，导致 side pane、caption 安全区和拖拽入口
-  // 与 Task Header 分叉。桌面端统一复用 WorkspaceHeader，只由 variant 裁剪 task 专属内容；
-  // 手机远控无 active task 时仍不渲染桌面 chrome，继续遵守 replayable overlay 边界。
+  // 与 Task Header 分叉。桌面与宽屏远控统一复用 WorkspaceHeader，由 variant 裁剪 task 专属内容；
+  // Bugfix: 平板草稿也需要文件面板入口。窄屏远控仍通过移动导航提供入口，不改变 replayable 边界。
   const shouldRenderMainViewHeader =
     workspaceMainView !== "automations" && workspaceMainView !== "plugin-store";
   const shouldRenderWorkspaceHeader =
-    shouldRenderMainViewHeader && (activeTaskId !== null || isDesktop);
+    shouldRenderMainViewHeader &&
+    (activeTaskId !== null || isDesktop || isWideWebRemoteControlShell);
   // 修复原因：ErrorBoundary resetKeys 的数组如果每次 render 都重新创建，
   // 即使 workspace/task 没变化也会在 React DevTools Components 轨道里持续表现为子树 props 变化。
   const workspaceOnlyResetKeys = useMemo(() => [workspaceKey], [workspaceKey]);
@@ -2578,7 +2588,7 @@ const WorkspaceShellLayoutContent = memo(function WorkspaceShellLayoutComponent(
               "group/handle relative z-10 flex h-full w-1 shrink-0 touch-none cursor-ew-resize items-center justify-center bg-transparent outline-none [app-region:no-drag] focus:outline-none focus-visible:ring-0",
               "after:pointer-events-none after:absolute after:rounded-full after:bg-foreground-subtlest/50 platform-mac-desktop:after:bg-resize-handle platform-windows-desktop:after:bg-resize-handle platform-linux-desktop:after:bg-resize-handle after:opacity-0 after:transition-opacity after:content-[''] after:inset-y-[var(--workspace-panel-radius)] after:w-0.5",
               "hover:after:opacity-100 data-[separator=hover]:after:opacity-100 data-[separator=active]:after:opacity-100 focus-visible:after:opacity-100 [[data-workspace-sidebar-resizing=true]_&]:after:opacity-100",
-              hasDesktopPanelInset && "after:inset-y-[var(--workspace-resize-handle-inset)]",
+              hasWorkspacePanelInset && "after:inset-y-[var(--workspace-resize-handle-inset)]",
               isWebRemoteControlShell && "max-md:hidden",
             )}
           />
@@ -2600,13 +2610,13 @@ const WorkspaceShellLayoutContent = memo(function WorkspaceShellLayoutComponent(
           id="content"
           className={cn(
             "flex min-w-[320px] flex-1 flex-col",
-            hasDesktopPanelInset ? (isWindowsDesktop ? "pr-1.5 pb-1.5" : "pr-1 pb-1") : "p-0",
+            hasWorkspacePanelInset ? (isWindowsDesktop ? "pr-1.5 pb-1.5" : "pr-1 pb-1") : "p-0",
             isWebRemoteControlShell &&
               "max-md:!w-full max-md:!min-w-0 max-md:!flex-1 max-md:!basis-0",
           )}
         >
           {
-            hasDesktopPanelInset && (
+            hasWorkspacePanelInset && (
               <div className={cn("w-full [app-region:drag]", isWindowsDesktop ? "h-1.5" : "h-1")} />
             ) /* 修复 macOS 顶部窗口控制按钮被 header 遮挡无法点击的问题 */
           }
@@ -2625,7 +2635,8 @@ const WorkspaceShellLayoutContent = memo(function WorkspaceShellLayoutComponent(
           >
             <ResizablePanel
               id="conversation-column"
-              minSize={isWebRemoteControlShell ? "0px" : "35%"}
+              // Bugfix: 0px 只服务手机堆叠布局；平板横向拖拽沿用桌面最小占比，避免会话被挤没。
+              minSize={isWebRemoteControlShell && isWebRemoteControlMobileViewport ? "0px" : "35%"}
               defaultSize={isSidePaneVisible ? "52%" : undefined}
               className={
                 isWebRemoteControlShell

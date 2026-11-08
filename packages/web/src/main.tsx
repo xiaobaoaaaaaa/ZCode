@@ -68,6 +68,8 @@ import type {
 
 import {
   WebRemoteControlEntry,
+  createWebRemoteControlPreferences,
+  resolveSavedWebRemoteControlTarget,
   isWebRemoteControlOAuthCallback,
   type WebRemoteControlEntryConnection,
   createWebRemoteControlV2TokenClient,
@@ -388,7 +390,16 @@ const webRemoteControlStorage: Pick<Storage, "getItem" | "setItem"> = {
   setItem: (key, value) => window.localStorage.setItem(key, value),
 };
 
+function remotePreferenceAccountKey(): string | null {
+  const session = webAuthService.restoreCachedSessionState();
+  const account = webAuthService.getActiveAccount();
+  return session.status === "authenticated" && account
+    ? JSON.stringify([account.provider, session.userInfo.id])
+    : null;
+}
+
 const remoteEntry = new WebRemoteControlEntry({
+  getAccountKey: remotePreferenceAccountKey,
   auth: webAuthService,
   getHref: () => window.location.href,
   replaceHref: (href) => window.history.replaceState(window.history.state, "", href),
@@ -416,6 +427,8 @@ const remoteEntry = new WebRemoteControlEntry({
         <WebRemoteControlDeviceListPage
           view={view}
           onSelect={(sid) => remoteEntry.selectDevice(sid)}
+          onHide={(mid) => remoteEntry.hideDevice(mid)}
+          onRestoreHidden={() => remoteEntry.restoreHiddenDevices()}
           onRefresh={() => {
             void remoteEntry.refreshDevices();
           }}
@@ -831,6 +844,13 @@ async function bootstrapExternalRelayWebRemoteControl(
 ): Promise<void> {
   if (connection.signal.aborted) return;
   const { params: relayParams, getToken } = connection;
+  const preferenceAccount = remotePreferenceAccountKey();
+  const preferences = createWebRemoteControlPreferences(
+    webRemoteControlStorage,
+    window.location.origin,
+    preferenceAccount,
+  );
+  const preferenceDevice = relayParams.deviceMid ?? relayParams.deviceSid;
   const terminalClientSessionId = createWebRemoteControlRequestId("terminal-page");
   seedStableWebRemoteControlClientId(relayParams.deviceSid);
   // 平台只是展示偏好：取本机按 MID 记住的记录，扫码直连的陌生设备显示通用电脑图标。
@@ -1363,6 +1383,14 @@ async function bootstrapExternalRelayWebRemoteControl(
   };
 
   const updateMobileViewState = async (workspaceKey: string, taskId?: string): Promise<void> => {
+    // Bugfix: 被切走的旧 Root 可能迟到回报导航；只允许当前连接和账号保存偏好。
+    if (
+      connection.signal.aborted ||
+      terminated ||
+      remotePreferenceAccountKey() !== preferenceAccount
+    )
+      return;
+    preferences.saveNavigation(preferenceDevice, { workspaceKey, ...(taskId ? { taskId } : {}) });
     currentWorkspaceKey = workspaceKey;
     currentTaskId = taskId;
     transport.sendPayload({
@@ -1742,7 +1770,12 @@ async function bootstrapExternalRelayWebRemoteControl(
   }) => {
     const bootstrapResult = await checkDesktopVersion();
     if (!bootstrapResult || terminated || versionGuard.isBlocked()) return;
-    const selectedWorkspace = resolveWebRemoteControlRecoveryTarget(bootstrapResult, options);
+    const savedNavigation = options?.preferredWorkspaceKey
+      ? null
+      : preferences.readNavigation(preferenceDevice);
+    const selectedWorkspace = options?.preferredWorkspaceKey
+      ? resolveWebRemoteControlRecoveryTarget(bootstrapResult, options)
+      : resolveSavedWebRemoteControlTarget(bootstrapResult, savedNavigation);
     if (!selectedWorkspace) {
       throw toWebRemoteControlFailure(
         "workspace-closed",
@@ -1768,6 +1801,31 @@ async function bootstrapExternalRelayWebRemoteControl(
       taskId: selectedWorkspace.taskId,
       taskHostId: selectedWorkspace.taskHostId,
     });
+    if (
+      savedNavigation?.workspaceKey === selectedWorkspace.workspaceKey &&
+      savedNavigation?.taskId === selectedWorkspace.taskId &&
+      selectedWorkspace.taskId
+    ) {
+      // Bugfix: 本地保存的任务可能已被删除；仅 Host 明确返回不存在才退回项目，RPC 异常保持原失败语义。
+      const meta = await result.services.zcodeTaskService.getTaskMeta({
+        taskId: selectedWorkspace.taskId,
+        workspacePath: result.bridge.workspacePath,
+        ...(result.bridge.kind === "remote"
+          ? { workspaceIdentity: result.bridge.workspaceIdentity }
+          : {}),
+      });
+      if (
+        connection.signal.aborted ||
+        terminated ||
+        activeRelayProtocol !== result.relayProtocol ||
+        remotePreferenceAccountKey() !== preferenceAccount
+      )
+        return;
+      if (!meta) {
+        result.bridge = { ...result.bridge, initialTaskId: undefined };
+        await updateMobileViewState(result.bridge.workspaceKey);
+      }
+    }
     renderExternalRelayRoot(result.services, result.bridge);
   };
 

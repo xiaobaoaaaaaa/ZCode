@@ -1,3 +1,4 @@
+import { createWebRemoteControlPreferences } from "#src/web-remote-control/app/webRemoteControlPreferences.js";
 import type {
   WebRemoteControlDeviceListView,
   WebRemoteControlEntryConnection,
@@ -80,6 +81,21 @@ export class WebRemoteControlEntry {
     this.scope = new AbortController();
   }
 
+  private recentDeviceKey(base: string): string {
+    const account = this.options.getAccountKey?.();
+    return account
+      ? `${base}:${JSON.stringify([new URL(this.options.getHref()).origin, account])}`
+      : base;
+  }
+
+  private preferences() {
+    return createWebRemoteControlPreferences(
+      this.options.storage,
+      new URL(this.options.getHref()).origin,
+      this.options.getAccountKey?.() ?? null,
+    );
+  }
+
   async start(): Promise<void> {
     this.reset();
     const url = new URL(this.options.getHref());
@@ -89,6 +105,14 @@ export class WebRemoteControlEntry {
     }
     if (!this.options.auth.getZCodeJwtToken()) {
       this.options.onView({ kind: "login" });
+      return;
+    }
+    // 原生“电脑”是显式选择意图，不能被最近设备自动落点抢回；登录前保留参数供 OAuth 往返。
+    if (url.searchParams.get("devices") === "1") {
+      url.searchParams.delete("devices");
+      for (const key of ["sid", "mid", "name", "hash", "t"]) url.searchParams.delete(key);
+      this.options.replaceHref(url.href);
+      await this.openDevices(false);
       return;
     }
     const params = parseWebRemoteControlExternalQrParams(url.searchParams);
@@ -109,8 +133,12 @@ export class WebRemoteControlEntry {
     let lastMid: string | null = null;
     try {
       if (autoConnect) {
-        lastSid = this.options.storage.getItem(LAST_DEVICE_KEY);
-        lastMid = this.options.storage.getItem(LAST_DEVICE_MID_KEY);
+        lastSid =
+          this.options.storage.getItem(this.recentDeviceKey(LAST_DEVICE_KEY)) ??
+          this.options.storage.getItem(LAST_DEVICE_KEY);
+        lastMid =
+          this.options.storage.getItem(this.recentDeviceKey(LAST_DEVICE_MID_KEY)) ??
+          this.options.storage.getItem(LAST_DEVICE_MID_KEY);
       }
     } catch {
       // iOS 私密模式等环境可能禁用存储；最近设备只是偏好，不阻断入口。
@@ -154,8 +182,21 @@ export class WebRemoteControlEntry {
         const knownDevices = readKnownDevices(this.options.storage);
         const groups = groupWebRemoteControlDevices(devices, this.options.locale, knownDevices);
         rememberKnownDevices(this.options.storage, knownDevices, groups);
-        list.view = { ...list.view, devices: groups, loading: false, error: false };
-        const autoSid = resolveAutoConnectSid(devices, groups, list.lastSid, list.lastMid);
+        const hidden = this.preferences().hiddenDevices();
+        const visibleGroups = groups.filter((group) => !hidden.has(group.deviceMid));
+        list.view = {
+          ...list.view,
+          devices: visibleGroups,
+          hiddenDeviceCount: hidden.size,
+          loading: false,
+          error: false,
+        };
+        const autoSid = resolveAutoConnectSid(
+          devices.filter((device) => !hidden.has(device.device_mid)),
+          visibleGroups,
+          list.lastSid,
+          list.lastMid,
+        );
         // 自动落点只消费首次成功的列表；后续刷新不能打断用户选择。
         list.lastSid = null;
         list.lastMid = null;
@@ -178,6 +219,31 @@ export class WebRemoteControlEntry {
       }
     })();
     return list.request;
+  }
+
+  hideDevice(mid: string): void {
+    const list = this.list;
+    if (
+      !list ||
+      list.view.loading ||
+      list.view.error ||
+      list.acceptedJwt !== this.options.auth.getZCodeJwtToken()
+    )
+      return;
+    if (!list.view.devices.some((device) => device.deviceMid === mid)) return;
+    this.preferences().hideDevice(mid);
+    void this.refreshDevices();
+  }
+
+  restoreHiddenDevices(): void {
+    if (
+      !this.list ||
+      this.list.view.loading ||
+      this.list.acceptedJwt !== this.options.auth.getZCodeJwtToken()
+    )
+      return;
+    this.preferences().restoreHiddenDevices();
+    void this.refreshDevices();
   }
 
   selectDevice(sid: string): void {
@@ -268,8 +334,8 @@ export class WebRemoteControlEntry {
 
   private rememberDevice(sid: string, mid: string | undefined): void {
     try {
-      this.options.storage.setItem(LAST_DEVICE_KEY, sid);
-      if (mid) this.options.storage.setItem(LAST_DEVICE_MID_KEY, mid);
+      this.options.storage.setItem(this.recentDeviceKey(LAST_DEVICE_KEY), sid);
+      if (mid) this.options.storage.setItem(this.recentDeviceKey(LAST_DEVICE_MID_KEY), mid);
     } catch {
       // 偏好持久化失败不影响连接，也不修改按 SID 隔离的业务状态。
     }

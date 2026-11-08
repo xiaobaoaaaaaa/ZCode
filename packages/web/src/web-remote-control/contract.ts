@@ -30,6 +30,7 @@ export type WebRemoteControlDeviceListView = {
   loading: boolean;
   error: boolean;
   account?: WebRemoteControlDeviceListAccount;
+  hiddenDeviceCount?: number;
 };
 
 export type WebRemoteControlEntryView =
@@ -45,7 +46,14 @@ export interface WebRemoteControlEntryConnection {
   onFailure(failure: WebRemoteControlFailure): void;
 }
 
+export interface WebRemoteControlSavedNavigation {
+  workspaceKey: string;
+  taskId?: string;
+}
+
 export interface WebRemoteControlEntryOptions {
+  /** provider + 稳定账号 ID，仅作为本地偏好命名空间。 */
+  getAccountKey?(): string | null;
   // 浏览器 location/history/storage 经现有边界注入，不另存一份登录事实。
   auth: Pick<WebAuthService, "getZCodeJwtToken" | "getActiveAccount" | "startLogin" | "logout">;
   getHref(): string;

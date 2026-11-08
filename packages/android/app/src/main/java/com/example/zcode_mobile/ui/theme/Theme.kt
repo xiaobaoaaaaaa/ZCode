@@ -1,6 +1,9 @@
 package com.example.zcode_mobile.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Shapes
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -16,6 +19,7 @@ private val DarkColorScheme = darkColorScheme(
     onBackground = NeutralDarkText,
     onSurface = NeutralDarkText,
     onSurfaceVariant = NeutralDarkSubtle,
+    outlineVariant = NeutralDarkText.copy(alpha = 0.1f),
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -28,6 +32,7 @@ private val LightColorScheme = lightColorScheme(
     onBackground = NeutralLightText,
     onSurface = NeutralLightText,
     onSurfaceVariant = NeutralLightSubtle,
+    outlineVariant = NeutralLightText.copy(alpha = 0.1f),
 )
 
 @Composable
@@ -43,6 +48,7 @@ fun ZcodemobileTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
+        shapes = Shapes(small = RoundedCornerShape(6.dp), medium = RoundedCornerShape(8.dp), large = RoundedCornerShape(12.dp), extraLarge = RoundedCornerShape(16.dp)),
         content = content
     )
 }

@@ -1,4 +1,4 @@
-name: Personal desktop release
+name: Personal desktop and Android release
 
 on:
   push:
@@ -117,9 +117,64 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+  android:
+    name: Build signed Android APK
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.14.0
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa
+        with:
+          version: 10.33.2
+          run_install: false
+      - run: pnpm install --frozen-lockfile --child-concurrency=1
+      - name: Prepare Android SDK and JDK
+        shell: bash
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME_21_X64" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME_21_X64/bin" >> "$GITHUB_PATH"
+          sdkmanager "platforms;android-36.1" "build-tools;36.1.0"
+      - name: Build and verify signed release
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: personal
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_CERTIFICATE_SHA256: ${{ secrets.ANDROID_CERTIFICATE_SHA256 }}
+        run: |
+          set -euo pipefail
+          export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/personal-android.p12"
+          trap 'rm -f "$ANDROID_KEYSTORE_PATH"' EXIT
+          umask 077
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_PATH"
+          node --test scripts/test/android-release.test.mjs
+          packages/android/gradlew -p packages/android :app:assembleRelease :app:lintRelease --console=plain
+          apk=packages/android/app/build/outputs/apk/release/app-release.apk
+          "$ANDROID_HOME/build-tools/36.1.0/apksigner" verify --print-certs "$apk" > "$RUNNER_TEMP/apk-cert.txt"
+          actual=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/apk-cert.txt")
+          test "$actual" = "$ANDROID_CERTIFICATE_SHA256"
+          "$ANDROID_HOME/build-tools/36.1.0/aapt" dump badging "$apk" > "$RUNNER_TEMP/apk-badging.txt"
+          grep -q "package: name='io.github.xiaobaoaaaaaa.zcode'" "$RUNNER_TEMP/apk-badging.txt"
+          version=$(node -p "require('./package.json').version")
+          code=$(sed -n 's/^VERSION_CODE=//p' packages/android/version.properties)
+          grep -q "versionCode='$code' versionName='$version'" "$RUNNER_TEMP/apk-badging.txt"
+          node scripts/android-release.mjs stage "$apk" dist/android-release
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: android-release
+          path: dist/android-release
+          if-no-files-found: error
+          compression-level: 0
+
   draft:
     name: Assemble verified draft release
-    needs: build
+    needs: [build, android]
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     permissions:
@@ -137,6 +192,12 @@ jobs:
           path: ${{ runner.temp }}/release-input
       - name: Validate complete matrix and generate checksums
         run: node scripts/personal-release.mjs collect "$RUNNER_TEMP/release-input" "$RUNNER_TEMP/release-ready"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: android-release
+          path: ${{ runner.temp }}/android-release
+      - name: Validate Android provenance and append checksums
+        run: node scripts/android-release.mjs collect "$RUNNER_TEMP/android-release" "$RUNNER_TEMP/release-ready"
       - name: Upload draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -150,36 +211,3 @@ jobs:
           fi
           gh release upload "$tag" "$RUNNER_TEMP/release-ready/"* --clobber
           gh release view "$tag" --json url,tagName,isDraft,assets --jq '{url,tagName,isDraft,assets:[.assets[]|{name,size,digest}]}'
-
-      # 本次用户明确授权正式发布；其他版本仍只生成草稿。
-      - name: Publish authorized 3.17.1 Personal release
-        if: github.ref == 'refs/heads/release/3.17.1-personal.1'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          tag="v3.17.1-personal.1"
-          release_id=$(gh release view "$tag" --json databaseId --jq .databaseId)
-          gh api "repos/$GITHUB_REPOSITORY/releases/$release_id" > "$RUNNER_TEMP/uploaded-release.json"
-          node --input-type=module <<'NODE'
-          import assert from 'node:assert/strict';
-          import { readFile, readdir, stat } from 'node:fs/promises';
-          import { createReadStream } from 'node:fs';
-          import { createHash } from 'node:crypto';
-          import { join } from 'node:path';
-          const release = JSON.parse(await readFile(join(process.env.RUNNER_TEMP, 'uploaded-release.json'), 'utf8'));
-          assert.equal(release.draft, true);
-          assert.equal(release.target_commitish, process.env.GITHUB_SHA);
-          const root = join(process.env.RUNNER_TEMP, 'release-ready');
-          const names = await readdir(root);
-          assert.equal(names.length, 15);
-          assert.deepEqual(release.assets.map(a => a.name).sort(), [...names].sort());
-          for (const name of names) {
-            const asset = release.assets.find(a => a.name === name);
-            const path = join(root, name);
-            assert.equal(asset.size, (await stat(path)).size);
-            const hash = createHash('sha256');
-            for await (const chunk of createReadStream(path)) hash.update(chunk);
-            assert.equal(asset.digest, 'sha256:' + hash.digest('hex'), name);
-          }
-          NODE
-          gh release edit "$tag" --draft=false --prerelease=false --latest
