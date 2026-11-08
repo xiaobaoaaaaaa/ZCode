@@ -140,6 +140,9 @@ jobs:
           java-version: "21"
       - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
         with:
+          # v3 的默认 tools 包已下架；显式选择仍受支持的包和命令行工具。
+          cmdline-tools-version: "15859902"
+          packages: platform-tools
           log-accepted-android-sdk-licenses: false
       - name: Install Android platform and build tools
         run: sdkmanager "platforms;android-36.1" "build-tools;36.1.0"
