@@ -1,5 +1,12 @@
 # Tool Change Chain Spec
 
+WebFetch / Codex 非流式处理（2026-11-08）：网页抓取 → `processWebFetchContent` →
+`model.generateText` → Codex transport 强制 SSE → 提取终态 JSON → 工具结果。
+固定订阅端点的成功响应即使缺少或误标 Content-Type 也必须转换；旧条件跳过转换使
+网页已抓取后的内容提取报 `Invalid JSON response`。转换只由 transport 持有，工具
+schema、权限、超时、事件及桌面/手机投影不变。回归见 CLI adapter 的
+`codex-subscription.test.ts`，详细证据与顺序见 `../model/codex-subscription.md`。
+
 显式无输入续跑（2026-11-04）：停止时仍保存原有工具取消结果；只有用户点击继续的控制边界解除最近一轮模型上下文中的 STOP 等待文本，替换成“已取消、可能保留部分副作用”的事实，error 和 toolCallId 不变。历史记录、工具卡、权限和执行器不变，不自动重放工具；热续跑与冷恢复共用转换。回归覆盖未取消结果保持、普通新输入不变、续跑不增加用户消息及持久轮边界，详见 `../turn-cancellation.md`。
 
 工具 schema、顺序与描述是固定字节（tools 段字节进入缓存前缀）：`toToolJsonSchema` 按
