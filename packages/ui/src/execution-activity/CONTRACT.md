@@ -8,6 +8,8 @@
 每条工具调用只落入一个类别；组件按固定顺序显示非零类别。聚合器复制并合并计数，不修改输入映射。
 类别变化只更新摘要，不作为分组边界或身份的一部分；工具语义的识别归 V4 调用方所有。
 
-V4 renderer 先完成已有的 reasoning 可见性；按原始工具行隔离错误、授权、交互和插件 UI 等边界，再构建 Explore/Execute/Changes 分组并提供描述符，避免一个边界子项带出整组正常工具。完成态历史和子代理 timelineOnly 入口沿用同一过程分组，运行状态控制状态展示及可选自动展开。详见 `docs/ui/execution-activity-collapse.md`。
+V4 renderer 先完成已有的 reasoning 可见性；按原始工具行隔离错误、授权、交互和插件 UI 等边界，再构建 Explore/Execute/Changes 分组并提供描述符，避免一个边界子项带出整组正常工具。完成态历史和子代理 timelineOnly 入口沿用同一过程分组，运行状态控制状态展示，阶段活跃状态控制可选自动展开。详见 `docs/ui/execution-activity-collapse.md`。
 
-可选 autoExpandRunning（默认 false）由 V4 context 传入；未手动操作时展开值为 autoExpandRunning && activity.running，手动选择在本次挂载内优先。
+可选 autoExpandRunning（默认 false）由 V4 context 传入；调用方以现有工作段生命周期和连续分组顺序提供 stageActive。
+未手动操作时展开值为 autoExpandRunning && stageActive；单个工具 running 仅用于状态摘要，不作为开合边界。
+阶段内工具完成和下一次调用的空档保持展开；后续正文/交互边界、下一组或整轮结束才收起。手动选择在本次挂载内优先。

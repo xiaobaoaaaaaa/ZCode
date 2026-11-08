@@ -180,7 +180,10 @@ timelineOnly 入口还遗漏开关。所有 ConversationAssistantWorkItems 入�
 
 通用设置新增“自动展开正在执行的过程”，共享设置字段
 `executionActivityAutoExpandEnabled`，缺省 false，沿用现有设置服务保存、广播和加载。
-开启后，没有手动选择的过程组以自身 `running` 决定展开；结束或关闭设置后收起。
+开启后，没有手动选择的过程组以所处执行阶段决定展开：当前仍运行的工作段中，末尾连续过程组保持展开，
+工具完成、思考完成或两次工具调用之间的空档不构成阶段结束。出现后续正文/交互边界、后续过程组或工作段/整轮结束时，
+上一过程组才自动收起；关闭设置也收起。阶段由现有 V4 flow/work segment 与分组顺序派生，不引入计时器或运行事实副本。
+过程摘要和加载图标仍使用原始 `running`，与自动开合分离。
 手动展开/收起优先于自动规则，直到该组卸载；流式追加不重置选择。
 重新挂载按当前设置及运行事实重新计算，完成态历史始终默认收起。
 只展开外层执行过程，内层工具与思考维持原有规则。普通轮、后台轮和子代理共用规则。
@@ -193,13 +196,13 @@ flowchart LR
   S[设置 Switch] --> P[现有共享设置服务]
   P --> H[SessionPane 设置 hook]
   H --> V[V4 context]
-  C[CLI continuous / replayable 投影] --> R[group.running]
-  V --> G[过程组：手动选择优先，否则偏好且 running]
+  C[CLI continuous / replayable 投影] --> R[工作段仍运行且为末尾过程组]
+  V --> G[过程组：手动选择优先，否则偏好且阶段活跃]
   R --> G
   U[用户点击] --> G
 ```
 
-验收：默认关闭、开关即时生效、运行自动展开、结束自动收起、手动选择优先、
+验收：默认关闭、开关即时生效、阶段自动展开、阶段内状态变化保持展开、进入下一阶段或整轮结束自动收起、手动选择优先、
 重挂载与完成历史默认收起；主轮/后台/timeline × 桌面/手机由现有真实组件浏览器
 入口验证。不将该展示层验证等同于远控配对/重连或设置服务持久化 E2E。
 
@@ -211,3 +214,10 @@ flowchart LR
 84 warnings。改动源码格式检查与 git diff --check 通过；catalog/matrix 两份文档的整文件
 格式检查存在 HEAD 基线已有差异，未扩大本功能范围重排历史内容。未执行完整 Electron
 设置交互及手机远控重连验收，保持 partial。
+
+EA-PHASE-01（personal.4 修复）：连续 reasoning complete → tool running → tool success → next tool running/success 时，
+同一 group key 与展开态不变；追加正文作为下一阶段后旧组收起，再追加新工具时只展开新组；
+整轮结束与重新挂载历史均默认收起。手动选择优先，在阶段切换后也不能覆盖手动打开/关闭。
+覆盖 main/background/timeline × desktop/mobile 的真实 ConversationTurnGroup 浏览器场景。
+
+2026-11-08 personal.4：阶段修复后的完整浏览器回归38/38通过；补强为连续追加不同toolCallId后，EA-AUTO-01/EA-PHASE-01共12/12通过。类型与架构检查通过，Lint 0错误、84条已有警告。

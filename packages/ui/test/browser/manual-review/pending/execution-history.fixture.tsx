@@ -91,6 +91,9 @@ function TimingFixture() {
   const [endedAt, setEndedAt] = useState<number | null>(null);
   const [turnEnded, setTurnEnded] = useState(false);
   const [mountKey, setMountKey] = useState(0);
+  const [phaseBoundary, setPhaseBoundary] = useState(false);
+  const [nextTool, setNextTool] = useState(false);
+  const [toolCount, setToolCount] = useState(0);
   const [toolStatus, setToolStatus] = useState<"running" | "success" | null>(null);
   const interrupted = query.get("ending") === "interrupted";
   const timingBase = {
@@ -118,16 +121,40 @@ function TimingFixture() {
       ...(endedAt === null ? {} : { durationMs: endedAt - startedAt }),
     },
     ...(toolStatus
+      ? Array.from({ length: toolCount }, (_, index) => ({
+          ...timingBase,
+          rowId: 4 + index,
+          kind: "toolCall" as const,
+          toolCallId: index === 0 ? "auto-expand-bash" : `auto-expand-bash-${index}`,
+          toolName: "Bash",
+          status: index === toolCount - 1 ? toolStatus : ("success" as const),
+          inputText: '{"command":"echo auto-expand"}',
+          ...(index < toolCount - 1 || toolStatus === "success"
+            ? { output: { text: "E2E_AUTO_LOG" } }
+            : {}),
+        }))
+      : []),
+    ...(phaseBoundary
       ? [
           {
             ...timingBase,
-            rowId: 4,
+            rowId: 100,
+            kind: "assistantText" as const,
+            text: "E2E_NEXT_STAGE",
+            state: "complete" as const,
+          },
+        ]
+      : []),
+    ...(nextTool
+      ? [
+          {
+            ...timingBase,
+            rowId: 101,
             kind: "toolCall" as const,
-            toolCallId: "auto-expand-bash",
+            toolCallId: "next-stage-bash",
             toolName: "Bash",
-            status: toolStatus,
-            inputText: '{"command":"echo auto-expand"}',
-            ...(toolStatus === "success" ? { output: { text: "E2E_AUTO_LOG" } } : {}),
+            status: "running" as const,
+            inputText: '{"command":"echo next"}',
           },
         ]
       : []),
@@ -135,7 +162,7 @@ function TimingFixture() {
       ? [
           {
             ...timingBase,
-            rowId: 5,
+            rowId: 102,
             kind: "assistantText" as const,
             text: "E2E_TIMING_DONE",
             state: "complete" as const,
@@ -147,7 +174,24 @@ function TimingFixture() {
   return (
     <>
       <button onClick={() => setAutoExpand((value) => !value)}>Toggle auto expand</button>
-      <button onClick={() => setToolStatus("running")}>Append running tool</button>
+      <button onClick={() => setPhaseBoundary(true)}>Next stage</button>
+      <button onClick={() => setNextTool(true)}>Start next activity</button>
+      <button
+        onClick={() => {
+          setToolCount((count) => Math.max(1, count));
+          setToolStatus("running");
+        }}
+      >
+        Append running tool
+      </button>
+      <button
+        onClick={() => {
+          setToolCount((count) => count + 1);
+          setToolStatus("running");
+        }}
+      >
+        Append another tool
+      </button>
       <button onClick={() => setToolStatus("success")}>Finish tool</button>
       <button onClick={() => setEndedAt(Date.now())}>Finish reasoning</button>
       <button onClick={() => setTurnEnded(true)}>Finish turn</button>
@@ -159,6 +203,9 @@ function TimingFixture() {
           setEndedAt(null);
           setTurnEnded(false);
           setToolStatus(null);
+          setToolCount(0);
+          setPhaseBoundary(false);
+          setNextTool(false);
         }}
       >
         New thought

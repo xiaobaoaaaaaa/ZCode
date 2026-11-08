@@ -6189,3 +6189,7 @@ CLI 定向回归已通过：V4 两种投递模式的并发 workspace 隔离、�
 2026-11-08：该文件初次完整回归 32/32 通过；补充工具追加、手动展开跨工具状态更新
 及稳定布局截图断言后，EA-AUTO-01 6/6 通过。截图产物：
 `packages/desktop/.e2e-artifacts/execution-history/auto-{main,background,timeline}-{false,true}-manual-open.png`。
+
+EA-PHASE-01：同一 execution-history 入口新增 main/background/timeline × desktop/mobile 阶段稳定性场景；测试连续工具间隙、正文边界、下一过程组、手动优先和历史重挂载。保持 partial，未替代 Electron 或真实远控端到端验证。
+
+2026-11-08 personal.4：阶段修复后的完整浏览器回归38/38通过；补强为连续追加不同toolCallId后，EA-AUTO-01/EA-PHASE-01共12/12通过。类型与架构检查通过，Lint 0错误、84条已有警告。

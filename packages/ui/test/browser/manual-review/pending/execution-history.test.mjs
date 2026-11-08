@@ -328,6 +328,8 @@ for (const mobile of [false, true])
         await page.getByRole("button", { name: "Finish reasoning", exact: true }).click();
         await expectOpen(true);
         await page.getByRole("button", { name: "Finish tool", exact: true }).click();
+        await expectOpen(true);
+        await trigger.click();
         await expectOpen(false);
         await trigger.click();
         await expectOpen(true);
@@ -355,6 +357,61 @@ for (const mobile of [false, true])
         if ((await history.count()) && (await history.getAttribute("aria-expanded")) !== "true")
           await history.click();
         await expectOpen(false);
+      } finally {
+        await page.close();
+      }
+    });
+
+for (const mobile of [false, true])
+  for (const mode of ["main", "background", "timeline"])
+    test(`EA-PHASE-01 ${mode}/${mobile ? "mobile" : "desktop"}`, { timeout: 30000 }, async () => {
+      const page = await browser.newPage({ viewport: { width: mobile ? 390 : 1200, height: 900 } });
+      try {
+        await page.goto(
+          `${origin}fixture?scenario=timing&autoExpand=true&mobile=${mobile}&mode=${mode}`,
+        );
+        const triggers = page.getByTestId("execution-activity-trigger");
+        const expectStates = async (states) =>
+          page.waitForFunction(
+            (states) =>
+              JSON.stringify(
+                [...document.querySelectorAll('[data-testid="execution-activity-trigger"]')].map(
+                  (e) => e.getAttribute("aria-expanded"),
+                ),
+              ) === JSON.stringify(states.map(String)),
+            states,
+          );
+        await expectStates([true]);
+        const key = await page
+          .locator("[data-execution-activity]")
+          .getAttribute("data-execution-activity");
+        await page.getByRole("button", { name: "Finish reasoning", exact: true }).click();
+        await expectStates([true]);
+        for (let i = 0; i < 3; i++) {
+          await page.getByRole("button", { name: "Append another tool", exact: true }).click();
+          await expectStates([true]);
+          await page.getByRole("button", { name: "Finish tool", exact: true }).click();
+          await expectStates([true]);
+          assert.equal(
+            await page.locator("[data-execution-activity]").getAttribute("data-execution-activity"),
+            key,
+          );
+        }
+        await page.getByRole("button", { name: "Next stage", exact: true }).click();
+        await expectStates([false]);
+        await page.getByRole("button", { name: "Start next activity", exact: true }).click();
+        await expectStates([false, true]);
+        await triggers.first().click();
+        await triggers.last().click();
+        await expectStates([true, false]);
+        await page.getByRole("button", { name: "Finish turn", exact: true }).click();
+        await expectStates([true, false]);
+        await page.getByRole("button", { name: "Remount", exact: true }).click();
+        const history = page.locator('[data-testid^="chat-assistant-history-trigger"]');
+        if ((await history.count()) && (await history.getAttribute("aria-expanded")) !== "true")
+          await history.click();
+        await expectStates([false, false]);
+        await page.screenshot({ path: join(artifacts, `phase-${mode}-${mobile}.png`) });
       } finally {
         await page.close();
       }

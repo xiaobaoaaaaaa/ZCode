@@ -16,14 +16,17 @@ export function ExecutionActivityGroup({
   activity,
   children,
   autoExpandRunning = false,
+  stageActive,
 }: {
   activity: ExecutionActivityDescriptor;
   children: ReactNode;
   autoExpandRunning?: boolean;
+  stageActive: boolean;
 }) {
   const [manualOpen, setManualOpen] = useState<boolean | null>(null);
-  // 自动展开是运行事实的派生值；用户手动选择后，流式更新不能抢回开合状态。
-  const open = manualOpen ?? (autoExpandRunning && activity.running);
+  // Bugfix: 单个工具结束后 running 会暂时为 false，不能据此收起仍在推进的同一阶段。
+  // 调用方提供工作段末尾阶段事实；工具状态只用于摘要，手动选择始终优先。
+  const open = manualOpen ?? (autoExpandRunning && stageActive);
   const { intl } = useZCodeIntl();
   const label = intl.formatMessage({ id: "chat.executionActivity.title" });
   const summaries = [

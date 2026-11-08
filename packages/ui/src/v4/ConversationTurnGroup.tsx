@@ -480,15 +480,18 @@ function ConversationAssistantWorkItems({
     ) : (
       <ConversationToolGroupRow key={item.key} item={item} context={context} />
     );
+  const activityGroups = groupExecutionActivities(items, describeAssistantWorkActivity);
   const content = (
     <div className="flex flex-col gap-4">
-      {groupExecutionActivities(items, describeAssistantWorkActivity).map((group) =>
+      {activityGroups.map((group, index) =>
         group.kind === "item" ? (
           renderItem(group.item)
         ) : (
           <ExecutionActivityGroup
             key={`activity:${group.key}`}
             activity={group}
+            // Bugfix: 同一阶段内工具完成/再次调用不能反复折叠；仅后续边界或工作段结束关闭自动展开。
+            stageActive={stageTailIsRunning && index === activityGroups.length - 1}
             autoExpandRunning={context.executionActivityAutoExpandEnabled}
           >
             {group.items.map(renderItem)}
