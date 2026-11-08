@@ -116,3 +116,10 @@ flowchart LR
 ```
 
 Android CI 显式通过固定提交的 setup-java/setup-android 准备 JDK21 与 SDK，再安装 platform36.1/build-tools36.1.0，不依赖 runner 默认 PATH 中存在 sdkmanager。
+
+## 3.17.2-personal.5：待引导撤回与 Codex SSE 修复
+
+从已发布 `v3.17.2-personal.4` 创建发布分支，包含本轮两个独立提交：非流式 Codex
+响应不再依赖 MIME 头决定 SSE 转换；待引导消息可撤回到原输入框，已有草稿时阻止。
+用户已授权提交并发布新版本；沿用五平台桌面与签名 Android 联合发布，Android
+versionCode 递增至 2。全部构建、启动检查与远端资产摘要核对通过后公开并设为 Latest。
