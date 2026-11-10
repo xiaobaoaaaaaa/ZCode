@@ -70,8 +70,7 @@ function normalizeOption(value: unknown, index: number): AskUserQuestionOption |
   }
 
   const label =
-    readString(value, ["label", "name", "title", "text", "value"]) ??
-    JSON.stringify(value);
+    readString(value, ["label", "name", "title", "text", "value"]) ?? JSON.stringify(value);
   const id = readString(value, ["id", "optionId", "value", "key"]) ?? label;
   const placeholder = readString(value, [
     "placeholder",
@@ -86,8 +85,7 @@ function normalizeOption(value: unknown, index: number): AskUserQuestionOption |
     description: readString(value, ["description", "detail", "help", "hint"]),
     placeholder,
     requiresInput:
-      readBoolean(value, CUSTOM_INPUT_FLAGS) ||
-      (index >= 0 && placeholder !== undefined),
+      readBoolean(value, CUSTOM_INPUT_FLAGS) || (index >= 0 && placeholder !== undefined),
   };
 }
 
@@ -109,9 +107,7 @@ function readQuestions(input: unknown): unknown[] {
   // Bugfix: ZCode Agent 的 AskUserQuestion 工具输入是单题结构：
   // { header, question, options }，不是多题结构 { questions: [...] }。
   // 这里把单题结构归一化成同一条 questions 管线，避免消息流工具块显示“没有可回答的问题”。
-  return typeof input.question === "string" && Array.isArray(input.options)
-    ? [input]
-    : [];
+  return typeof input.question === "string" && Array.isArray(input.options) ? [input] : [];
 }
 
 function readAnswers(input: unknown): ZCodeUserQuestionAnswers | undefined {
@@ -122,15 +118,29 @@ function readAnswers(input: unknown): ZCodeUserQuestionAnswers | undefined {
   return isPlainRecord(answers) ? answers : undefined;
 }
 
-function parseClaudeAskUserQuestionOutput(output: unknown): ZCodeUserQuestionAnswers | undefined {
-  if (typeof output !== "string" || output.trim().length === 0) {
+function parseTextAskUserQuestionOutput(
+  output: unknown,
+  questions: AskUserQuestionItem[],
+): ZCodeUserQuestionAnswers | undefined {
+  if (typeof output !== "string" || questions.length === 0) {
     return undefined;
   }
 
+  // 工具文本未转义题干/答案里的引号；旧的 [^"] 正则会截断 key 或答案，
+  // 即使模型收到完整回答也显示“未提供回答”。按原始题干和结果边界读取，不 trim key。
+  const questionPattern = questions
+    .map(({ question }) => question.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("|");
+  const answerPattern = new RegExp(
+    `"(${questionPattern})"="([\\s\\S]*?)"` +
+      `(?=, "(?:${questionPattern})"="| selected preview:\\n| user notes: |` +
+      "\\. You can now continue with the user's answers in mind\\.\\s*$|" +
+      "\\. Continue with the provided answers and use your best judgment for the unanswered questions; do not invent user preferences\\.\\s*$|\\s*$)",
+    "g",
+  );
   const answers: ZCodeUserQuestionAnswers = {};
-  const answerPattern = /"([^"]+)"="([^"]*)"/g;
   for (const match of output.matchAll(answerPattern)) {
-    const question = match[1]?.trim();
+    const question = match[1];
     if (!question) {
       continue;
     }
@@ -155,60 +165,46 @@ function parseJsonRecord(output: unknown): Record<string, unknown> | undefined {
   }
 }
 
-function readNestedAskUserQuestionAnswers(input: unknown): ZCodeUserQuestionAnswers | undefined {
-  const directTextAnswers = parseClaudeAskUserQuestionOutput(input);
-  if (directTextAnswers) {
-    return directTextAnswers;
+function readNestedAskUserQuestionAnswers(
+  input: unknown,
+  questions: AskUserQuestionItem[],
+  allowText: boolean,
+): ZCodeUserQuestionAnswers | undefined {
+  if (Array.isArray(input)) {
+    for (const item of input) {
+      const answers = readNestedAskUserQuestionAnswers(item, questions, allowText);
+      if (answers) return answers;
+    }
+    return undefined;
   }
 
   const record = parseJsonRecord(input);
   if (!record) {
-    return undefined;
+    return allowText ? parseTextAskUserQuestionOutput(input, questions) : undefined;
   }
 
-  const directAnswers = readAnswers(record);
+  const directAnswers =
+    readAnswers(record) ?? parseZCodeAskUserQuestionOutput(record, questions[0]);
   if (directAnswers) {
     return directAnswers;
   }
 
-  const contentAnswers = readNestedAskUserQuestionAnswers(record.content);
-  if (contentAnswers) {
-    return contentAnswers;
+  for (const nested of [record.content, record.text, record.rawOutput, record.output]) {
+    const answers = readNestedAskUserQuestionAnswers(nested, questions, allowText);
+    if (answers) return answers;
   }
-
-  if (Array.isArray(record.content)) {
-    for (const item of record.content) {
-      const itemAnswers = readNestedAskUserQuestionAnswers(item);
-      if (itemAnswers) {
-        return itemAnswers;
-      }
-    }
-  }
-
-  const textAnswers = parseClaudeAskUserQuestionOutput(record.text);
-  if (textAnswers) {
-    return textAnswers;
-  }
-
-  const rawOutputAnswers = readNestedAskUserQuestionAnswers(record.rawOutput);
-  if (rawOutputAnswers) {
-    return rawOutputAnswers;
-  }
-
-  return readNestedAskUserQuestionAnswers(record.output);
+  return undefined;
 }
 
 function parseZCodeAskUserQuestionOutput(
   output: unknown,
-  input: unknown,
+  question: AskUserQuestionItem | undefined,
 ): ZCodeUserQuestionAnswers | undefined {
   const outputRecord = parseJsonRecord(output);
   if (!outputRecord) {
     return undefined;
   }
 
-  const data = normalizeAskUserQuestionInput(input);
-  const question = data.questions[0];
   if (!question) {
     return undefined;
   }
@@ -267,8 +263,7 @@ function normalizeQuestion(value: unknown, index: number): AskUserQuestionItem |
             requiresInput: true,
           }
         : undefined;
-  const normalizedOptions =
-    lastOptionIsCustomInput ? options.slice(0, -1) : options;
+  const normalizedOptions = lastOptionIsCustomInput ? options.slice(0, -1) : options;
   const type =
     value.multiple === true ||
     value.multiSelect === true ||
@@ -319,61 +314,23 @@ export function readAskUserQuestionAnswers(value: {
   output?: unknown;
   raw?: unknown;
 }): ZCodeUserQuestionAnswers | undefined {
-  const nestedOutputAnswers = readNestedAskUserQuestionAnswers(value.output);
-  if (nestedOutputAnswers) {
-    return nestedOutputAnswers;
-  }
-  // Bugfix: Claude 历史里的 AskUserQuestion output 会落成一段文本
-  // `"问题"="答案"`，而不是结构化 answers。历史 snapshot 覆盖实时态后，
-  // 只读结果会因为读不到 answers 退回 No answer provided，这里兼容解析该格式。
-  const parsedOutputAnswers = parseClaudeAskUserQuestionOutput(value.output);
-  if (parsedOutputAnswers) {
-    return parsedOutputAnswers;
-  }
-  const parsedZCodeOutputAnswers = parseZCodeAskUserQuestionOutput(
+  const { questions } = normalizeAskUserQuestionInput(readAskUserQuestionInput(value));
+  const raw = isPlainRecord(value.raw) ? value.raw : undefined;
+  const sources = [
     value.output,
-    readAskUserQuestionInput(value),
-  );
-  if (parsedZCodeOutputAnswers) {
-    return parsedZCodeOutputAnswers;
-  }
-  if (isPlainRecord(value.input) && isPlainRecord(value.input.answers)) {
-    return value.input.answers;
-  }
-  if (isPlainRecord(value.raw)) {
-    const nestedRawOutputAnswers = readNestedAskUserQuestionAnswers(value.raw.rawOutput);
-    if (nestedRawOutputAnswers) {
-      return nestedRawOutputAnswers;
-    }
-    const parsedRawOutputAnswers = parseClaudeAskUserQuestionOutput(value.raw.rawOutput);
-    if (parsedRawOutputAnswers) {
-      return parsedRawOutputAnswers;
-    }
-    const parsedRawZCodeOutputAnswers = parseZCodeAskUserQuestionOutput(
-      value.raw.rawOutput,
-      readAskUserQuestionInput(value),
-    );
-    if (parsedRawZCodeOutputAnswers) {
-      return parsedRawZCodeOutputAnswers;
-    }
-    const nestedRawAnswers = readNestedAskUserQuestionAnswers(value.raw.output);
-    if (nestedRawAnswers) {
-      return nestedRawAnswers;
-    }
-    const parsedRawAnswers = parseClaudeAskUserQuestionOutput(value.raw.output);
-    if (parsedRawAnswers) {
-      return parsedRawAnswers;
-    }
-    const parsedRawZCodeAnswers = parseZCodeAskUserQuestionOutput(
-      value.raw.output,
-      readAskUserQuestionInput(value),
-    );
-    if (parsedRawZCodeAnswers) {
-      return parsedRawZCodeAnswers;
-    }
-    const nestedRawContentAnswers = readNestedAskUserQuestionAnswers(value.raw.content);
-    if (nestedRawContentAnswers) {
-      return nestedRawContentAnswers;
+    raw?.rawOutput,
+    raw?.output,
+    raw?.content,
+    value.input,
+    raw?.rawInput,
+    raw?.input,
+  ];
+  // 文本可能只解析出部分题目，不能因此抢先返回并遮蔽结构化答案。
+  // 先遍历所有结构化来源（包括显式空 answers），再兼容旧历史文本，不合并两份事实。
+  for (const allowText of [false, true]) {
+    for (const source of sources) {
+      const answers = readNestedAskUserQuestionAnswers(source, questions, allowText);
+      if (answers) return answers;
     }
   }
   return undefined;
@@ -386,9 +343,7 @@ export function getAskUserQuestionAnswerText(
 ) {
   const value = answers?.[question.question] ?? answers?.[question.id];
   if (Array.isArray(value)) {
-    const values = value
-      .map((item) => String(item).trim())
-      .filter((item) => item.length > 0);
+    const values = value.map((item) => String(item).trim()).filter((item) => item.length > 0);
     return values.length > 0 ? values.join("，") : noAnswerText;
   }
   if (typeof value === "string") {

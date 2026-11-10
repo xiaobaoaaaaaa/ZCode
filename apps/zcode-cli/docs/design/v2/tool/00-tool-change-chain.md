@@ -1360,6 +1360,9 @@ history。重点检查：
 
 - `requiresUserInteraction`、permission broker、TUI/ZCode app-server request-response、pending/resume、非交互 session 降级。
 - 不把交互流程写死在 TUI，ZCode app-server 也必须能承载。
+- 已回答记录沿既有 result → tool row/snapshot → desktop continuous / web replayable → 共享 UI
+  读取。UI 优先结构化答案，旧文本按完整题干识别，保留引号和空白；不改变答案提交、模型结果或协议。
+  根因与 Q27 浏览器验收见 [答案显示](../../../../../../docs/ui/ask-user-question-answer-display.md)。
 
 ### Background / long-running tool
 
