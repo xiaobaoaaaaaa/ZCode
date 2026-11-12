@@ -123,3 +123,14 @@ Android CI 显式通过固定提交的 setup-java/setup-android 准备 JDK21 与
 响应不再依赖 MIME 头决定 SSE 转换；待引导消息可撤回到原输入框，已有草稿时阻止。
 用户已授权提交并发布新版本；沿用五平台桌面与签名 Android 联合发布，Android
 versionCode 递增至 2。全部构建、启动检查与远端资产摘要核对通过后公开并设为 Latest。
+
+## 3.18.0-personal.1：官方 3.18.0 合入发布
+
+用户已授权发布新安装包。从已发布的 `v3.17.2-personal.5` 创建发布分支，快进接收
+`08049a7b` 的完整集成历史，包含官方 `b95ebaff` 和未发布的 `ec0c8159` 问答历史答案修复。
+重叠功能采用官方实现，具体规则及源码验证见 [合入记录](../specs/upstream-3.18.0-personal-integration.md)。
+
+沿用五平台桌面与签名 Android 联合发布。根版本为 `3.18.0-personal.1`，Android 唯一
+versionCode 计数器递增至 3，applicationId 和签名身份保持现有合同。全部构建、实际启动、
+Android 签名检查和远端资产名称/大小/SHA-256/源码提交核对通过后，正式公开并设为 Latest。
+本次授权包含推送发布分支、构建、草稿资产上传和核验后的公开，不需要再次确认。

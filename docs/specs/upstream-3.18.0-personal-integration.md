@@ -5,7 +5,7 @@
 - 官方源码基线：`b95ebaffeab641907b38652f45c1502bd762972d`（3.18.0）。
 - Personal 基线：`ec0c8159cb8a07144c1349b7631b92783e5061ae`，包含已发布的 `v3.17.2-personal.5` 和未发布的 AskUserQuestion 历史答案修复。
 - 集成分支：`codex/integrate-3.18.0-personal`；保留双亲合并历史，不改写现有发布分支。
-- 用户决定：官方与 Personal 功能相同时采用官方实现；保留官方尚未提供的 Personal 能力。此次只集成和验证，不发布安装包或创建发布标签。
+- 用户决定：官方与 Personal 功能相同时采用官方实现；保留官方尚未提供的 Personal 能力。首次任务完成源码集成；用户随后授权发布新安装包，按 [Personal 发布合同](../releases/personal-release.md#3180-personal1官方-3180-合入发布) 执行构建、核验与正式公开。
 - 集成版本为 `3.18.0-personal.1`，验证完成前不视为可发布版本。
 
 ## 合并规则与交叉点
