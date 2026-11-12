@@ -1,3 +1,4 @@
+import { TurnPerformanceSummary } from "@/turn-performance/contract.js";
 import { buildEditCodeViewerSource } from "@/ToolCallBlocks/renderers/edit.js";
 import { CollapsedChangeSummary } from "@/ToolCallBlocks/renderers.js";
 import { SummaryGroupBoundaryContext } from "@/v4/conversationRowContext.js";
@@ -1428,6 +1429,7 @@ function ConversationTurnGroupImpl({
       unit.workStatus?.state === "running";
   const hasAssistantTurnContent =
     hasAssistantWorkContent ||
+    (!unit.timelineOnly && (unit.header?.performance?.requestCount ?? 0) > 0) ||
     Boolean(unit.header?.fileChanges) ||
     canRenderAssistantActions ||
     hasHookActions ||
@@ -1587,49 +1589,61 @@ function ConversationTurnGroupImpl({
                 assistantCodeCommentProjectionEnabled={assistantCodeCommentProjectionEnabled}
               />
             ) : null}
-            {canRenderAssistantActions && latestAssistantTextRow ? (
-              // 文件 summary 是整轮完成后的聚合结果；轮尾工具栏如果跟着
-              // assistant text 内联渲染，会插到 summary 前面，读起来像 summary 不是本轮收尾。
-              <ConversationAssistantTextActions
-                rowId={latestAssistantTextRow.rowId}
-                entityId={latestAssistantTextRow.entityId}
-                text={assistantCopyText}
-                createdAt={latestAssistantTextRow.createdAt}
-                compactForRemoteControl={context.compactForRemoteControl}
-                feedback={readAssistantFeedback(latestAssistantTextRow)}
-                sessionId={context.sessionId}
-                onFork={canForkLatestAssistant ? onFork : undefined}
-                onRetry={canRetryLatestAssistant ? onRetry : undefined}
-                onFeedbackChange={onFeedbackChange}
-                hookInvocations={unit.hookInvocations}
-                turnId={unit.turnId}
-                sourceCommandIds={deliverySourceCommandIds}
-                className={cn(
-                  "flex items-center gap-1",
-                  context.compactForRemoteControl
-                    ? "opacity-100"
-                    : "opacity-0 transition-opacity group-hover/assistant-turn:opacity-100 focus-within:opacity-100 has-[[data-bot-group-delivery]]:opacity-100",
-                )}
-              />
-            ) : (hasHookActions || !unit.isRunning) && !canRenderAssistantActions ? (
-              // 冲突合并曾把此兜底接到 Highspeed 页脚的 else，导致普通回复重复入口，
-              // Highspeed 无正文轮又丢失入口；它只与普通操作栏互斥，页脚独立渲染。
-              <MessageActions
-                className={cn(
-                  context.compactForRemoteControl
-                    ? "opacity-100"
-                    : "opacity-0 transition-opacity group-hover/assistant-turn:opacity-100 focus-within:opacity-100 has-[[data-bot-group-delivery]]:opacity-100",
-                )}
-              >
-                {hasHookActions ? (
-                  <ConversationHookDetailsAction rows={unit.hookInvocations} turnId={unit.turnId} />
-                ) : null}
-                <ConnectedBotGroupDeliveryAction
+            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+              {!unit.timelineOnly ? (
+                <TurnPerformanceSummary
+                  turnId={unit.turnId}
+                  performance={unit.header?.performance}
+                  running={unit.isRunning}
+                />
+              ) : null}
+              {canRenderAssistantActions && latestAssistantTextRow ? (
+                // 文件 summary 是整轮完成后的聚合结果；轮尾工具栏如果跟着
+                // assistant text 内联渲染，会插到 summary 前面，读起来像 summary 不是本轮收尾。
+                <ConversationAssistantTextActions
+                  rowId={latestAssistantTextRow.rowId}
+                  entityId={latestAssistantTextRow.entityId}
+                  text={assistantCopyText}
+                  createdAt={latestAssistantTextRow.createdAt}
+                  compactForRemoteControl={context.compactForRemoteControl}
+                  feedback={readAssistantFeedback(latestAssistantTextRow)}
+                  sessionId={context.sessionId}
+                  onFork={canForkLatestAssistant ? onFork : undefined}
+                  onRetry={canRetryLatestAssistant ? onRetry : undefined}
+                  onFeedbackChange={onFeedbackChange}
+                  hookInvocations={unit.hookInvocations}
                   turnId={unit.turnId}
                   sourceCommandIds={deliverySourceCommandIds}
+                  className={cn(
+                    "flex items-center gap-1",
+                    context.compactForRemoteControl
+                      ? "opacity-100"
+                      : "opacity-0 transition-opacity group-hover/assistant-turn:opacity-100 focus-within:opacity-100 has-[[data-bot-group-delivery]]:opacity-100",
+                  )}
                 />
-              </MessageActions>
-            ) : null}
+              ) : (hasHookActions || !unit.isRunning) && !canRenderAssistantActions ? (
+                // 冲突合并曾把此兜底接到 Highspeed 页脚的 else，导致普通回复重复入口，
+                // Highspeed 无正文轮又丢失入口；它只与普通操作栏互斥，页脚独立渲染。
+                <MessageActions
+                  className={cn(
+                    context.compactForRemoteControl
+                      ? "opacity-100"
+                      : "opacity-0 transition-opacity group-hover/assistant-turn:opacity-100 focus-within:opacity-100 has-[[data-bot-group-delivery]]:opacity-100",
+                  )}
+                >
+                  {hasHookActions ? (
+                    <ConversationHookDetailsAction
+                      rows={unit.hookInvocations}
+                      turnId={unit.turnId}
+                    />
+                  ) : null}
+                  <ConnectedBotGroupDeliveryAction
+                    turnId={unit.turnId}
+                    sourceCommandIds={deliverySourceCommandIds}
+                  />
+                </MessageActions>
+              ) : null}
+            </div>
             {showHighspeedOutputFooter ? (
               <HighspeedOutputFooter
                 generatedLabel={intl.formatMessage({ id: "chat.highspeed.generatedBy" })}

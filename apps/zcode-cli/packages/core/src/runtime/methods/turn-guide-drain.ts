@@ -5,6 +5,120 @@ import { rebuildContextPrefix } from "./context-refresh.js";
 import { appendTurnRequestEntries } from "./turn-output-token-continuation.js";
 import { applyRuntimeExecutionState } from "../execution-state.js";
 import { throwIfTurnAborted } from "../helpers/turn-errors.js";
+import {
+  SessionEventType,
+  STREAM_RECOVERY_DISCARDED_ERROR_NAME,
+  STREAM_RECOVERY_DISCARDED_FINISH,
+  TurnMachineImpl,
+  type MessageId,
+  type Model,
+  type ModelEvent,
+  type TraceContext,
+} from "../deps.js";
+import { createStreamingToolAttemptId } from "../helpers/index.js";
+import type { RuntimeModelStreamSnapshot } from "../types.js";
+import { createPreviousMessageRecoveryAnchorId } from "./streaming-recovery.js";
+
+/** 请求自己拥有门禁与 AbortController；activeTurn 只暴露当前 owner 的通知入口。 */
+export function createGuideInterruptScope(
+  runtime: AgentRuntimeInternal,
+  state: RegularTurnLoopState,
+) {
+  const controller = new AbortController();
+  const activeTurn = state.activeTurn;
+  let open = runtime.shouldStreamModelText();
+  const requestInterrupt = () => {
+    if (
+      !open ||
+      controller.signal.aborted ||
+      state.turnAbortSignal.aborted ||
+      !activeTurn ||
+      !runtime.hasInlineGuidePendingInput(activeTurn)
+    )
+      return;
+    controller.abort(new Error("Model request yielded to an admitted guide"));
+  };
+  if (activeTurn && open) activeTurn.requestGuideInterrupt = requestInterrupt;
+  // admission 可能早于 request scope 建立；同一 owner 检查已接受的 guide，不另设队列或轮询。
+  requestInterrupt();
+  return {
+    signal: open
+      ? AbortSignal.any([state.turnAbortSignal, controller.signal])
+      : state.turnAbortSignal,
+    interrupted: () => controller.signal.aborted,
+    onStreamEvent(event: ModelEvent) {
+      if (
+        event.type !== "start" &&
+        event.type !== "reasoning_start" &&
+        event.type !== "reasoning_delta" &&
+        event.type !== "reasoning_end"
+      )
+        open = false;
+    },
+    dispose() {
+      open = false;
+      if (activeTurn?.requestGuideInterrupt === requestInterrupt) {
+        delete activeTurn.requestGuideInterrupt;
+      }
+    },
+  };
+}
+
+/** 旧请求已完全退出后才调用；不进入网络恢复或 turn cancellation 分支。 */
+export async function continueAfterGuideInterrupt(
+  runtime: AgentRuntimeInternal,
+  state: RegularTurnLoopState,
+  options: {
+    assistantCreatedAt: number;
+    assistantMessageId: MessageId;
+    model: Model;
+    traceContext: TraceContext;
+    snapshot: RuntimeModelStreamSnapshot;
+  },
+): Promise<void> {
+  // 未闭合 reasoning 不可进入 provider history，复用已有废弃 attempt 的冷恢复排除合同。
+  await runtime.persistAssistantMessage(
+    options.assistantMessageId,
+    state.currentUserMessageId,
+    options.assistantCreatedAt,
+    {
+      completed: Date.now(),
+      error: {
+        name: STREAM_RECOVERY_DISCARDED_ERROR_NAME,
+        data: {
+          message: "Uncommitted reasoning superseded by an admitted guide.",
+          reason: "guide",
+        },
+      },
+      finish: STREAM_RECOVERY_DISCARDED_FINISH,
+    },
+    options.traceContext,
+    options.model,
+  );
+  const event = runtime.createEvent(
+    SessionEventType.StreamRecoveryTailDiscarded,
+    {
+      attemptId: createStreamingToolAttemptId(options.assistantMessageId),
+      anchorId: createPreviousMessageRecoveryAnchorId(options.assistantMessageId),
+      assistantMessageId: options.assistantMessageId,
+      discardedTextBytes: 0,
+      discardedReasoningBytes: new TextEncoder().encode(
+        options.snapshot.reasoning.map((block) => block.text).join(""),
+      ).byteLength,
+      discardedToolCallIds: [],
+    },
+    options.traceContext,
+  );
+  await runtime.appendEvent(event, options.traceContext);
+  state.events.push(event);
+  state.modelResponse = "";
+  state.modelStepCount += 1;
+  state.turnMachine = new TurnMachineImpl(state.turnMachine.receiveModelResponse(""));
+  state.turnMachine = new TurnMachineImpl(state.turnMachine.aggregateResults());
+  if (await drainInlineGuideForNextRequest(runtime, state)) {
+    state.inputAttachmentCollectionPending = "text_guide";
+  }
+}
 
 /**
  * 在合法的 model-step 边界按 FIFO 一次消费全部已等待的 guide，并准备下一次 provider request。

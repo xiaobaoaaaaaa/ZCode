@@ -912,6 +912,8 @@ export interface PreparedImageData {
 
 export interface ActiveTurnSteeringState {
   kind: ActiveTurnKind;
+  /** 当前流式请求持有的窄抢占入口；不取消 product turn，不另存输入。 */
+  requestGuideInterrupt?: () => void;
   // active turn 被 Stop 时，goal reminder 不能插进尚未闭合的 tool results。
   // deferral 只在 regular model/tool loop 内打开，退出 loop 时先关闭再物化 pending。
   goalStateChangeReminderDeferralOpen: boolean;
@@ -974,6 +976,8 @@ export interface RunModelTextRequestOptions {
   /** 与 messages 按索引对应的全部来源条目（含 attachment），仅用于 context 组成统计。 */
   originEntries?: readonly (readonly RuntimeMessageEntry[])[];
   model: Model;
+  /** 在流事件产生任何副作用前同步观察，用于关闭请求级引导抢占门禁。 */
+  onStreamEvent?: (event: import("@zcode/contracts").ModelEvent) => void;
   onStreamSnapshot?: (snapshot: RuntimeModelStreamSnapshot) => void;
   onStreamReasoningDelta?: (text: string) => void;
   onStreamTextDelta?: (text: string) => void;
@@ -1002,6 +1006,7 @@ export interface StreamedToolExecutionResult {
 }
 
 export interface RuntimeModelTextResult {
+  requestPerformance?: import("@zcode/shared").RequestPerformance;
   contextUsageBreakdown?: ContextUsageBreakdownItem[];
   finishReason: string;
   providerMetadata?: Record<string, unknown>;

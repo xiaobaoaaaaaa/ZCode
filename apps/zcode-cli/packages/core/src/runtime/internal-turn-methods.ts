@@ -430,6 +430,7 @@ export interface AgentRuntimeTurnMethods {
           finish?: string;
           tokens?: unknown;
           signedReasoningReset?: boolean;
+          requestPerformance?: import("@zcode/shared").RequestPerformance;
         }
       | undefined,
     traceContext: TraceContext,

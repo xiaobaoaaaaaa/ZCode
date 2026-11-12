@@ -1,3 +1,4 @@
+import { requestPerformanceSchema } from "@zcode/shared";
 /* eslint-disable max-lines -- 保持既有 transcript → event 恢复 owner；本次只透传输入快照，不拆分恢复状态机。 */
 // Transcript → SessionEvent 合成（「reduce(transcript) ≡ reduce(events)」）。
 //
@@ -722,7 +723,12 @@ export const HOOK_LIFECYCLE_EVENT_TYPES = new Set<string>([
 /** 受管 worktree 的创建结果（docs/git/worktree.md §6.6.4）；新建会话首轮前或 fork 分隔标记后。 */
 function worktreeCreationOfMessage(
   message: MessageWithParts,
-): Extract<MessagePart, { type: "timeline"; timelineType: "worktree_creation" }>["worktreeCreation"] | undefined {
+):
+  | Extract<
+      MessagePart,
+      { type: "timeline"; timelineType: "worktree_creation" }
+    >["worktreeCreation"]
+  | undefined {
   if (getConversationMessageProjectionPolicy(message) !== "timelineOnly") return undefined;
   for (const part of message.parts) {
     if (part.type === "timeline" && part.timelineType === "worktree_creation") {
@@ -1669,6 +1675,25 @@ function collectTurnOutput(options: {
       push,
       turnId,
     );
+    const performance = requestPerformanceSchema.safeParse(
+      message.info.metadata?.requestPerformance,
+    );
+    if (performance.success) {
+      // 指标独立于合成的零 usage 结束事件，恢复同一请求 ID，重建时不依赖在线观察器。
+      push(
+        SessionEventType.ModelComplete,
+        {
+          content: "",
+          querySource: "main_turn",
+          stopReason: message.info.finish ?? "end_turn",
+          toolCallCount: synthesized.toolCallCount,
+          usage: {},
+          requestPerformance: performance.data,
+        },
+        turnId,
+        messageEnd,
+      );
+    }
     resultType = normalizeTurnResult(resultType, synthesized.resultType);
     toolCallCount += synthesized.toolCallCount;
     if (

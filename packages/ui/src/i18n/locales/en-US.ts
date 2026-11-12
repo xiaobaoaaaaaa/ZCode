@@ -2,6 +2,24 @@ import { codexSubscriptionMessagesEn as codexSubscriptionMessages } from "@/code
 import { requestSecurityMessagesEnUS } from "@/request-security-edition/messages.js";
 /** English translations */
 const enUS: Record<string, string> = {
+  "chat.performance.title": "Turn performance and usage",
+  "chat.performance.scope": "This turn",
+  "chat.performance.runningScope": "Completed requests",
+  "chat.performance.requests": "Completed requests",
+  "chat.performance.speed": "Average output speed",
+  "chat.performance.first": "Average first response",
+  "chat.performance.firstShort": "First response",
+  "chat.performance.modelTime": "Model request time",
+  "chat.performance.generationTime": "Timed generation",
+  "chat.performance.input": "Input tokens (incl. cache)",
+  "chat.performance.output": "Output tokens",
+  "chat.performance.reasoning": "Reasoning tokens",
+  "chat.performance.cacheRead": "Cache read tokens",
+  "chat.performance.cacheWrite": "Cache write tokens",
+  "chat.performance.coverage":
+    "Speed: {timed}/{total} requests; first response: {first}/{total} requests.",
+  "chat.performance.description":
+    "First response includes reasoning or tool content. Speed excludes first-response wait and tool time. Only completed main-model requests in this turn are counted; missing data is not estimated.",
   ...codexSubscriptionMessages,
 
   "plugin.discovery.installAndEnable": "Install and enable in this workspace",

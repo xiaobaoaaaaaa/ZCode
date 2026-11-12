@@ -4655,3 +4655,5 @@ export {
   type BotTopicHistoryBatch,
   type BotTopicMessage,
 } from "../bots.js";
+export { requestPerformanceSchema, turnPerformanceSchema } from "../turn-performance/contract.js";
+export type { RequestPerformance, TurnPerformance } from "../turn-performance/contract.js";

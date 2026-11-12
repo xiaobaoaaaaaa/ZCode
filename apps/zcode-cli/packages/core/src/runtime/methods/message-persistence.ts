@@ -298,6 +298,7 @@ export async function persistAssistantMessage(
         tokens?: ReturnType<typeof toTokenUsageInfo>;
         /** 这一步来自签名修复后的重试；写进 metadata，冷恢复后投影继续去掉修复前的签名块。 */
         signedReasoningReset?: boolean;
+        requestPerformance?: import("@zcode/shared").RequestPerformance;
       }
     | undefined,
   traceContext: TraceContext,
@@ -349,7 +350,16 @@ export async function persistAssistantMessage(
       },
       anchor: buildProjectionAnchor(traceContext),
       // 同一条消息每次保存都是整行覆盖；完成时必须带上标记，不能只在某次中间保存里写。
-      ...(update?.signedReasoningReset ? { metadata: { signedReasoningReset: true } } : {}),
+      ...(update?.signedReasoningReset || update?.requestPerformance
+        ? {
+            metadata: {
+              ...(update.signedReasoningReset ? { signedReasoningReset: true } : {}),
+              ...(update.requestPerformance
+                ? { requestPerformance: update.requestPerformance }
+                : {}),
+            },
+          }
+        : {}),
     },
     traceContext,
   );

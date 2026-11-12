@@ -273,7 +273,7 @@ export async function recoverPartialAssistantOutputFailure(input: {
   return true;
 }
 
-function createPreviousMessageRecoveryAnchorId(assistantMessageId: MessageId): string {
+export function createPreviousMessageRecoveryAnchorId(assistantMessageId: MessageId): string {
   return `${assistantMessageId}:${PREVIOUS_MESSAGE_ANCHOR_SUFFIX}`;
 }
 

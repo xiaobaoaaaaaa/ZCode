@@ -6,8 +6,11 @@ export async function selectCombinedComposerThoughtLevel(value: string): Promise
     `[data-testid="${TID_CHAT_MODEL_SELECT_TRIGGER}"][data-composer-combined-model]`,
   );
   if (!(await trigger.isExisting())) return false;
-  await trigger.waitForClickable({ timeout: 30000 });
-  if ((await trigger.getAttribute("aria-expanded")) !== "true") await trigger.click();
+  // 菜单展开时 modal overlay 会遮住 trigger；此时应直接操作菜单中的档位。
+  if ((await trigger.getAttribute("aria-expanded")) !== "true") {
+    await trigger.waitForClickable({ timeout: 30000 });
+    await trigger.click();
+  }
   const slider = $('[data-testid="composer-thought-slider"]');
   const toggle = $('[data-testid="composer-thought-switch"]');
   if (await toggle.isExisting()) {
@@ -52,7 +55,9 @@ export async function selectCombinedComposerThoughtLevel(value: string): Promise
           levels[expected],
         { timeout: 15000 },
       );
-      await trigger.waitForClickable({ timeout: 30000 });
+      if ((await trigger.getAttribute("aria-expanded")) !== "true") {
+        await trigger.waitForClickable({ timeout: 30000 });
+      }
     };
     await browser.keys(index === levels.length - 1 ? "End" : "Home");
     await waitForLevel(index === levels.length - 1 ? index : 0);

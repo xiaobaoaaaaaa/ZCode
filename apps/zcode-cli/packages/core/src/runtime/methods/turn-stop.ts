@@ -106,6 +106,7 @@ export async function persistCompletedAssistantStep(
       finish: options.result.finishReason,
       tokens: persistedTokens,
       signedReasoningReset: options.result.signedReasoningReset,
+      requestPerformance: options.result.requestPerformance,
     },
     options.modelTraceContext,
     model,

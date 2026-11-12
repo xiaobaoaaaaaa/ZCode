@@ -52,12 +52,12 @@
     },
     {
       "id": "upstream-running-guide-timeline-initial-read",
-      "description": "P06/GTB-01: delay the initial Read tool_use so guide-1 is admitted before the tool result batch.",
+      "description": "P06/GTB-01: delay completion after the initial Read tool_use so guide-1 is admitted before the tool result batch. GI03: emit the tool/text boundary before holding completion.",
       "metadata": {
         "kind": "main",
         "timingPolicy": "controlled-stream",
         "source": "synthetic",
-        "syntheticReason": "guide-1 必须稳定进入首轮 active request，并等待 Read tool result batch 完整提交后 drain。"
+        "syntheticReason": "guide-1 在 Read tool_call 已到达、模型流尚未收口时进入等待，在完整结果批次后 drain。"
       },
       "maxMatches": 2,
       "match": {
@@ -74,20 +74,24 @@
       },
       "response": {
         "statusCode": 200,
-        "delayMs": 5000,
-        "toolUse": {
-          "id": "toolu_e2e_running_guide_timeline_read",
-          "messageId": "msg_e2e_running_guide_timeline_read",
-          "name": "Read",
-          "input": {
-            "file_path": "{{e2eRuntimeRoot}}/shared/readonly-tool.txt"
+        "headers": {
+          "content-type": "text/event-stream; charset=utf-8"
+        },
+        "chunks": [
+          {
+            "offsetMs": 0,
+            "text": "event: message_start\ndata: {\"type\": \"message_start\", \"message\": {\"id\": \"msg_e2e_running_guide_timeline_read\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"deepseek-v4-flash\", \"content\": [], \"stop_reason\": null, \"stop_sequence\": null, \"usage\": {\"input_tokens\": 128, \"output_tokens\": 0, \"cache_creation_input_tokens\": 0, \"cache_read_input_tokens\": 0}}}\n\nevent: content_block_start\ndata: {\"type\": \"content_block_start\", \"index\": 0, \"content_block\": {\"type\": \"tool_use\", \"id\": \"toolu_e2e_running_guide_timeline_read\", \"name\": \"Read\", \"input\": {}}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"file_path\\\":\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\" \\\"{{e2eRuntimeRoot}}/shared/readonly-tool.txt\\\"}\"}}\n\nevent: content_block_stop\ndata: {\"type\": \"content_block_stop\", \"index\": 0}\n\n"
+          },
+          {
+            "offsetMs": 5000,
+            "text": "event: message_delta\ndata: {\"type\": \"message_delta\", \"delta\": {\"stop_reason\": \"tool_use\", \"stop_sequence\": null}, \"usage\": {\"output_tokens\": 16}}\n\nevent: message_stop\ndata: {\"type\": \"message_stop\"}\n\n"
           }
-        }
+        ]
       }
     },
     {
       "id": "upstream-running-guide-timeline-middle-text",
-      "description": "P06/GTB-01: after Read result + guide-1, delay a text-only assistant so guide-2 can be admitted.",
+      "description": "P06/GTB-01: after Read result + guide-1, delay a text-only assistant so guide-2 can be admitted. GI03: emit the tool/text boundary before holding completion.",
       "metadata": {
         "kind": "main",
         "timingPolicy": "controlled-stream",
@@ -115,13 +119,19 @@
       },
       "response": {
         "statusCode": 200,
-        "delayMs": 5000,
-        "text": {
-          "id": "upstream-e2e-running-guide-timeline-middle",
-          "inputTokens": 180,
-          "outputTokens": 16,
-          "text": "E2E_GUIDE_TIMELINE_MIDDLE_ASSISTANT"
-        }
+        "headers": {
+          "content-type": "text/event-stream; charset=utf-8"
+        },
+        "chunks": [
+          {
+            "offsetMs": 0,
+            "text": "event: message_start\ndata: {\"type\": \"message_start\", \"message\": {\"id\": \"upstream-e2e-running-guide-timeline-middle\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"deepseek-v4-flash\", \"content\": [], \"stop_reason\": null, \"stop_sequence\": null, \"usage\": {\"input_tokens\": 180, \"output_tokens\": 0, \"cache_creation_input_tokens\": 0, \"cache_read_input_tokens\": 0}}}\n\nevent: content_block_start\ndata: {\"type\": \"content_block_start\", \"index\": 0, \"content_block\": {\"type\": \"text\", \"text\": \"\"}}\n\nevent: content_block_delta\ndata: {\"type\": \"content_block_delta\", \"index\": 0, \"delta\": {\"type\": \"text_delta\", \"text\": \"E2E_GUIDE_TIMELINE_MIDDLE_ASSISTANT\"}}\n\n"
+          },
+          {
+            "offsetMs": 5000,
+            "text": "event: content_block_stop\ndata: {\"type\": \"content_block_stop\", \"index\": 0}\n\nevent: message_delta\ndata: {\"type\": \"message_delta\", \"delta\": {\"stop_reason\": \"end_turn\", \"stop_sequence\": null}, \"usage\": {\"output_tokens\": 16}}\n\nevent: message_stop\ndata: {\"type\": \"message_stop\"}\n\n"
+          }
+        ]
       }
     },
     {
@@ -185,12 +195,12 @@
     },
     {
       "id": "upstream-running-guide-batch-initial-read",
-      "description": "M06f: delay the initial Read tool_use so both guides are admitted before the tool result batch.",
+      "description": "M06f: delay completion after the initial Read tool_use so both guides are admitted before the tool result batch. GI03: emit the tool/text boundary before holding completion.",
       "metadata": {
         "kind": "main",
         "timingPolicy": "controlled-stream",
         "source": "synthetic",
-        "syntheticReason": "两条 guide 必须都在首轮 active request 内进入等待，再在同一个 Read tool result batch 后一起 drain。"
+        "syntheticReason": "两条 guide 在 Read tool_call 已到达、模型流尚未收口时进入等待，在完整结果批次后一起 drain。"
       },
       "maxMatches": 1,
       "match": {
@@ -207,15 +217,19 @@
       },
       "response": {
         "statusCode": 200,
-        "delayMs": 8000,
-        "toolUse": {
-          "id": "toolu_e2e_running_guide_batch_read",
-          "messageId": "msg_e2e_running_guide_batch_read",
-          "name": "Read",
-          "input": {
-            "file_path": "{{e2eRuntimeRoot}}/shared/readonly-tool.txt"
+        "headers": {
+          "content-type": "text/event-stream; charset=utf-8"
+        },
+        "chunks": [
+          {
+            "offsetMs": 0,
+            "text": "event: message_start\ndata: {\"type\": \"message_start\", \"message\": {\"id\": \"msg_e2e_running_guide_batch_read\", \"type\": \"message\", \"role\": \"assistant\", \"model\": \"deepseek-v4-flash\", \"content\": [], \"stop_reason\": null, \"stop_sequence\": null, \"usage\": {\"input_tokens\": 128, \"output_tokens\": 0, \"cache_creation_input_tokens\": 0, \"cache_read_input_tokens\": 0}}}\n\nevent: content_block_start\ndata: {\"type\": \"content_block_start\", \"index\": 0, \"content_block\": {\"type\": \"tool_use\", \"id\": \"toolu_e2e_running_guide_batch_read\", \"name\": \"Read\", \"input\": {}}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"file_path\\\":\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\" \\\"{{e2eRuntimeRoot}}/shared/readonly-tool.txt\\\"}\"}}\n\nevent: content_block_stop\ndata: {\"type\": \"content_block_stop\", \"index\": 0}\n\n"
+          },
+          {
+            "offsetMs": 8000,
+            "text": "event: message_delta\ndata: {\"type\": \"message_delta\", \"delta\": {\"stop_reason\": \"tool_use\", \"stop_sequence\": null}, \"usage\": {\"output_tokens\": 16}}\n\nevent: message_stop\ndata: {\"type\": \"message_stop\"}\n\n"
           }
-        }
+        ]
       }
     },
     {

@@ -202,6 +202,10 @@ export async function steerTurn(
   );
   await this.appendEvent(event, activeTurn.traceContext);
   await selectionAccepted;
+  // 引导先成为权威接受事实，才通知当前请求。scope 在事件入口关闭门禁，不能按 UI 空白猜测。
+  if (this.activeTurn === activeTurn && isInlineGuide(pendingInput)) {
+    activeTurn.requestGuideInterrupt?.();
+  }
   this.logger?.debug("Turn steer queued", {
     ...traceContextToLogContext(activeTurn.traceContext),
     activeTurnKind: activeTurn.kind,

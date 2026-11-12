@@ -40,6 +40,7 @@ export async function persistToolModelStepFinish(
       finish: options.result.finishReason,
       tokens: toTokenUsageInfo(options.result.usage),
       signedReasoningReset: options.result.signedReasoningReset,
+      requestPerformance: options.result.requestPerformance,
     },
     options.modelTraceContext,
     model,

@@ -1,3 +1,4 @@
+import { addTurnPerformance, requestPerformanceSchema } from "@zcode/shared";
 import { normalizeGenUiInput } from "@zcode/core";
 import { PERMISSION_FULL_ACCESS_OPTION_ID } from "@zcode/shared/zcode-protocol-v4";
 // ProductProjection —— CLI 权威投影第二 reducer。
@@ -721,6 +722,8 @@ export class ProductProjection {
   >();
   private productTurnSplitOrdinalByRuntimeTurnId = new Map<string, number>();
   private currentProductTurnStartedAtMs: number | null = null;
+  // 请求去重也参与候选投影事务，避免逐 chunk 复制全会话的请求集合。
+  private performanceRequestIds: Map<string, true> = new TransactionalMap<string, true>();
   // Highspeed 分享需要的真实耗时由 CLI 事件聚合，避免 renderer 离场后丢失拆分数据。
   private highspeedModelDurationByTurnId = new Map<string, number>();
   private highspeedToolIntervalsByTurnId = new Map<string, Map<string, HighspeedToolInterval>>();
@@ -1499,6 +1502,7 @@ export class ProductProjection {
       this.productTurnSplitOrdinalByRuntimeTurnId,
     );
     clone.currentProductTurnStartedAtMs = this.currentProductTurnStartedAtMs;
+    clone.performanceRequestIds = share(this.performanceRequestIds);
     clone.highspeedModelDurationByTurnId = new Map(this.highspeedModelDurationByTurnId);
     clone.highspeedToolIntervalsByTurnId = new Map(
       [...this.highspeedToolIntervalsByTurnId].map(([turnId, intervals]) => [
@@ -1552,6 +1556,7 @@ export class ProductProjection {
     this.runtimeTurnIdByProductTurnId = candidate.runtimeTurnIdByProductTurnId;
     this.productTurnSplitOrdinalByRuntimeTurnId = candidate.productTurnSplitOrdinalByRuntimeTurnId;
     this.currentProductTurnStartedAtMs = candidate.currentProductTurnStartedAtMs;
+    this.performanceRequestIds = candidate.performanceRequestIds;
     this.highspeedModelDurationByTurnId = candidate.highspeedModelDurationByTurnId;
     this.highspeedToolIntervalsByTurnId = candidate.highspeedToolIntervalsByTurnId;
     this.deliveryByPendingInputId = candidate.deliveryByPendingInputId;
@@ -5425,6 +5430,19 @@ export class ProductProjection {
     const headerRowId = this.turnHeaderRowIdByTurnId.get(turnId);
     const headerRow = headerRowId !== undefined ? this.findRow(headerRowId) : undefined;
     if (headerRow?.kind === "turnHeader") {
+      const parsedPerformance = requestPerformanceSchema.safeParse(payload.requestPerformance);
+      // 普通 ModelComplete 的旧兼容逻辑不变；新增统计必须有显式主链路归属、
+      // 活跃 turn 和稳定请求身份，不能让迟到或重放的完成事件重复累计。
+      const sample =
+        isMainTurn &&
+        payload.querySource === "main_turn" &&
+        this.acceptsActiveModelEvent(event) &&
+        parsedPerformance.success &&
+        !this.performanceRequestIds.has(parsedPerformance.data.requestId)
+          ? parsedPerformance.data
+          : undefined;
+      if (sample) this.performanceRequestIds.set(sample.requestId, true);
+      const performance = sample ? addTurnPerformance(headerRow.performance, sample) : undefined;
       const fileChanges =
         supportsFileChangeSummary && payload.fileChanges && payload.fileChanges.files > 0
           ? {
@@ -5444,6 +5462,7 @@ export class ProductProjection {
           row: {
             ...headerRow,
             ...fileChanges,
+            ...(performance ? { performance } : {}),
             // Bug 根因：Renderer 观察 running 快照的时机不可靠，continuous 可合并更新，
             // replayable 也可能首次恢复即终态。单 Turn token 必须在权威事件投影中累计。
             ...(isMainTurn

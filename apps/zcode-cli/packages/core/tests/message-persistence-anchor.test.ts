@@ -152,3 +152,23 @@ describe("v4 transcript 锚点（additive JSON）", () => {
     });
   });
 });
+
+// PERF03：完成保存会整行覆盖 metadata，性能事实必须与既有签名修复标记共存。
+it("persists request performance alongside signed reasoning metadata", async () => {
+  const { saved, fakeRuntime } = createHarness();
+  const requestPerformance = {
+    requestId: "assistant",
+    durationMs: 4000,
+    firstResponseMs: 1000,
+    outputTokens: 150,
+  };
+  await persistAssistantMessage.call(
+    fakeRuntime as never,
+    createMessageId(),
+    createMessageId(),
+    1000,
+    { completed: 5000, signedReasoningReset: true, requestPerformance },
+    trace(createTurnId()),
+  );
+  expect(saved[0]?.metadata).toEqual({ signedReasoningReset: true, requestPerformance });
+});

@@ -1,5 +1,12 @@
 # Conversation Session Case Catalog
 
+## 思考阶段提前接收引导（GI，2026-11-12）
+
+GI01–GI06 accepted，设置、动作、断言与剪枝见
+[思考阶段提前接收引导](chat/thinking-guide-interruption.md)。只抢占尚无正文/工具的流式模型请求，
+等待其退出后在同一 turn 消费 guide；普通 queue 与已有工具配对边界保持。
+CLI 先补回归，Desktop 验收保持 manual-review/pending。
+
 ## 中断后无消息续跑（CIC，2026-11-04）
 
 规格：[中断后从输入区直接继续](chat/continue-interrupted-session.md)。沿用正式用例
@@ -6109,3 +6116,17 @@ AAP01 扩展已有 `task-list-archive-confirmation.test.ts`；AAP02 扩展已有
 `conversation-session-auto-archived-task-closes-side-pane-tabs.test.ts`；AAP04 的手机配对归档扩展
 `conversation-session-archive-management.test.ts`。其余边界使用真实 SQLite 运行验收；手机与
 独立 Source 传输覆盖须单独记录，不能以数据库隔离代替。
+
+## 本轮性能摘要（PERF，2026-11-12）
+
+规则与状态剪枝见 [本轮性能摘要](ui/turn-performance-summary.md)。
+
+| ID     | 状态 / 动作                                | 断言                                        | 决策     |
+| ------ | ------------------------------------------ | ------------------------------------------- | -------- |
+| PERF01 | 一轮多请求，工具间隔                       | 生成速度加权，首响应均值，缓存不重复相加    | accepted |
+| PERF02 | 重复请求、旧轮迟到、旁路模型               | 幂等、隔离，compact/title/subagent 不计主轮 | accepted |
+| PERF03 | 保存完成后 cold hydration、两种 delivery   | 同一事实恢复到 turnHeader，不依赖在线观察   | accepted |
+| PERF04 | 桌面/手机、深浅主题、中英点击和键盘        | 摘要、详情可达且不出屏                      | accepted |
+| PERF05 | running/completed/interrupted、缺失/旧数据 | 范围明确；未知不显示成零；旧历史无入口      | accepted |
+
+实时字符估算、全会话累计和独立统计页签不在本次范围；不改变输入框、工具或路由控制。

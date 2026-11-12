@@ -133,6 +133,22 @@ modules:
   - id: rpc
     roots: [packages/rpc/src]
     managed: false
+  - id: turn-performance-protocol
+    roots: [packages/shared/src/turn-performance]
+    managed: true
+    requires: []
+    publicEntrypoints: [packages/shared/src/turn-performance/contract.ts]
+    layers: { .: domain }
+    layerOrder: [domain]
+    owner: conversation
+  - id: turn-performance-ui
+    roots: [packages/ui/src/turn-performance]
+    managed: true
+    requires: [ui, shared, turn-performance-protocol]
+    publicEntrypoints: [packages/ui/src/turn-performance/contract.ts]
+    layers: { .: ui }
+    layerOrder: [ui]
+    owner: conversation
   - id: shared
     roots: [packages/shared/src]
     managed: false

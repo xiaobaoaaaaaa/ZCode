@@ -23,6 +23,7 @@ import {
   projectMessagesForInputFormat,
   projectMessagesForMediaBudget,
   readRawFinishReason,
+  throwIfTurnAborted,
 } from "../helpers/index.js";
 import type { RunModelTextRequestOptions, RuntimeModelTextResult } from "../types.js";
 import type { AgentRuntimeInternal } from "../internal.js";
@@ -286,12 +287,16 @@ export async function runModelTextRequest(
     }
   };
 
+  throwIfTurnAborted(options.abortSignal);
   const modelStream = runWithModelInvocationContext(modelInvocationContext, () =>
     model.streamText(modelRequest),
   );
   finishAssembly();
   try {
     for await (const event of modelStream) {
+      // 已取消请求的迟到 tool/text 不能进入投影或执行器；门禁必须早于下面任何 await。
+      throwIfTurnAborted(options.abortSignal);
+      options.onStreamEvent?.(event);
       switch (event.type) {
         case "start": {
           await enqueueStreamingEvent({
@@ -606,6 +611,7 @@ export async function runModelTextRequest(
     );
     throw error;
   }
+  throwIfTurnAborted(options.abortSignal);
   await streamingEventQueue.drain();
   if (
     await settleUnfinishedProviderToolCards(

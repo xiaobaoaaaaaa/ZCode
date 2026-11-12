@@ -1,5 +1,11 @@
 # Tool Change Chain Spec
 
+思考阶段引导（2026-11-12）：Core 只在流式模型请求尚无正文或工具事件时抢占该请求。
+tool_input_start/tool_call/provider_tool_result 在投影与调度前关闭资格，取消后的迟到工具包
+不得进入执行器。已有工具不取消、不重放，配对结果与审批沿用原合同。详见
+`../loop/turn-steering.md` 和根 `docs/chat/thinking-guide-interruption.md`；CLI 以迟到写入工具
+零执行、只读流式调用禁止抢占及普通 queue 隔离验证，不修改工具 schema 或权限。
+
 WebFetch / Codex 非流式处理（2026-11-08）：网页抓取 → `processWebFetchContent` →
 `model.generateText` → Codex transport 强制 SSE → 提取终态 JSON → 工具结果。
 固定订阅端点的成功响应即使缺少或误标 Content-Type 也必须转换；旧条件跳过转换使
@@ -2507,3 +2513,9 @@ legacy v1 的 `session/events` 由 `bootstrap/src/zcode-protocol/session-mapper.
 ### 3.18.0 Personal 集成
 
 ListModels 沿用官方目录、schema、展示与有消费者才注册的门禁；Personal Agent.model 作为额外消费者，includeAgent=true 时可注册。无消费者时移除，不将 ListModels 调用作为工作流冷恢复激活证据。覆盖 session-control/tools.test.ts 的注册矩阵及子代理按次选模回归。
+
+## 本轮性能摘要（2026-11-12）
+
+对话 V4 投影增加只读 `turnHeader.performance`；统计成功主链路请求的 usage/时序，
+不改变工具协议、权限、admission 或工具结果。工具执行时间不算生成时间。
+持久化、恢复和验证链见 [本轮性能摘要](../turn-performance-summary.md)。

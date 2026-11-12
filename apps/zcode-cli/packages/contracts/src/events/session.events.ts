@@ -1,3 +1,4 @@
+import type { RequestPerformance } from "@zcode/shared";
 import type { ExecutionOutputPreview } from "../interfaces/execution.port.js";
 import type { RuntimeInputPresentation } from "../interfaces/runtime-input-presentation.js";
 /* eslint-disable max-lines -- session event 契约集中在单文件导出，避免 app/agent 协议类型分散后漂移。 */
@@ -886,6 +887,7 @@ export interface NetworkRequestStatusPayload {
 }
 
 export interface ModelCompletePayload {
+  requestPerformance?: RequestPerformance;
   cacheHit?: {
     inputTokens: number;
     cacheReadTokens: number;

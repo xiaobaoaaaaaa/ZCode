@@ -55,8 +55,8 @@ queue head
 task 正在 streaming、没有附件且没有 stop 请求时尝试 turn steering。已有普通 queue 表达未来
 product turn 的用户意图，不阻塞显式 guide 进入当前 active turn；两类输入按 delivery 分轨，普通
 queue 的相对顺序保持不变。
-guide 可以在 tool call 出现前提交并等待；只有当前 model step 的全部
-sibling tool results 已提交后，runtime 才按 admission FIFO 一次消费全部已等待的 guide，并在同一
+guide 可以在 tool call 出现前提交；尚无正文/工具的流式请求可安全抢占，正常 text-only 完成也可消费。
+已经开始工具调用时，必须等当前 model step 的全部 sibling tool results 提交后，runtime 才按 admission FIFO 一次消费全部已等待的 guide，并在同一
 product turn 的下一次 provider 请求中使用它们。不能在单个 parallel tool 提前完成时消费；同一边界取出
 多条时，最后一条带意图的 guide 决定 Selection、权限模式与 Plan 意图。
 
@@ -132,7 +132,9 @@ guide admitted
   -> start the next provider request in the same product turn
 ```
 
-如果当前 turn 在没有形成可用 tool result batch 的情况下 text-only complete、stop 或 interrupted，
+正常 text-only complete 时先持久化 assistant，再消费 guide，在同一 turn 续发请求。
+思考阶段可按[请求级安全抢占规则](thinking-guide-interruption.md)提前接收 guide。
+如果当前 turn stop 或 interrupted，
 未消费的 guide 必须把同一 `ConversationInputIntent` 原地改投普通 queue；原文、附件、clientId、
 `sourceCommandId`、`queueItemId` 和 admission FIFO 不变。附件/compact/verifier
 busy 不满足 eligibility，或 runtime steer reject 时也走同一 fallback，不能静默丢失。

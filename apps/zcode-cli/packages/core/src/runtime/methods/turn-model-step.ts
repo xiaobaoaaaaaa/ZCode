@@ -1,3 +1,4 @@
+import { requestPerformanceSchema, type RequestPerformance } from "@zcode/shared";
 import type { ToolSearchExecutionContext } from "@zcode/contracts";
 import { getTurnTools } from "./turn-tool-visibility.js";
 import { isOffPeakUserTakeover, refreshOffPeakTurnAfterTakeover } from "../off-peak/turn.js";
@@ -58,6 +59,7 @@ import {
   persistOutputTokenLimitErrorCarrier,
 } from "./turn-stop.js";
 import { createStreamingToolCoordinator } from "./streaming-tool-coordinator.js";
+import { createGuideInterruptScope, continueAfterGuideInterrupt } from "./turn-guide-drain.js";
 import { persistCancelledStreamSnapshot } from "./cancelled-stream-persistence.js";
 import { persistTextBlockParts } from "./message-persistence.js";
 import {
@@ -238,9 +240,18 @@ async function runModelBackedTurnStepImpl(
   let latestStreamSnapshot: RuntimeModelStreamSnapshot = { reasoning: [], text: "" };
   const streamRecoveryRequest = state.pendingStreamRecoveryRequest;
   state.pendingStreamRecoveryRequest = undefined;
+  let performanceTiming: Pick<RequestPerformance, "durationMs" | "firstResponseMs"> = {};
   let latestModelRequestId: string | undefined;
   let latestFailedModelRequestId: string | undefined;
   const recordModelNetworkStatus = (event: ModelNetworkStatusEvent): void => {
+    if (event.type === "model_request_completed") {
+      performanceTiming = {
+        ...(event.durationMs !== undefined ? { durationMs: event.durationMs } : {}),
+        ...(event.timeToFirstContentMs !== undefined
+          ? { firstResponseMs: event.timeToFirstContentMs }
+          : {}),
+      };
+    }
     if (event.type === "model_request_started") {
       latestModelRequestId = event.requestId;
       return;
@@ -251,12 +262,13 @@ async function runModelBackedTurnStepImpl(
   };
 
   let result: RuntimeModelTextResult;
+  const guideInterrupt = createGuideInterruptScope(this, state);
   try {
     const baselineMaxOutputTokens = resolveNormalRequestMaxOutputTokens({
       modelMaxOutputTokens: executionMaxOutputTokens,
     });
     result = await this.runModelTextRequest({
-      abortSignal: state.turnAbortSignal,
+      abortSignal: guideInterrupt.signal,
       assistantMessageId,
       events: state.events,
       maxOutputTokens: resolveModelStepMaxOutputTokens({
@@ -273,6 +285,7 @@ async function runModelBackedTurnStepImpl(
       sourceEntries: options.sourceEntries,
       originEntries: options.originEntries,
       model,
+      onStreamEvent: guideInterrupt.onStreamEvent,
       onStreamSnapshot: (snapshot) => {
         latestStreamSnapshot = snapshot;
       },
@@ -287,6 +300,7 @@ async function runModelBackedTurnStepImpl(
     });
     throwIfTurnAborted(state.turnAbortSignal);
   } catch (error) {
+    guideInterrupt.dispose();
     let finalError = error;
     await recordMainTurnModelUsage(this, state, {
       assistantMessageId,
@@ -295,8 +309,21 @@ async function runModelBackedTurnStepImpl(
       modelTraceContext,
       networkEventStartIndex,
       startedAt: modelStartedAt,
-      status: state.turnAbortSignal.aborted ? "cancelled" : "error",
+      status: state.turnAbortSignal.aborted || guideInterrupt.interrupted() ? "cancelled" : "error",
     });
+    if (guideInterrupt.interrupted() && !state.turnAbortSignal.aborted) {
+      // 只抢占无正文/工具的请求。旧请求 finally 已退出，沿同一 turn 消费，不暂停 goal。
+      guideInterrupt.dispose();
+      await streamingToolCoordinator.abandon("cancelled");
+      await continueAfterGuideInterrupt(this, state, {
+        assistantCreatedAt,
+        assistantMessageId,
+        model,
+        traceContext: modelTraceContext,
+        snapshot: latestStreamSnapshot,
+      });
+      return "continue";
+    }
     const failedRequestId = latestFailedModelRequestId ?? latestModelRequestId;
     // 执行 Selection 的声明式退回必须先于同模型 stream recovery：明确归因到加速 provider/network
     // 边界的请求失败都要退回会话模型（spec §2.2）。若 recovery 在前，流中断后会先在加速模型上
@@ -559,6 +586,8 @@ async function runModelBackedTurnStepImpl(
       return "continue";
     }
     throw finalError;
+  } finally {
+    guideInterrupt.dispose();
   }
 
   state.modelResponse = result.text;
@@ -754,6 +783,32 @@ async function runModelBackedTurnStepImpl(
     supportsTurnFileChanges && toolCalls.length === 0
       ? buildTurnFileChangeSummary(this.currentTurnFileChanges)
       : undefined;
+  if (querySource === "main_turn") {
+    const sample = requestPerformanceSchema.safeParse({
+      requestId: String(assistantMessageId),
+      ...performanceTiming,
+      inputTokens: result.usage.inputTokens,
+      outputTokens: result.usage.outputTokens,
+      reasoningTokens: result.usage.reasoningTokens,
+      cacheReadTokens: result.usage.cacheReadTokens,
+      cacheWriteTokens: result.usage.cacheWriteTokens,
+    });
+    if (sample.success) result.requestPerformance = sample.data;
+    // 先保存再发布统计，避免刷新/重连恰逢模型完成时只能看见 live 指标。
+    // 此处只写 metadata，不提前设置 assistant.completed/finish：模型回复结束不代表
+    // 本步工具执行已完成。工具结束与最终保存沿用同一 result，不把工具耗时算作生成时间。
+    await this.persistAssistantMessage(
+      assistantMessageId,
+      state.currentUserMessageId,
+      assistantCreatedAt,
+      {
+        signedReasoningReset: result.signedReasoningReset,
+        requestPerformance: result.requestPerformance,
+      },
+      modelTraceContext,
+      model,
+    );
+  }
   const modelCompleteEvent = this.createEvent(
     SessionEventType.ModelComplete,
     {
@@ -767,6 +822,7 @@ async function runModelBackedTurnStepImpl(
       querySource,
       stopReason: result.finishReason,
       usage: result.usage,
+      ...(result.requestPerformance ? { requestPerformance: result.requestPerformance } : {}),
       ...(cacheHit ? { cacheHit } : {}),
       ...(fileChanges ? { fileChanges } : {}),
       ...(querySource === "main_turn" && result.contextUsageBreakdown

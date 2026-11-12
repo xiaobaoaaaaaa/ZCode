@@ -134,3 +134,14 @@ versionCode 递增至 2。全部构建、启动检查与远端资产摘要核对
 versionCode 计数器递增至 3，applicationId 和签名身份保持现有合同。全部构建、实际启动、
 Android 签名检查和远端资产名称/大小/SHA-256/源码提交核对通过后，正式公开并设为 Latest。
 本次授权包含推送发布分支、构建、草稿资产上传和核验后的公开，不需要再次确认。
+
+## 3.18.0-personal.2：思考阶段引导与本轮性能摘要
+
+用户于 2026-11-12 授权完成优化、带上全部未提交更改并发布新版。从已发布的
+`v3.18.0-personal.1` 创建发布分支，合入思考阶段提前接收引导及原有本轮性能摘要改动。
+行为与所有者分别见 [引导规格](../chat/thinking-guide-interruption.md) 和
+[性能摘要规格](../ui/turn-performance-summary.md)。
+
+沿用五平台桌面与签名 Android 联合发布。根版本为 `3.18.0-personal.2`，Android
+versionCode 递增至 4。全部构建、启动检查、Android 签名与远端资产核验通过后正式公开
+并设为 Latest；授权包含提交、推送、构建和最终公开。

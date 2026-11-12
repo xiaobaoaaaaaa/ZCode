@@ -4,6 +4,20 @@
 
 # Conversation Session E2E Coverage Matrix
 
+## 思考阶段提前接收引导（GI，2026-11-12）
+
+| Case      | Status  | Evidence                                                                                                 |
+| --------- | ------- | -------------------------------------------------------------------------------------------------------- |
+| GI01–GI02 | covered | CLI 可控流通过；Desktop pending 验证思考请求在 60 秒夹具结束前退出，同轮收到 guide                       |
+| GI03–GI05 | covered | CLI 正文/工具门禁、队列与非流式隔离、连续输入/迟到事件/Stop/撤回/预留竞争通过                            |
+| GI06      | partial | CLI projection/hydration 的 continuous/replayable、旧 reasoning 排除与统计隔离通过；实体手机网络恢复未验 |
+
+规格及验证边界见 [思考阶段提前接收引导](../chat/thinking-guide-interruption.md)。新增 Desktop 用例保持 manual-review/pending，未自动晋升。
+
+Desktop 共 6 个不同用例通过：思考抢占、P06 双能力工具/文本边界和冷恢复、同批两条 guide、
+active goal 与 verifier 隔离。运行证据见规格。另 1 个原有 running-guide 用例的气泡对齐断言
+实际为 8px（要求 ≤1px），未通过；未放宽断言或把该项记录为覆盖。
+
 ## 中断后无消息续跑（CIC，2026-11-04）
 
 CIC01/CIC02：Fedora Electron 正式用例通过。最终运行
@@ -7098,3 +7112,10 @@ XSG02 分组原生滚动链（2026-11-09，pending-review）：`packages/ui/test
 ## 3.18.0 Personal 集成复验
 
 历史 Personal ME queue → guide 与 execution-history 折叠证据已被官方快捷键和连续摘要替代。当前行为与验收入口以 `docs/specs/upstream-3.18.0-personal-integration.md` 为准；新增自动展开在官方 tool-summary-groups 浏览器入口复验，旧通过记录不代表本次集成通过。
+
+## 本轮性能摘要（PERF）
+
+| Cases     | Evidence                                                                                                 | Status                                                                                                                                              |
+| --------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PERF01–03 | `apps/zcode-cli/packages/bootstrap/tests/turn-performance.test.ts`；CLI runtime 持久化测试               | covered（CLI）：347 项 Bootstrap 与 193 项 Core 回归通过；证据 `packages/desktop/.e2e-artifacts/turn-performance/validation.md`                     |
+| PERF04–05 | `packages/ui/test/browser/manual-review/pending/turn-performance.test.mjs`（真实 ConversationTurnGroup） | covered（browser）：4 组桌面/手机宽度及主题验收通过；截图与日志 `packages/desktop/.e2e-artifacts/turn-performance`。Electron/真实手机远端链路未实测 |

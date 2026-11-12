@@ -1457,8 +1457,12 @@ export async function switchV4Model(provider: string, model: string, thought: st
   await browser.waitUntil(
     async () => {
       // 已有会话切 Provider 需等待配置 ACK；保持原面板，仅在已收起时重新打开。
-      await modelTrigger.waitForClickable({ timeout: 30000 });
-      if ((await modelTrigger.getAttribute("aria-expanded")) !== "true") await modelTrigger.click();
+      // 新组合菜单打开时 modal overlay 会遮住 trigger；等其 clickable 会卡死在准备阶段。
+      // 已展开时直接选择菜单项，只在需要重新打开时等待 trigger 可点击。
+      if ((await modelTrigger.getAttribute("aria-expanded")) !== "true") {
+        await modelTrigger.waitForClickable({ timeout: 30000 });
+        await modelTrigger.click();
+      }
       return browser.execute(
         (itemTestId, groupTestIds) => {
           const item = document.querySelector<HTMLElement>(`[data-testid="${itemTestId}"]`);

@@ -88,6 +88,8 @@ describe("会话区 Running Guide / Steer E2E", () => {
         15000,
       );
 
+      // GI03：空白请求现在可被安全抢占；此用例明确等 Read 已开始，继续验证完整工具批次边界。
+      await $('[data-tool-name="Read"]').waitForExist({ timeout: 15000 });
       await sendV4Prompt(`${guideOneMarker}: apply the first guide after the Read result batch.`);
       await waitForGuidedPromptProjection(guideOneMarker);
 
@@ -134,6 +136,7 @@ describe("会话区 Running Guide / Steer E2E", () => {
         15000,
       );
 
+      await waitForV4AssistantMessageContaining(middleAssistantMarker, 15000);
       await sendV4Prompt(`${guideTwoMarker}: apply the second guide after the text-only response.`);
       await waitForGuidedPromptProjection(guideTwoMarker);
 
@@ -303,6 +306,7 @@ Message from coordinator:
     );
 
     // 两条 guide 都在 Read 的 tool batch 完成前进入等待。
+    await $('[data-tool-name="Read"]').waitForExist({ timeout: 15000 });
     await sendV4Prompt(`${guideOneMarker}: first guide during the Read batch.`);
     await waitForGuidedPromptProjection(guideOneMarker);
     await sendV4Prompt(`${guideTwoMarker}: second guide during the Read batch.`);
@@ -390,6 +394,8 @@ Message from coordinator:
       30000,
     );
     await waitForUpstreamRequestContaining(runningMarker);
+    // GI03：等待实际正文后再观察 pending-guide 对齐，首内容之前允许立即消费引导。
+    await waitForV4AssistantMessageContaining("deep", 15000);
 
     const runningSnapshot = await getV4ConversationState();
     expect(runningSnapshot.taskId).toBeTruthy();

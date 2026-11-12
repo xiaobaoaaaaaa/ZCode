@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "caseName": "conversation-session-thinking-guide",
+  "spec": "./test/e2e/conversation-session/execution/conversation-session-thinking-guide.test.ts",
+  "providerFixtures": [
+    "./test/e2e/fixtures/upstream/common.json",
+    "./test/e2e/fixtures/upstream/conversation-session/conversation-session-thinking-guide.json"
+  ],
+  "fileFixtures": [],
+  "requests": [
+    {
+      "id": "upstream-thinking-guide-title",
+      "kind": "common",
+      "source": "synthetic",
+      "timingPolicy": "fast-text",
+      "syntheticReason": "GI01: 用受控思考流证明 guide 在旧回复结束前进入真实下一次请求，同一轮继续且无重复输入。"
+    },
+    {
+      "id": "upstream-thinking-guide-new",
+      "kind": "main",
+      "source": "synthetic",
+      "timingPolicy": "fast-text",
+      "syntheticReason": "GI01: 用受控思考流证明 guide 在旧回复结束前进入真实下一次请求，同一轮继续且无重复输入。"
+    },
+    {
+      "id": "upstream-thinking-guide-initial",
+      "kind": "main",
+      "source": "synthetic",
+      "timingPolicy": "controlled-stream",
+      "syntheticReason": "GI01: 用受控思考流证明 guide 在旧回复结束前进入真实下一次请求，同一轮继续且无重复输入。"
+    }
+  ]
+}

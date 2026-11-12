@@ -2,6 +2,24 @@ import { codexSubscriptionMessagesZh as codexSubscriptionMessages } from "@/code
 import { requestSecurityMessagesZhCN } from "@/request-security-edition/messages.js";
 /** 中文翻译 */
 const zhCN: Record<string, string> = {
+  "chat.performance.title": "本轮性能与用量",
+  "chat.performance.scope": "本轮",
+  "chat.performance.runningScope": "本轮已完成请求",
+  "chat.performance.requests": "已完成请求",
+  "chat.performance.speed": "平均输出速度",
+  "chat.performance.first": "平均首响应",
+  "chat.performance.firstShort": "首响应",
+  "chat.performance.modelTime": "模型请求耗时",
+  "chat.performance.generationTime": "计速请求生成耗时",
+  "chat.performance.input": "输入 Token（含缓存）",
+  "chat.performance.output": "输出 Token",
+  "chat.performance.reasoning": "推理 Token",
+  "chat.performance.cacheRead": "缓存读取 Token",
+  "chat.performance.cacheWrite": "缓存写入 Token",
+  "chat.performance.coverage":
+    "速度覆盖 {timed}/{total} 个请求，首响应覆盖 {first}/{total} 个请求。",
+  "chat.performance.description":
+    "首响应包含思考或工具调用的首个内容；速度排除首响应等待与工具耗时。仅统计本轮已完成的主模型请求，缺失数据不估算。",
   ...codexSubscriptionMessages,
 
   "plugin.discovery.installAndEnable": "安装并在当前工作区启用",
