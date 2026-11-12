@@ -1,7 +1,7 @@
 {
   "version": 1,
   "caseName": "conversation-session-continue-interrupted",
-  "spec": "./test/e2e/conversation-session/conversation-session-continue-interrupted.test.ts",
+  "spec": "./test/e2e/conversation-session/execution/conversation-session-continue-interrupted.test.ts",
   "fixtures": [
     {
       "id": "continue-initial",

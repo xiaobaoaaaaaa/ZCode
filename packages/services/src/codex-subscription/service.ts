@@ -37,7 +37,7 @@ const accountSchema = z.object({
 type StoredAccount = z.infer<typeof accountSchema>;
 type Token = z.infer<typeof tokenSchema>;
 interface Dependencies {
-  credentials: ICredentialService & {
+  credentials: Pick<ICredentialService, "load" | "save" | "delete"> & {
     save(key: string, value: string, assertCurrent?: () => void): Promise<void>;
   };
   fetch: typeof globalThis.fetch;

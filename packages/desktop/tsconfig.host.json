@@ -12,6 +12,7 @@
     { "path": "../shared" },
     { "path": "../services" },
     { "path": "../rpc" },
-    { "path": "../server" }
+    { "path": "../server" },
+    { "path": "./tsconfig.app-navigation.json" }
   ]
 }

@@ -1,13 +1,14 @@
 import { ZCODE_PRODUCT_FLAVOR } from "@zcode/shared/env";
 import { spawn } from "node:child_process";
 import { resolve } from "node:path";
-import type { Locale } from "@zcode/shared";
+import { toZhOrEnLocale, type Locale } from "@zcode/shared";
 
 const personal = ZCODE_PRODUCT_FLAVOR === "personal";
 const MENU_KEY_NAME = personal ? "ZCodePersonal.OpenInZCodePersonal" : "ZCode.OpenInZCode";
 const DIRECTORY_MENU_KEY = `HKCU\\Software\\Classes\\Directory\\shell\\${MENU_KEY_NAME}`;
 const DRIVE_MENU_KEY = `HKCU\\Software\\Classes\\Drive\\shell\\${MENU_KEY_NAME}`;
-const MENU_LABELS: Record<Locale, string> = {
+// 系统右键菜单只内置中英；其它界面语言用英文。
+const MENU_LABELS: Record<"zh-CN" | "en-US", string> = {
   "zh-CN": personal ? "在ZCode Personal中打开" : "在ZCode中打开",
   "en-US": personal ? "Open in ZCode Personal" : "Open in ZCode",
 };
@@ -22,7 +23,7 @@ export interface WindowsOpenFolderRegistryOperation {
 }
 
 export function getWindowsOpenFolderMenuName(locale: Locale): string {
-  return MENU_LABELS[locale] ?? MENU_LABELS["en-US"];
+  return MENU_LABELS[toZhOrEnLocale(locale)];
 }
 
 function quoteWindowsCommandArg(value: string): string {

@@ -118,6 +118,7 @@ describe("待引导撤回与上下文消费互斥 GW03", () => {
     const activeTurn = { pendingInputs: [guide, future], turnId: "turn-current", traceContext };
     const runtime = {
       activeTurn,
+      pendingInputEditLocks: new Map(),
       pendingInputReservations: new Map<string, string>(),
       sessionStore: { settleSessionInput: vi.fn(async (_input: unknown) => undefined) },
       rebuildProjection: vi.fn(async () => ({
@@ -158,6 +159,15 @@ describe("待引导撤回与上下文消费互斥 GW03", () => {
       });
     return { runtime, guide, future, remove, drain };
   }
+
+  it("官方编辑锁在场时不抢占 reservation 或删除输入", async () => {
+    const { runtime, guide, remove } = setup();
+    runtime.pendingInputEditLocks.set(guide.id, { editorId: "other-editor" });
+    await expect(remove()).resolves.toBe(false);
+    expect(runtime.sessionStore.settleSessionInput).not.toHaveBeenCalled();
+    expect(runtime.pendingInputReservations.size).toBe(0);
+    expect(runtime.activeTurn.pendingInputs).toContain(guide);
+  });
 
   it("撤回落库期间不能被 drain 或第二次撤回取走", async () => {
     const { runtime, guide, future, remove, drain } = setup();

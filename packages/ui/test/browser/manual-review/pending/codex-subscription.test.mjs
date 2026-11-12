@@ -115,6 +115,7 @@ import { TooltipProvider } from '/packages/ui/src/components/ui/tooltip.tsx';
 import { ModelProviderSectionLayout } from '/packages/ui/src/settings/model-provider-section/SectionLayout.tsx';
 import { useModelProviderNavigation } from '/packages/ui/src/settings/model-provider-section/useModelProviderNavigation.ts';
 import { CodexAccountsPanel } from '/packages/ui/src/codex-subscription/index.tsx';
+import { SettingsSearchTargetContext } from '/packages/ui/src/settings-search/index.ts';
 import '/packages/ui/src/styles.css';
 const query = new URLSearchParams(location.search);
 localStorage.setItem('zcode-locale-preference', query.get('locale'));
@@ -140,13 +141,14 @@ function Fixture(){
  {selectedNavItem?.type === 'codex' ? <CodexAccountsPanel/> : <div data-testid="other-detail">BigModel</div>}
  </ModelProviderSectionLayout></main>;
 }
-createRoot(document.getElementById('root')).render(<ZCodeIntlProvider><TooltipProvider><PlatformProvider platform={{openExternal:()=>{}}}><ServiceProvider services={{codexSubscriptionService:service}}><Fixture/></ServiceProvider></PlatformProvider></TooltipProvider></ZCodeIntlProvider>);
+createRoot(document.getElementById('root')).render(<ZCodeIntlProvider><TooltipProvider><PlatformProvider platform={{openExternal:()=>{}}}><ServiceProvider services={{codexSubscriptionService:service}}><SettingsSearchTargetContext.Provider value={query.has("search") ? {id:"codex.title"} : null}><Fixture/></SettingsSearchTargetContext.Provider></ServiceProvider></PlatformProvider></TooltipProvider></ZCodeIntlProvider>);
 `;
 before(async () => {
   await mkdir(artifacts, { recursive: true });
   server = await createServer({
     root,
     configFile: false,
+    cacheDir: join(root, "node_modules/.vite-codex-subscription"),
     plugins: [
       {
         name: "codex-fixture",
@@ -313,3 +315,17 @@ for (const scenario of ["unknown", "credits", "unlimited", "empty", "multi"]) {
     await page.close();
   });
 }
+
+test("official settings search locates Codex without mutating accounts", async () => {
+  const page = await browser.newPage();
+  try {
+    await page.goto(`${origin}fixture?locale=en-US&theme=light&search=1`);
+    const target = page.locator('[data-settings-search-id="codex.title"]');
+    await target.waitFor();
+    assert.equal(await target.getAttribute("data-settings-search-highlighted"), "true");
+    assert.equal(await target.evaluate((node) => document.activeElement === node), true);
+    assert.equal(await page.evaluate(() => window.syncCalls), 0);
+  } finally {
+    await page.close();
+  }
+});

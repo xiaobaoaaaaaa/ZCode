@@ -18,6 +18,7 @@ before(async () => {
   server = await createServer({
     root,
     configFile: false,
+    cacheDir: join(root, "node_modules/.vite-ask-user-question-answer-display"),
     plugins: [
       react(),
       tailwindcss(),

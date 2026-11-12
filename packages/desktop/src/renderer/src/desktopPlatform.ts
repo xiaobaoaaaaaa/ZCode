@@ -2,11 +2,13 @@ import { recordArmsCustomEventForE2E } from "@zcode/ui";
 import {
   DesktopCommandIds,
   buildLocalMediaPreviewUrl,
+  resolveLocaleFromLanguageTag,
   unwrapRemoteWorkspaceBindResult,
   type IPlatformService,
 } from "@zcode/shared";
 
 import { desktopBrowserPlatformBridge } from "./desktopBrowserPlatformBridge.js";
+import { registerAppControlNavigationHandler } from "#src/app-control-navigation/renderer.js";
 import { createDesktopPluginSandboxPlatform } from "./plugin-sandbox/desktopPluginSandboxPlatform.js";
 import { createSidePaneWindowPort } from "./side-pane-windows/renderer.js";
 import { createSidePaneViewPort } from "./side-pane-windows/view.js";
@@ -23,6 +25,19 @@ export function createDesktopPlatform(options: {
       onCloseRequested: (handler) => window.zcode.onSidePaneWindowCloseRequested(handler),
       close: (key) => window.zcode.closeSidePaneWindow(key),
     }),
+    onAppControlNavigation: (handler) =>
+      registerAppControlNavigationHandler(
+        {
+          subscribe: (listener) => window.zcode.onAppControlNavigationMessage(listener),
+          register: (generation) =>
+            window.zcode.sendAppControlNavigation({ type: "register", generation }),
+          unregister: (generation) =>
+            window.zcode.sendAppControlNavigation({ type: "unregister", generation }),
+          reply: (message) => window.zcode.sendAppControlNavigation({ type: "result", ...message }),
+        },
+        handler,
+        crypto.randomUUID(),
+      ),
     canSelectFilePath: true,
     canOpenLocalFiles: true,
     pluginSandbox: createDesktopPluginSandboxPlatform(),
@@ -119,6 +134,9 @@ export function createDesktopPlatform(options: {
       ? (sample) => window.zcode.reportRendererHeapSample!(sample)
       : undefined,
     showTaskNotification: (payload) => window.zcode.showTaskNotification(payload),
+    // 扩展的系统通知（§18.1 H8）：只有桌面实现；Web 与手机远控没有这两个方法，Renderer 按 unsupported 处理。
+    showExtensionNotification: (payload) => window.zcode.showExtensionNotification(payload),
+    onExtensionNotificationClick: (handler) => window.zcode.onExtensionNotificationClick(handler),
     syncWindowTabs: (paths) => window.zcode.syncWindowTabs(paths),
     syncWebRemoteControlWorkspaces: (workspaces) =>
       window.zcode.syncWebRemoteControlWorkspaces?.(workspaces),
@@ -225,7 +243,7 @@ export function createDesktopPlatform(options: {
     setApplicationLocale: (locale) => window.zcode.setApplicationLocale(locale),
     getSystemLocale: () =>
       window.zcode.getSystemLocale?.() ??
-      Promise.resolve(navigator.language.toLowerCase().startsWith("zh") ? "zh-CN" : "en-US"),
+      Promise.resolve(resolveLocaleFromLanguageTag(navigator.language)),
     setTitleBarTheme: (theme) => window.zcode.setTitleBarTheme(theme),
     getDeviceId: () =>
       (window as Window & { __ZCODE_DEVICE_ID__?: string }).__ZCODE_DEVICE_ID__ ?? "",

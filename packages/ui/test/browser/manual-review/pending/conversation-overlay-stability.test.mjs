@@ -19,6 +19,7 @@ before(async () => {
   server = await createServer({
     root,
     configFile: false,
+    cacheDir: join(root, "node_modules/.vite-conversation-overlay-stability"),
     plugins: [
       {
         name: "timeline-fixture",

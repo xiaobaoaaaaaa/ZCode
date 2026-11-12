@@ -68,6 +68,7 @@ export function DataImportControl() {
   return (
     <>
       <SettingsRow
+        searchId="settings.importData.title"
         label={message("title")}
         description={message("description")}
         control={

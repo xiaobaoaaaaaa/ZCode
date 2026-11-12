@@ -8,3 +8,5 @@ user and workspace. Removing an account never selects another. Quota network fai
 preserves last-good values with stale=true. Provider identity remains stable per account.
 
 See [spec](../../../../docs/codex-subscription/spec.md).
+
+3.18.0 凭据升级：订阅服务仅消费 ICredentialService 的 load/save/delete；inspectStore/recoverStore 由官方凭据服务与恢复界面拥有，不在订阅服务中复制修复流程。

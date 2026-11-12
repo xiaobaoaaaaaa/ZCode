@@ -1,7 +1,7 @@
 {
   "version": 1,
   "caseName": "conversation-session-side-pane-windows",
-  "spec": "./test/e2e/conversation-session/conversation-session-side-pane-windows.test.ts",
+  "spec": "./test/e2e/conversation-session/execution/conversation-session-side-pane-windows.test.ts",
   "fixtures": [
     {
       "id": "spw-title",
@@ -15,10 +15,7 @@
       "match": {
         "method": "POST",
         "pathIncludes": "/messages",
-        "bodyIncludes": [
-          "Generate a concise title",
-          "E2E_SPW_PARENT"
-        ]
+        "bodyIncludes": ["Generate a concise title", "E2E_SPW_PARENT"]
       },
       "response": {
         "statusCode": 200,
@@ -37,13 +34,8 @@
       "match": {
         "method": "POST",
         "pathIncludes": "/messages",
-        "lastUserMessageIncludes": [
-          "E2E_SPW_PARENT"
-        ],
-        "bodyExcludes": [
-          "Generate a concise title",
-          "CRITICAL: Respond with TEXT ONLY"
-        ]
+        "lastUserMessageIncludes": ["E2E_SPW_PARENT"],
+        "bodyExcludes": ["Generate a concise title", "CRITICAL: Respond with TEXT ONLY"]
       },
       "response": {
         "statusCode": 200,
@@ -72,13 +64,8 @@
       "match": {
         "method": "POST",
         "pathIncludes": "/messages",
-        "lastUserMessageIncludes": [
-          "E2E_SPW_CHILD:"
-        ],
-        "bodyExcludes": [
-          "Generate a concise title",
-          "CRITICAL: Respond with TEXT ONLY"
-        ]
+        "lastUserMessageIncludes": ["E2E_SPW_CHILD:"],
+        "bodyExcludes": ["Generate a concise title", "CRITICAL: Respond with TEXT ONLY"]
       },
       "response": {
         "statusCode": 200,
@@ -110,14 +97,8 @@
       "match": {
         "method": "POST",
         "pathIncludes": "/messages",
-        "bodyIncludes": [
-          "E2E_SPW_PARENT",
-          "agentId: agent_"
-        ],
-        "bodyExcludes": [
-          "Generate a concise title",
-          "CRITICAL: Respond with TEXT ONLY"
-        ]
+        "bodyIncludes": ["E2E_SPW_PARENT", "agentId: agent_"],
+        "bodyExcludes": ["Generate a concise title", "CRITICAL: Respond with TEXT ONLY"]
       },
       "response": {
         "statusCode": 200,
@@ -136,10 +117,7 @@
       "match": {
         "method": "POST",
         "pathIncludes": "/messages",
-        "bodyIncludes": [
-          "E2E_SPW_PARENT",
-          "CRITICAL: Respond with TEXT ONLY"
-        ]
+        "bodyIncludes": ["E2E_SPW_PARENT", "CRITICAL: Respond with TEXT ONLY"]
       },
       "response": {
         "statusCode": 200,

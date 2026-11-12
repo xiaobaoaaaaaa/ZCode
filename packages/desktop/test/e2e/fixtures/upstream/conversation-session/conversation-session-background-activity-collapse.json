@@ -1,7 +1,7 @@
 {
   "version": 1,
   "caseName": "conversation-session-background-activity-collapse",
-  "spec": "./test/e2e/conversation-session/conversation-session-background-activity-collapse.test.ts",
+  "spec": "./test/e2e/conversation-session/execution/conversation-session-background-activity-collapse.test.ts",
   "fixtures": [
     {
       "id": "bg-activity-launch",
@@ -22,9 +22,7 @@
           "Verify whether the active session goal",
           "toolu_bg_activity_agent"
         ],
-        "lastUserMessageIncludes": [
-          "E2E_BACKGROUND_ACTIVITY_LAUNCH"
-        ]
+        "lastUserMessageIncludes": ["E2E_BACKGROUND_ACTIVITY_LAUNCH"]
       },
       "response": {
         "statusCode": 200,
@@ -57,12 +55,8 @@
           "CRITICAL: Respond with TEXT ONLY",
           "Verify whether the active session goal"
         ],
-        "lastUserMessageIncludes": [
-          "E2E_BACKGROUND_ACTIVITY_CHILD"
-        ],
-        "lastUserMessageExcludes": [
-          "<task-notification>"
-        ]
+        "lastUserMessageIncludes": ["E2E_BACKGROUND_ACTIVITY_CHILD"],
+        "lastUserMessageExcludes": ["<task-notification>"]
       },
       "response": {
         "statusCode": 200,
@@ -100,13 +94,8 @@
           "CRITICAL: Respond with TEXT ONLY",
           "Verify whether the active session goal"
         ],
-        "bodyIncludes": [
-          "E2E_BACKGROUND_ACTIVITY_LAUNCH",
-          "Async agent launched successfully"
-        ],
-        "lastUserMessageExcludes": [
-          "<task-notification>"
-        ]
+        "bodyIncludes": ["E2E_BACKGROUND_ACTIVITY_LAUNCH", "Async agent launched successfully"],
+        "lastUserMessageExcludes": ["<task-notification>"]
       },
       "response": {
         "statusCode": 200,
@@ -135,10 +124,7 @@
           "Verify whether the active session goal",
           "toolu_bg_activity_bash_a"
         ],
-        "lastUserMessageIncludes": [
-          "<task-notification>",
-          "E2E_BACKGROUND_ACTIVITY_CHILD_DONE"
-        ]
+        "lastUserMessageIncludes": ["<task-notification>", "E2E_BACKGROUND_ACTIVITY_CHILD_DONE"]
       },
       "response": {
         "statusCode": 200,
@@ -167,10 +153,7 @@
           "Verify whether the active session goal",
           "toolu_bg_activity_bash_b"
         ],
-        "bodyIncludes": [
-          "E2E_BACKGROUND_ACTIVITY_CHILD_DONE",
-          "toolu_bg_activity_bash_a"
-        ]
+        "bodyIncludes": ["E2E_BACKGROUND_ACTIVITY_CHILD_DONE", "toolu_bg_activity_bash_a"]
       },
       "response": {
         "statusCode": 200,
@@ -208,10 +191,7 @@
           "CRITICAL: Respond with TEXT ONLY",
           "Verify whether the active session goal"
         ],
-        "bodyIncludes": [
-          "E2E_BACKGROUND_ACTIVITY_CHILD_DONE",
-          "toolu_bg_activity_bash_b"
-        ]
+        "bodyIncludes": ["E2E_BACKGROUND_ACTIVITY_CHILD_DONE", "toolu_bg_activity_bash_b"]
       },
       "response": {
         "statusCode": 200,
@@ -245,9 +225,7 @@
         "method": "POST",
         "pathIncludes": "/messages",
         "bodyExcludes": [],
-        "bodyIncludes": [
-          "Generate a concise title"
-        ]
+        "bodyIncludes": ["Generate a concise title"]
       },
       "response": {
         "statusCode": 200,

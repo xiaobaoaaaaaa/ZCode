@@ -6,5 +6,5 @@ export const settingsSearchModule = {
   id: "settings-search",
   requires: ["ui"],
   provides: ["settings-search"],
-  publicEntrypoints: ["contract.ts"],
+  publicEntrypoints: ["index.ts", "contract.ts"],
 } as const;

@@ -82,24 +82,34 @@ for (const mobile of [false, true])
               await history.waitFor();
               if ((await history.getAttribute("aria-expanded")) !== "true") await history.click();
             }
-            const trigger = page.getByTestId("execution-activity-trigger");
+            const trigger = page.locator("[data-summary-group-trigger]");
             await trigger.waitFor({ timeout: 10000 });
             assert.equal(await trigger.count(), 1, "连续的思考与成功工具应合并");
             assert.equal(await trigger.getAttribute("aria-expanded"), "false");
             assert.equal(await page.locator('[data-tool-call-id="history-bash"]').count(), 0);
-            assert.equal(await page.locator('[data-tool-call-id="history-error"]').count(), 1);
+            // 官方连续摘要也收纳已结束的失败工具；详情在展开后可读。
+            assert.equal(await page.locator('[data-tool-call-id="history-error"]').count(), 0);
             assert.equal(
               await page
-                .locator('[data-execution-activity] [data-tool-call-id="history-error"]')
+                .locator('[data-consecutive-summary-group] [data-tool-call-id="history-error"]')
                 .count(),
               0,
             );
             assert.equal(
-              await page.locator("[data-execution-activity]").getByText("E2E_FINAL_REPLY").count(),
+              await page
+                .locator("[data-consecutive-summary-group]")
+                .getByText("E2E_FINAL_REPLY")
+                .count(),
               0,
             );
             await trigger.click();
             await page.locator('[data-tool-call-id="history-bash"]').waitFor();
+            assert.equal(
+              await page
+                .locator('[data-consecutive-summary-group] [data-tool-call-id="history-error"]')
+                .count(),
+              1,
+            );
             // 旧完成快照未提供耗时，不把本次展开的时间伪造为历史耗时。
             assert.match(
               await page.locator("[data-reasoning-label]").innerText(),
@@ -143,7 +153,7 @@ async function openTimingActivity(page) {
   if ((await history.count()) > 0 && (await history.getAttribute("aria-expanded")) !== "true") {
     await history.click();
   }
-  const activity = page.getByTestId("execution-activity-trigger");
+  const activity = page.locator("[data-summary-group-trigger]");
   await activity.waitFor();
   if ((await activity.getAttribute("aria-expanded")) !== "true") await activity.click();
   const reasoning = page.getByTestId("chat-reasoning-trigger");
@@ -254,22 +264,14 @@ for (const ending of ["complete", "interrupted"])
     try {
       await page.clock.setFixedTime(timingStart + 6000);
       await page.goto(`${origin}fixture?scenario=timing&ending=${ending}`);
-      await page.getByTestId("execution-activity-trigger").waitFor();
+      await page.locator("[data-summary-group-trigger]").waitFor();
       assert.equal(await page.getByTestId("chat-reasoning-trigger").count(), 0);
       await page.getByRole("button", { name: "Finish reasoning", exact: true }).click();
       await page.getByRole("button", { name: "Finish turn", exact: true }).click();
       await page.getByText("E2E_TIMING_DONE", { exact: true }).waitFor();
       await page.clock.setFixedTime(timingStart + 60000);
-      if (ending === "interrupted") {
-        // 中断思考是已有外显边界，不应期待它重新进入执行过程组。
-        const history = page.locator('[data-testid^="chat-assistant-history-trigger"]');
-        await history.waitFor();
-        if ((await history.getAttribute("aria-expanded")) !== "true") await history.click();
-        await page.getByTestId("chat-reasoning-trigger").waitFor();
-        assert.equal(await page.getByTestId("execution-activity-trigger").count(), 0);
-      } else {
-        await openTimingActivity(page);
-      }
+      // 官方将已中断思考也归入连续摘要，展开后仍应读取固定终态耗时。
+      await openTimingActivity(page);
       await expectReasoningSeconds(page, 6);
     } finally {
       await page.close();
@@ -289,12 +291,13 @@ for (const mobile of [false, true])
         await page.goto(
           `${origin}fixture?scenario=timing&autoExpand=true&mobile=${mobile}&mode=${mode}`,
         );
-        const trigger = page.getByTestId("execution-activity-trigger");
+        page.setDefaultTimeout(10000);
+        const trigger = page.locator("[data-summary-group-trigger]");
         async function expectOpen(value) {
           await page.waitForFunction(
             (value) =>
               document
-                .querySelector('[data-testid="execution-activity-trigger"]')
+                .querySelector("[data-summary-group-trigger]")
                 ?.getAttribute("aria-expanded") === String(value),
             value,
           );
@@ -314,12 +317,12 @@ for (const mobile of [false, true])
         await toggle.click();
         await expectOpen(false);
         const key = await page
-          .locator("[data-execution-activity]")
-          .getAttribute("data-execution-activity");
+          .locator("[data-summary-group-trigger]")
+          .getAttribute("aria-controls");
         await page.getByRole("button", { name: "Append running tool", exact: true }).click();
         await expectOpen(false);
         assert.equal(
-          await page.locator("[data-execution-activity]").getAttribute("data-execution-activity"),
+          await page.locator("[data-summary-group-trigger]").getAttribute("aria-controls"),
           key,
         );
 
@@ -341,8 +344,10 @@ for (const mobile of [false, true])
         await page.locator('[data-tool-call-id="auto-expand-bash"]').waitFor({ state: "visible" });
         await page.waitForFunction(() =>
           document
-            .querySelector("[data-execution-activity]")
+            .querySelector("[data-consecutive-summary-group]")
             ?.getAnimations({ subtree: true })
+            // 官方运行态保留循环动效，只等待影响截图布局的有限动画结束。
+            .filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
             .every((animation) => animation.playState !== "running"),
         );
         assert.equal(
@@ -370,21 +375,21 @@ for (const mobile of [false, true])
         await page.goto(
           `${origin}fixture?scenario=timing&autoExpand=true&mobile=${mobile}&mode=${mode}`,
         );
-        const triggers = page.getByTestId("execution-activity-trigger");
+        const triggers = page.locator("[data-summary-group-trigger]");
         const expectStates = async (states) =>
           page.waitForFunction(
             (states) =>
               JSON.stringify(
-                [...document.querySelectorAll('[data-testid="execution-activity-trigger"]')].map(
-                  (e) => e.getAttribute("aria-expanded"),
+                [...document.querySelectorAll("[data-summary-group-trigger]")].map((e) =>
+                  e.getAttribute("aria-expanded"),
                 ),
               ) === JSON.stringify(states.map(String)),
             states,
           );
         await expectStates([true]);
         const key = await page
-          .locator("[data-execution-activity]")
-          .getAttribute("data-execution-activity");
+          .locator("[data-summary-group-trigger]")
+          .getAttribute("aria-controls");
         await page.getByRole("button", { name: "Finish reasoning", exact: true }).click();
         await expectStates([true]);
         for (let i = 0; i < 3; i++) {
@@ -393,7 +398,7 @@ for (const mobile of [false, true])
           await page.getByRole("button", { name: "Finish tool", exact: true }).click();
           await expectStates([true]);
           assert.equal(
-            await page.locator("[data-execution-activity]").getAttribute("data-execution-activity"),
+            await page.locator("[data-summary-group-trigger]").getAttribute("aria-controls"),
             key,
           );
         }

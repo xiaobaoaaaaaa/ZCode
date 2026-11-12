@@ -18,6 +18,7 @@ before(async () => {
   server = await createServer({
     root,
     configFile: false,
+    cacheDir: join(root, "node_modules/.vite-streaming-file-preview"),
     plugins: [
       react(),
       tailwindcss(),

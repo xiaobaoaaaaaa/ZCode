@@ -18,7 +18,7 @@
 - CLI：`pnpm --dir apps/zcode-cli typecheck`、`pnpm --dir apps/zcode-cli lint`；本机执行时将仓库绝对 `node_modules/.bin` 加入 PATH。
 - `pnpm --dir apps/zcode-cli --filter @zcode/adapters exec vitest run tests/codex-subscription.test.ts tests/model.test.ts tests/model-execution.test.ts tests/openai-responses-json-compat.test.ts`。
 - `pnpm --dir apps/zcode-cli --filter @zcode/bootstrap exec vitest run tests/provider-runtime-headers-cancel.test.ts`。
-- pending 桌面用例为 `packages/desktop/test/e2e/settings/manual-review/pending/codex-subscription.test.ts`；设置 `ZCODE_E2E_MANUAL_REVIEW=1`、`E2E_PROVIDER_REPLAY_FIXTURE_PATH` 为仓库内 common fixture 的绝对路径。Electron 44.7.0 本机使用已下载的同 Chromium build ChromeDriver 152.0.7977.82，通过受支持的 `CHROMEDRIVER_PATH` 指定。
+- pending 桌面用例为 `packages/desktop/test/e2e/settings/models/manual-review/pending/codex-subscription.test.ts`；设置 `ZCODE_E2E_MANUAL_REVIEW=1`、`E2E_PROVIDER_REPLAY_FIXTURE_PATH` 为仓库内 common fixture 的绝对路径。Electron 44.7.0 本机使用已下载的同 Chromium build ChromeDriver 152.0.7977.82，通过受支持的 `CHROMEDRIVER_PATH` 指定。
 
 早期 E2E 启动分别被未配置 capture Provider、fixture 相对路径解析和缺失 Chromium 补丁版驱动阻断；未计入通过。修正测试启动参数后运行上述断言。早期 UI fixture 逐方法覆盖 ProxyChannel 无效，已改成替换完整契约并重挂载；获得设备码后未提交真实用户授权，也未读取其他客户端凭据。
 

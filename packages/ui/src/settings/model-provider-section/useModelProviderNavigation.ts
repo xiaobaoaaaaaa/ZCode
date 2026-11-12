@@ -1,5 +1,6 @@
+import { SettingsSearchTargetContext } from "@/settings-search/index.js";
 /* eslint-disable max-lines -- Model Provider 导航需要集中计算分组、选中项与 Coding Plan 权益态，后续拆分时再收敛。 */
-import { useEffect, useMemo } from "react";
+import { useContext, useEffect, useMemo } from "react";
 import type { ProviderSettingsFormProvider } from "@/lib/providerSettingsFormTypes.js";
 import { getProviderFormLabel } from "@/lib/providerSettingsFormTypes.js";
 import type {
@@ -37,6 +38,8 @@ import {
   resolveCodingPlanEntitlementState,
 } from "@/settings/model-provider-section/providerFamilyConnectionVisibility.js";
 
+const NO_FAMILIES: readonly ProviderFamilyDomain[] = [];
+
 interface PresetProviderWithConfig extends PresetProviderSpec {
   provider: ProviderSettingsFormProvider | null;
 }
@@ -53,6 +56,7 @@ interface UseModelProviderNavigationOptions {
   displayOrder?: ProviderOrderView;
   codingPlanEntitlements?: Partial<Record<string, CodingPlanEntitlementState>>;
   providerFamilyDomain?: ProviderFamilyDomain | null;
+  availableFamilies?: readonly ProviderFamilyDomain[];
   connectionSelections?: ProviderFamilyConnectionSelectionSettings;
   pendingConnectionSelections?: ProviderFamilyConnectionSelectionSettings;
   familyConnectionSettingsLoading?: boolean;
@@ -73,6 +77,7 @@ export function useModelProviderNavigation({
   displayOrder,
   codingPlanEntitlements = {},
   providerFamilyDomain = null,
+  availableFamilies = NO_FAMILIES,
   connectionSelections = {},
   pendingConnectionSelections = {},
   familyConnectionSettingsLoading = false,
@@ -94,7 +99,11 @@ export function useModelProviderNavigation({
   const codingPlanItems = useMemo(
     () =>
       CODING_PLAN_PROVIDER_SPECS.filter((spec) =>
-        shouldShowCodingPlanForProviderFamilyDomain(spec.oauthProviderId, providerFamilyDomain),
+        shouldShowCodingPlanForProviderFamilyDomain(
+          spec.oauthProviderId,
+          providerFamilyDomain,
+          availableFamilies,
+        ),
       ).map((spec) => {
         const provider = modelProviders.find((item) => item.providerId === spec.id) ?? null;
         const accountEntitled = entitledAccountProviderIds.has(spec.id);
@@ -150,6 +159,7 @@ export function useModelProviderNavigation({
       modelProviders,
       modelProvidersLoading,
       providerFamilyDomain,
+      availableFamilies,
     ],
   );
   const connectionModeCodingPlanItems = useMemo(
@@ -334,6 +344,13 @@ export function useModelProviderNavigation({
     sideNavigationItemByKey,
   ]);
 
+  const searchTarget = useContext(SettingsSearchTargetContext);
+  useEffect(() => {
+    // 搜索仅选择现有节点，账号与配置仍由原服务拥有；普通导航不重复消费目标。
+    if (searchTarget?.id === "codex.title" && codexAvailable)
+      setSelectedNodeKey("codex-subscription");
+  }, [searchTarget, codexAvailable, setSelectedNodeKey]);
+
   return {
     navigationGroups,
     navigationItems,
@@ -345,11 +362,13 @@ export function useModelProviderNavigation({
 function shouldShowCodingPlanForProviderFamilyDomain(
   oauthProviderId: OAuthProviderId,
   providerFamilyDomain: ProviderFamilyDomain | null,
+  availableFamilies: readonly ProviderFamilyDomain[],
 ): boolean {
   if (!providerFamilyDomain) {
     return true;
   }
-  return resolveProviderFamilyDomainFromOAuthProvider(oauthProviderId) === providerFamilyDomain;
+  const family = resolveProviderFamilyDomainFromOAuthProvider(oauthProviderId);
+  return family === providerFamilyDomain || (family !== null && availableFamilies.includes(family));
 }
 
 function resolvePresetFamilyStatusProvider({

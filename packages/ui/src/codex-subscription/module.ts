@@ -4,7 +4,7 @@
  */
 export const codexSubscriptionUiModule = {
   id: "codex-subscription-ui",
-  requires: ["services", "ui"],
+  requires: ["services", "ui", "settings-search"],
   provides: ["codex-subscription-ui"],
   publicEntrypoints: ["index.ts", "contract.ts"],
 } as const;

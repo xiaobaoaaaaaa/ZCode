@@ -1,4 +1,4 @@
-import { nativeSidePaneDrag } from "../../../helpers/native-side-pane-drag.js";
+import { nativeSidePaneDrag } from "#e2e/helpers/native-side-pane-drag";
 import { createServer, type Server } from "node:http";
 import { join } from "node:path";
 import {
@@ -7,9 +7,9 @@ import {
   TID_BROWSER_PERMISSION_PROMPTS,
   TID_SIDE_PANE_TOGGLE,
 } from "@zcode/shared/test-ids";
-import { prepareV4ConversationE2E } from "../../../helpers/v4-conversation.js";
-import { openFirstBrowserTab, clickCloseButton } from "../../../helpers/browser-side-pane.js";
-import { clearAppData } from "../../../helpers/desktop-app.js";
+import { prepareV4ConversationE2E } from "#e2e/helpers/v4-conversation";
+import { openFirstBrowserTab, clickCloseButton } from "#e2e/helpers/browser-side-pane";
+import { clearAppData } from "#e2e/helpers/desktop-app";
 
 let server: Server;
 let url: string;

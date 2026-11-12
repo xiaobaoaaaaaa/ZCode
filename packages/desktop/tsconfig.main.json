@@ -8,8 +8,20 @@
     "lib": ["es2025", "dom"],
     "types": ["node", "electron"]
   },
-  "include": ["src/main", "src/shared", "src/scheduler", "src/side-pane-windows"],
+  "include": [
+    "src/main",
+    "src/shared",
+    "src/scheduler",
+    "src/extension-host",
+    "src/side-pane-windows"
+  ],
   // main 直接依赖 shared 和 services；把引用补齐后，desktop 子工程也能稳定复用上游声明产物。
-  // Personal 远端入口直接引用 server；缺少工程引用会重复检查源码并丢失 RPC 回调类型。
-  "references": [{ "path": "../shared" }, { "path": "../services" }, { "path": "../server" }]
+  "references": [
+    { "path": "../shared" },
+    { "path": "../services" },
+    { "path": "../server" },
+    // 扩展进程源码随 main 一起类型检查（根 typecheck 只覆盖 main/host/e2e 三个工程）。
+    { "path": "../rpc" },
+    { "path": "./tsconfig.app-navigation.json" }
+  ]
 }

@@ -848,5 +848,4 @@ export function installDesktopBrowserGuestHost(
       });
     }
   });
-
 }

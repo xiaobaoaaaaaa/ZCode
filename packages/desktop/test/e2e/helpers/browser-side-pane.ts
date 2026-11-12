@@ -46,10 +46,21 @@ export async function ensureSidePaneEntryVisible(): Promise<void> {
         ),
       );
       if (visible) return true;
-      // 固定的 macOS 快捷键在 Linux/Windows 不生效；点击同一产品按钮并等真实入口出现。
-      await browser.execute((toggleTestId) => {
-        document.querySelector<HTMLButtonElement>(`[data-testid="${toggleTestId}"]`)?.click();
-      }, TID_SIDE_PANE_TOGGLE);
+      // 与产品快捷键共用真实 workspace shortcut（macOS ⌥⌘B，Windows/Linux Ctrl+Alt+B），初始收起态与已展开态都兼容。
+      await browser.execute(() => {
+        const mac = navigator.platform.startsWith("Mac");
+        window.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "b",
+            code: "KeyB",
+            altKey: true,
+            metaKey: mac,
+            ctrlKey: !mac,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      });
       return false;
     },
     {

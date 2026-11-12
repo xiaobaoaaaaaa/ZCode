@@ -1,3 +1,4 @@
+import { useSettingsSearchTarget } from "@/settings-search/index.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CodexAccount, CodexDeviceLogin } from "./contract.js";
 import { useCodexSubscriptionService } from "@/hooks/useModelProviders.js";
@@ -10,6 +11,7 @@ import { ProviderLogo } from "@/settings/model-provider-section/ProviderLogo.js"
 import type { CodexAccountsPanelProps } from "./contract.js";
 
 export function CodexAccountsPanel({ className }: CodexAccountsPanelProps) {
+  const { ref: searchRef, highlighted } = useSettingsSearchTarget("codex.title");
   const service = useCodexSubscriptionService();
   const platform = usePlatform();
   const { intl } = useZCodeIntl();
@@ -106,7 +108,14 @@ export function CodexAccountsPanel({ className }: CodexAccountsPanelProps) {
       platform.openExternal(value.verificationUrl);
     });
   return (
-    <section data-testid="codex-accounts" className={`min-w-0 space-y-4 ${className ?? ""}`}>
+    <div
+      ref={searchRef}
+      tabIndex={-1}
+      data-settings-search-id="codex.title"
+      data-settings-search-highlighted={highlighted || undefined}
+      data-testid="codex-accounts"
+      className={`min-w-0 space-y-4 ${highlighted ? "bg-accent ring-1 ring-inset ring-input-border-focused" : ""} ${className ?? ""}`}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <ProviderLogo logo={{ type: "builtin", key: "openai" }} className="size-5" />
@@ -189,6 +198,6 @@ export function CodexAccountsPanel({ className }: CodexAccountsPanelProps) {
           }
         />
       ))}
-    </section>
+    </div>
   );
 }

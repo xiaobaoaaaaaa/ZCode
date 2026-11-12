@@ -12,3 +12,5 @@ Sync errors use operation-specific retry copy, without exposing raw exceptions.
 Account cards reuse the official plan surface with quota meters and compact actions. The available
 model list is discovery data, not local enabled state. Success feedback is scoped to the account
 whose sync completed. Workspace identity/full reset time remain accessible in tooltips.
+
+设置搜索通过官方 SettingsSearchTarget 接入；导航 owner 仍为 useModelProviderNavigation，面板只消费 codex.title 定位与高亮，不持有第二份导航状态。

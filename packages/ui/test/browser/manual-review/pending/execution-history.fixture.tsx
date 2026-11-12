@@ -112,9 +112,20 @@ function TimingFixture() {
       ...(turnEnded ? { endedAt: endedAt! } : {}),
     },
     { ...timingBase, rowId: 2, kind: "userInput", origin: "realUser", text: "E2E_TIMING" },
+    // 官方仅将至少两条连续摘要折叠；先放入已完成工具，验收真实分组的卸载与计时。
     {
       ...timingBase,
       rowId: 3,
+      kind: "toolCall",
+      toolCallId: "timing-preflight",
+      toolName: "Bash",
+      status: "success",
+      inputText: '{"command":"echo preflight"}',
+      output: { text: "preflight" },
+    },
+    {
+      ...timingBase,
+      rowId: 4,
       kind: "reasoning",
       text: "E2E_TIMED_REASONING",
       state: endedAt === null ? "streaming" : interrupted ? "interrupted" : "complete",
@@ -123,7 +134,7 @@ function TimingFixture() {
     ...(toolStatus
       ? Array.from({ length: toolCount }, (_, index) => ({
           ...timingBase,
-          rowId: 4 + index,
+          rowId: 5 + index,
           kind: "toolCall" as const,
           toolCallId: index === 0 ? "auto-expand-bash" : `auto-expand-bash-${index}`,
           toolName: "Bash",
@@ -150,6 +161,13 @@ function TimingFixture() {
           {
             ...timingBase,
             rowId: 101,
+            kind: "reasoning" as const,
+            text: "E2E_NEXT_STAGE_REASONING",
+            state: "complete" as const,
+          },
+          {
+            ...timingBase,
+            rowId: 102,
             kind: "toolCall" as const,
             toolCallId: "next-stage-bash",
             toolName: "Bash",
@@ -162,7 +180,7 @@ function TimingFixture() {
       ? [
           {
             ...timingBase,
-            rowId: 102,
+            rowId: 103,
             kind: "assistantText" as const,
             text: "E2E_TIMING_DONE",
             state: "complete" as const,

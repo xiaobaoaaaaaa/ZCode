@@ -5,6 +5,10 @@
     "rootDir": "src",
     "lib": ["es2025", "dom"]
   },
-  "include": ["src/preload", "src/side-pane-windows/contract.ts", "src/shared/armsRumBridgeForward.ts"],
-  "references": [{ "path": "../shared" }]
+  "include": [
+    "src/preload",
+    "src/side-pane-windows/contract.ts",
+    "src/shared/armsRumBridgeForward.ts"
+  ],
+  "references": [{ "path": "../shared" }, { "path": "./tsconfig.app-navigation.json" }]
 }

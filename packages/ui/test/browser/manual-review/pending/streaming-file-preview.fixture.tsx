@@ -1,3 +1,4 @@
+import { TooltipProvider } from "@/components/ui/tooltip.js";
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import type { ToolCallRow } from "@zcode/shared/zcode-protocol-v4";
@@ -120,6 +121,8 @@ function Fixture() {
 }
 createRoot(document.getElementById("root")!).render(
   <ZCodeIntlProvider initialLocale={params.get("locale") === "en-US" ? "en-US" : "zh-CN"}>
-    <Fixture />
+    <TooltipProvider>
+      <Fixture />
+    </TooltipProvider>
   </ZCodeIntlProvider>,
 );

@@ -8,26 +8,26 @@
 
 ## UI Surface Matrix
 
-| 场景/入口 | 共享实现与显示 owner | 门禁/默认 | 提交与权威落点 | 模式/隔离 |
-| --- | --- | --- | --- | --- |
-| 时间线待引导消息 | ConversationPendingGuideList / Timeline；queue 是 CLI snapshot | queued guide、非只读；操作时禁用；已有草稿提示先处理 | SessionPane.handleEditQueueItem → deleteQueueItem → runtime.removePendingInputById | Desktop/Web/mobile 同组件；只恢复点击端同 session/workspace 的 Composer |
-| 普通 queue 撤回编辑 | ConversationQueuePanel，同一 handler | 原规则保留，compact 无入口 | 相同 runtime 与 session_input cancelled | 不改变未来 queue 的 FIFO 或投递模式 |
+| 场景/入口        | 共享实现与显示 owner                                           | 门禁/默认                                            | 提交与权威落点                                                                            | 模式/隔离                                                               |
+| ---------------- | -------------------------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| 时间线待引导消息 | ConversationPendingGuideList / Timeline；queue 是 CLI snapshot | queued guide、非只读；操作时禁用；已有草稿提示先处理 | SessionPane.handleWithdrawPendingGuide → deleteQueueItem → runtime.removePendingInputById | Desktop/Web/mobile 同组件；只恢复点击端同 session/workspace 的 Composer |
+| 普通 queue 编辑  | 官方 Composer edit scope                                       | 采用官方编辑锁，guide/compact 无编辑入口             | lockQueueItemEdit / editQueueItem / releaseQueueItemEdit                                  | 原地修改并保留原草稿，不与 guide 撤回共用 handler                       |
 
 ## Shared And Divergent Behavior
 
 按钮文案为“撤回”，位于等待引导状态旁，手机无需 hover。普通 queue 继续叫编辑。
-draft/config/attachments 恢复、ACK 判断、操作锁、身份隔离全部复用原实现。guide 已开始消费后
+guide 的草稿恢复继续通过 Composer 的唯一草稿 owner；ACK、操作锁和身份隔离沿用既有撤回约束。普通 queue 使用官方 edit scope，不先删除队列项。guide 已开始消费后
 撤回返回 noop，提示未能恢复；不能凭 UI 旧状态承诺撤回成功。原始流、模型选择和 active turn 不停止。
 
 ## Feature Relationships / State Owners And Commit Sinks
 
-| Rank | 路径/语义边 | Owner / sink | 证据 |
-| --- | --- | --- | --- |
-| must-inspect | pendingGuideProjection → Timeline → 待引导按钮 → queue edit handler | Renderer 只拥有草稿和 pending 操作 | packages/ui/src/v4 |
-| must-inspect | deleteQueueItem → input-facade → removePendingInputById | CLI runtime；session_input cancelled + TurnSteerDiscarded | bootstrap queue handler / core steering |
-| must-inspect | tool batch → drainPendingInput → persistUserPrompt → history | CLI runtime 消费边界 | core steering |
-| invariant-only | owner/lease 路由 → snapshot/delta | Host 路由；Desktop continuous / Web replayable | conversation-protocol-declaration.md |
-| evidence-only | 可控 Promise 竞态与 Electron 受控 provider | 测试，不是产品 owner | GW01–GW04 |
+| Rank           | 路径/语义边                                                         | Owner / sink                                              | 证据                                    |
+| -------------- | ------------------------------------------------------------------- | --------------------------------------------------------- | --------------------------------------- |
+| must-inspect   | pendingGuideProjection → Timeline → 待引导按钮 → queue edit handler | Renderer 只拥有草稿和 pending 操作                        | packages/ui/src/v4                      |
+| must-inspect   | deleteQueueItem → input-facade → removePendingInputById             | CLI runtime；session_input cancelled + TurnSteerDiscarded | bootstrap queue handler / core steering |
+| must-inspect   | tool batch → drainPendingInput → persistUserPrompt → history        | CLI runtime 消费边界                                      | core steering                           |
+| invariant-only | owner/lease 路由 → snapshot/delta                                   | Host 路由；Desktop continuous / Web replayable            | conversation-protocol-declaration.md    |
+| evidence-only  | 可控 Promise 竞态与 Electron 受控 provider                          | 测试，不是产品 owner                                      | GW01–GW04                               |
 
 ## Must-Preserve Invariants
 
@@ -39,7 +39,7 @@ draft/config/attachments 恢复、ACK 判断、操作锁、身份隔离全部复
 - 删除成功才恢复草稿；stale/noop/rejected/failed 不恢复。取消状态写库失败释放临时 reservation，保留输入。
 - 已有 promotion reservation 继续由原 owner 释放；不抢占其他 owner，不重放请求。
 - 队列撤回后的 terminal state 复用 cancelled；重发是新 commandId，不复活旧输入。
-- workspaceIdentity?.trim() || workspacePath；ACK 后绑定变化不恢复，其他端仅消费 removal。
+- workspaceIdentity?.trim() || workspacePath；ACK 后绑定变化不恢复，其他端仅消费 removal。复用官方 pane binding generation，A → B → A 也视为新绑定，旧 ACK 和尚未应用的恢复请求不得写回新草稿。
 
 ```mermaid
 sequenceDiagram
@@ -79,15 +79,15 @@ deleteQueueItem → input-facade → steering；drain → persistUserPrompt。�
 
 ## Dimensions / Candidate Combinations / Pruning Decisions
 
-| 状态 × 动作 | 结果 | 分类/理由 |
-| --- | --- | --- |
-| pending guide × 空 draft × 撤回 | 删除成功后恢复全文 | accepted GW01 |
-| pending guide × 非空/上传 draft × 撤回 | 保留两侧，不发命令 | accepted GW02 |
-| 撤回/消费交叉、重复撤回、落库失败 | 单一胜者，失败不造成内容丢失或误删除邻项 | accepted GW03 |
-| consumed / stale / 切绑定 | 不恢复旧消息 | accepted GW04 |
-| guide 回落 queue | 原 queue 编辑入口 | pruned，沿用同一路径 |
-| compact/goal/历史消息 | 无新增撤回入口 | pruned，非待引导 |
-| 每个 provider、系统、主题的笛卡尔积 | 同 CLI 和共享按钮，代表运行 + 类型检查 | pruned，无 provider/平台分支 |
+| 状态 × 动作                            | 结果                                     | 分类/理由                    |
+| -------------------------------------- | ---------------------------------------- | ---------------------------- |
+| pending guide × 空 draft × 撤回        | 删除成功后恢复全文                       | accepted GW01                |
+| pending guide × 非空/上传 draft × 撤回 | 保留两侧，不发命令                       | accepted GW02                |
+| 撤回/消费交叉、重复撤回、落库失败      | 单一胜者，失败不造成内容丢失或误删除邻项 | accepted GW03                |
+| consumed / stale / 切绑定              | 不恢复旧消息                             | accepted GW04                |
+| guide 回落 queue                       | 原 queue 编辑入口                        | pruned，沿用同一路径         |
+| compact/goal/历史消息                  | 无新增撤回入口                           | pruned，非待引导             |
+| 每个 provider、系统、主题的笛卡尔积    | 同 CLI 和共享按钮，代表运行 + 类型检查   | pruned，无 provider/平台分支 |
 
 ## Unresolved Questions / Questions For User
 

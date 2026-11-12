@@ -23,7 +23,9 @@ interface GuestWebContentsForScreenshotActivity {
 export function createDesktopBrowserScreenshotSurfaceCoordinator(options: {
   fromId(windowId: number): BrowserWindowForScreenshotSurface | null;
   fromWebContentsId(webContentsId: number): GuestWebContentsForScreenshotActivity | null;
-  resolvePresentation?: ConstructorParameters<typeof DesktopBrowserScreenshotActivityController>[0]["resolvePresentation"];
+  resolvePresentation?: ConstructorParameters<
+    typeof DesktopBrowserScreenshotActivityController
+  >[0]["resolvePresentation"];
   log?(message: string): void;
   warn?(message: string): void;
   timeoutMs?: number;
