@@ -60,4 +60,37 @@ Personal 对既有 `exportLogs.ts`、`WorkspaceShellLayout.tsx` 等文件的修�
 
 ## 本次验证记录
 
-（合并与验证完成后填写。）
+2026-11-13，Windows 11 本机（win32 10.0.26300 x64），Node 24.18.0（mise.toml 钉 24.14.0，
+本机未安装 mise，版本漂移如实记录）/ pnpm 10.33.2（钉版安装）。合并前工作区干净，
+冲突 6 个文件：package.json/package-lock.json（版本取 `3.18.1-personal.1`）、
+WorkspaceShellLayout.tsx（取官方最小宽度规则）、两份文档交叉点（双保留）、
+third-party/inventory.json（重新生成）。
+
+| 检查 | 本次结果 |
+| --- | --- |
+| `pnpm install --frozen-lockfile --child-concurrency=1` | 成功（2m09s，node-pty 用 win32 预编译） |
+| 根 `pnpm typecheck` | 通过（合并后、文案改动后各一次） |
+| 根 `pnpm lint` | 0 错误、544 条存量警告；改动文件专项 lint 0/0，无 hooks 诊断 |
+| `pnpm architecture:check` | violations 0 |
+| `licenses.mjs notices` + `check` | 通过（基础检查）；19 项材料缺口按发布合同披露 |
+| CLI adapters 全量 | 2813 项：2682 过 / 61 败 / 70 跳过；新入 memory-diagnostics 10/10 过 |
+| CLI bootstrap 全量 | 3755 项：3406 过 / 337 败 / 12 跳过 |
+| 合并触碰测试隔离复跑 | v4-gateway + session-event-store-retention + product-projection 共 369/369 通过 |
+| turn-performance 浏览器验收 | 4 轮复跑均在到达断言的组全部通过（desktop/dark 2/4、mobile 4/4，含 zh/en 新文案断言）；desktop/light 4 轮均因首轮 Vite 冷启动 30s 导航超时未达断言 |
+
+全量套件的失败均为本机环境性问题，与合并改动无关：209 项 `Test timed out in 5000ms`
+（真实子进程/多进程/git 用例在本机超时）、symlink 创建 EPERM（无开发者模式）、
+Windows ESM 盘符路径、文件占用 EBUSY；失败模块未被合并改动（合并在 adapters 仅新增
+memory-diagnostics）。合并触碰文件的相关测试隔离运行全绿；未将全量环境失败标为通过。
+
+本机无 cmake/VS 2022 工具链，`pnpm bootstrap` 的 windows-runtime-host 原生 helper
+构建步骤失败（spawn cmake ENOENT），CLI 各包 dist 在该步骤前已构建完成；原生构建由
+发布 CI 的 Windows runner 执行。未验证真实 Codex 账号、跨机远控、原生 macOS/Windows
+安装器交互、发布安装包与签名公证。
+
+## 本次同版本行为调整：运行态摘要带已完成请求数
+
+用户 2026-11-13 决定将运行态摘要由「本轮已完成请求」改为「本轮（已完成 N 请求）」
+（英文 `This turn (N completed)`），消除“缺数字标题”式误读。规格、i18n（zh/en）、
+TurnPerformanceSummary 与浏览器断言同步更新，完成态样式与详情浮层不变。
+浏览器断言在 desktop/dark 与 mobile 组验证通过（见上表）。
