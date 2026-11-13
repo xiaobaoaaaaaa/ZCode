@@ -3071,6 +3071,10 @@ export class ConversationV4Gateway {
       detachedLive: this.detachedLiveSessions.size,
       detachedTerminal: this.detachedTerminalAt.size,
       rawSeqStates: this.rawSequenceStates.size,
+      hydrations: this.hydrationInFlight.size,
+      historyOpenings: this.historyOpenings.size,
+      binaryCacheEntries: this.binaryReadCache.size,
+      binaryCacheBytes: this.binaryReadCacheBytes,
     };
   }
 

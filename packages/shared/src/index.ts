@@ -247,6 +247,7 @@ export type {
   SaveFileRequest,
   SaveFileResult,
   PrintPageToPdfResult,
+  MicrophoneAccessResetResult,
   MicrophoneAccessResult,
   MicrophoneSettingsTarget,
   CaptureBrowserGuestPageClip,
