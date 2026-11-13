@@ -95,7 +95,7 @@ for (const mobile of [false, true])
         });
         await page.goto(`${url}&running=true`);
         await trigger.waitFor({ state: "visible" });
-        assert.match(await trigger.innerText(), mobile ? /Completed requests/ : /本轮已完成请求/);
+        assert.match(await trigger.innerText(), mobile ? /This turn \(\d+ completed\)/ : /本轮（已完成 \d+ 请求）/);
         await trigger.click();
         await panel.waitFor({ state: "visible" });
         await page.mouse.click(5, 5);

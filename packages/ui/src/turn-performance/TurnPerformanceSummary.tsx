@@ -32,7 +32,10 @@ export const TurnPerformanceSummary = memo(function TurnPerformanceSummary({
       ? performance.firstResponseTotalMs / performance.firstResponseCount
       : null;
   const speedText = tps === null ? null : `${number(tps)} tok/s`;
-  const scope = label(running ? "runningScope" : "scope");
+  // 运行态带已完成请求数，明确此刻统计的样本量（用户 2026-11-13 决定，见 turn-performance-summary.md）。
+  const scope = running
+    ? intl.formatMessage({ id: "chat.performance.runningScope" }, { n: performance.requestCount })
+    : label("scope");
   const readings: [string, string][] = [
     ["requests", count(performance.requestCount)],
     ["speed", speedText ?? "—"],

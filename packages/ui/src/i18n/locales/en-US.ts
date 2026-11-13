@@ -4,7 +4,7 @@ import { requestSecurityMessagesEnUS } from "@/request-security-edition/messages
 const enUS: Record<string, string> = {
   "chat.performance.title": "Turn performance and usage",
   "chat.performance.scope": "This turn",
-  "chat.performance.runningScope": "Completed requests",
+  "chat.performance.runningScope": "This turn ({n} completed)",
   "chat.performance.requests": "Completed requests",
   "chat.performance.speed": "Average output speed",
   "chat.performance.first": "Average first response",

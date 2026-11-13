@@ -4,7 +4,7 @@ import { requestSecurityMessagesZhCN } from "@/request-security-edition/messages
 const zhCN: Record<string, string> = {
   "chat.performance.title": "本轮性能与用量",
   "chat.performance.scope": "本轮",
-  "chat.performance.runningScope": "本轮已完成请求",
+  "chat.performance.runningScope": "本轮（已完成 {n} 请求）",
   "chat.performance.requests": "已完成请求",
   "chat.performance.speed": "平均输出速度",
   "chat.performance.first": "平均首响应",
