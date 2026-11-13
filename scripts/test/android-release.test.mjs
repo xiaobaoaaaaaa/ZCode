@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { stageAndroid, collectAndroid } from "../android-release.mjs";
 test("Android release binds APK to version, commit and checksum", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "android-release-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  t.after(() => rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
   const apk = join(root, "input.apk");
   await writeFile(apk, Buffer.from("504b0304abcd", "hex"));
   const metadata = {

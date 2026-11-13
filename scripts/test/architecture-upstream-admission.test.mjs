@@ -40,7 +40,7 @@ async function fixture(run) {
       addedFilesFromGit(cwd, { base, acceptedUpstreamCommits });
     await run({ cwd, previousHead, upstream, commit, collect, acceptedUpstreamCommits });
   } finally {
-    await rm(cwd, { recursive: true, force: true });
+    await rm(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 }
 

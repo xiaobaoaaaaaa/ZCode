@@ -48,7 +48,7 @@ test("compressed reports are readable and corrupt reports are not treated as mis
     await writeFile(file, "not-json");
     await assert.rejects(readReport(file), SyntaxError);
   } finally {
-    await rm(directory, { recursive: true, force: true });
+    await rm(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 });
 

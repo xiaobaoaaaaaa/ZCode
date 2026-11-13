@@ -40,7 +40,7 @@ async function fixture(files, fn) {
     }
     return await fn(cwd);
   } finally {
-    await rm(cwd, { recursive: true, force: true });
+    await rm(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 }
 

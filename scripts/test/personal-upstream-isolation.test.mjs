@@ -93,7 +93,7 @@ for (const flavor of ["personal", "production"]) {
       });
       assert.equal(await readFile(official, "utf8"), before);
     } finally {
-      await rm(root, { recursive: true, force: true });
+      await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 }

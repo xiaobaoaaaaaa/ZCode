@@ -47,7 +47,7 @@ async function fixture(files, fn) {
     // CR-01 修复），非 EBUSY 与重试耗尽一律 break 放过目录。
     for (let attempt = 0; attempt < 6; attempt++) {
       try {
-        await rm(cwd, { recursive: true, force: true });
+        await rm(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
         break;
       } catch (error) {
         if (attempt === 5 || error.code !== "EBUSY") break;

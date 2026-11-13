@@ -7,7 +7,7 @@ import { after, test } from "node:test";
 import { createBuildTimeConfigDefines, resolveBuildTimeConfig } from "../build-time-config.mjs";
 
 const dir = await mkdtemp(join(tmpdir(), "zcode-build-time-config-"));
-after(() => rm(dir, { recursive: true, force: true }));
+after(() => rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 
 async function writeDefaults(name, content) {
   const path = join(dir, name);

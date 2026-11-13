@@ -11,7 +11,7 @@ const commit = "a".repeat(40);
 
 async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), "zcode-release-test-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  t.after(() => rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
   for (const [target, config] of Object.entries(targets)) {
     const source = join(root, "source", target);
     await mkdir(source, { recursive: true });

@@ -12,7 +12,7 @@ const repoRoot = resolve(import.meta.dirname, "../..");
 
 async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), "cli release-"));
-  t.after(() => rm(root, { force: true, recursive: true }));
+  t.after(() => rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
   const cliRoot = join(root, "apps/zcode-cli");
   await mkdir(cliRoot, { recursive: true });
   for (const [relative, version] of [

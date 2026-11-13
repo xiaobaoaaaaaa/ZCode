@@ -15,7 +15,7 @@ const declaration = `run_case fixture "test/e2e/${spec}"\n`;
 
 async function fixture(t, queue = declaration, inventory = JSON.stringify([spec])) {
   const root = await mkdtemp(join(tmpdir(), "remote-target-check-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  t.after(() => rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
   const queuePath = join(root, "harness/remote/run-all-remote.sh");
   const inventoryPath = join(root, "packages/desktop/scripts/e2e-remote-target-specs.json");
   for (const [path, content] of [

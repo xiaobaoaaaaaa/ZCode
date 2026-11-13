@@ -28,7 +28,7 @@ async function lint(source, file = "packages/ui/src/Example.tsx", packageDirecto
     });
     return { code: result.code ?? 0, diagnostics: JSON.parse(result.stdout).diagnostics };
   } finally {
-    await rm(cwd, { recursive: true, force: true });
+    await rm(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 }
 

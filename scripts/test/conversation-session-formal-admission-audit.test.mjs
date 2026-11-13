@@ -130,7 +130,7 @@ test("actual audit CLI reports overridden formal rejection in JSON and text", as
     assert.match(textRun.stdout, /formal admission: 0 admitted, 1 rejected/);
     assert.match(textRun.stderr, /MISSING_CASE_FIXTURE/);
   } finally {
-    await rm(root, { force: true, recursive: true });
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 });
 
@@ -148,7 +148,7 @@ test("ordinary audit CLI rejects the formal root override as test-only", async (
     assert.notEqual(run.exitCode, 0);
     assert.match(run.stderr, /ZCODE_CONVERSATION_SESSION_FORMAL_ADMISSION_ROOT is test-only/);
   } finally {
-    await rm(root, { force: true, recursive: true });
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 });
 

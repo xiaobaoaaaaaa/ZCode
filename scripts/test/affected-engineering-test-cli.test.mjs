@@ -12,7 +12,7 @@ const entry = fileURLToPath(new URL("../run-affected-engineering-tests.mjs", imp
 const zero = "0".repeat(40);
 async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), "affected-official-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  t.after(() => rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
   // 外层 hook 的 SHA 和 Git local env 不属于夹具，必须用环境副本隔离。
   const env = { ...process.env };
   for (const key of Object.keys(env))
@@ -331,7 +331,7 @@ test("hook Git local env 不污染真实 index，选择仍使用实际工作区"
 test("真实 git push 在配置触发全量时继续推送，不执行工程测试", async (t) => {
   const { root, write, git } = await fixture(t);
   const remote = await mkdtemp(join(tmpdir(), "affected-push-"));
-  t.after(() => rm(remote, { recursive: true, force: true }));
+  t.after(() => rm(remote, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
   await git("init", "--bare", remote);
   await git("remote", "add", "origin", remote);
   await git("push", "-u", "origin", "main");
@@ -397,7 +397,7 @@ test("Push 显式 ref 优先于 hook 基线，首次推送也不依赖 staging",
 test("真实 git push 消费任意显式基线，而不是 remote SHA", async (t) => {
   const { root, write, git, env } = await fixture(t);
   const remote = await mkdtemp(join(tmpdir(), "affected-push-base-"));
-  t.after(() => rm(remote, { recursive: true, force: true }));
+  t.after(() => rm(remote, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
   await git("init", "--bare", remote);
   await git("remote", "add", "origin", remote);
   await write("source.mjs", "export const value = 2;");

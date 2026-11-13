@@ -9,7 +9,7 @@ import { inspectConversationSessionFormalAdmission as inspect } from "../lib/con
 const temporaryRoots = [];
 
 after(async () => {
-  await Promise.all(temporaryRoots.map((root) => rm(root, { force: true, recursive: true })));
+  await Promise.all(temporaryRoots.map((root) => rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })));
 });
 
 async function makeRoot() {

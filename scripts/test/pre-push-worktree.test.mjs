@@ -11,7 +11,7 @@ const exec = promisify(execFile);
 const zero = "0".repeat(40);
 async function fixture(t) {
   const cwd = await mkdtemp(join(tmpdir(), "push-worktree-"));
-  t.after(() => rm(cwd, { recursive: true, force: true }));
+  t.after(() => rm(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
   const env = { ...process.env };
   for (const key of Object.keys(env)) if (key.startsWith("GIT_")) delete env[key];
   const git = async (...args) =>

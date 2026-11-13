@@ -52,6 +52,6 @@ test("generated mapping evidence requires every build map to match its hash", as
     await rm(join(root, "main/index.js.map"));
     assert.equal((await loadGeneratedLineEvidence(root, "main", manifest)).status, "missing-map");
   } finally {
-    await rm(root, { recursive: true, force: true });
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 });

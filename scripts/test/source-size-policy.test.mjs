@@ -51,6 +51,6 @@ test("800 行为默认阻断阈值，已接纳的大文件仅降级行数诊断"
       "warning",
     );
   } finally {
-    await rm(cwd, { recursive: true, force: true });
+    await rm(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 });

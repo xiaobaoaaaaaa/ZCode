@@ -48,6 +48,6 @@ test("bootstrap install 前只清理 hoisted patched dependency 目标", async (
     await assert.rejects(access(join(rootDir, "node_modules/vitest")));
     await access(join(rootDir, "node_modules/unrelated"));
   } finally {
-    await rm(rootDir, { recursive: true, force: true });
+    await rm(rootDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 });

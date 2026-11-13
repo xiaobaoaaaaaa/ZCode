@@ -8,7 +8,7 @@ const INSPECTOR_URL = new URL("../lib/conversation-session-formal-admission.mjs"
 const temporaryRoots = [];
 
 after(async () => {
-  await Promise.all(temporaryRoots.map((root) => rm(root, { force: true, recursive: true })));
+  await Promise.all(temporaryRoots.map((root) => rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })));
 });
 
 async function inspect(root) {
