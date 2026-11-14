@@ -157,3 +157,10 @@ versionCode 递增至 4。全部构建、启动检查、Android 签名与远端�
 沿用五平台桌面与签名 Android 联合发布。根版本为 `3.18.1-personal.1`，Android
 versionCode 递增至 5。本次授权含提交与推送发布分支（触发构建与草稿资产上传）；
 草稿构建产物须经核验后再按既有流程公开并设为 Latest。
+
+## 3.18.2-personal.1：官方 3.18.2 合入
+
+用户于 2026-11-14 授权合并并正式发布。从已发布 `v3.18.1-personal.1` 创建发布分支，
+合入官方 `fec97590`；范围及验收见 [合入规格](../specs/upstream-3.18.2-personal-integration.md)。
+根版本为 `3.18.2-personal.1`，Android versionCode 递增至 6。沿用五平台桌面与签名 Android
+联合发布，全部构建、启动检查与远端资产核验通过后正式公开并设为 Latest。
