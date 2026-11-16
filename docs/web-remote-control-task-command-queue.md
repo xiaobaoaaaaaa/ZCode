@@ -55,6 +55,46 @@ queue。empty、超限或 runtime reject 返回显式 `rejected/failed`，UI 保
 只改变用户明确提交的文本、附件与模型/mode/Plan 配置，并释放编辑锁。编辑期间该项由 `lockQueueItemEdit` 冻结（`editLock` 进入投影），
 手机与桌面都可看到并手动 `releaseQueueItemEdit`，见 [Composer 编辑态](ui/composer-edit-mode.md)。reorder/delete 也通过 CLI command 修改同一份权威 queue。
 
+### 按队列项身份删除
+
+`deleteQueueItem` 只表达删除指定 `queueItemId` 的意图，不依赖整个会话的 `baseRevision`。
+桌面运行中或跨端投影尚未追上 CLI 时，无关的 control/queue 更新不能使删除返回
+`proto.staleRevision`。旧客户端仍携带 `baseRevision` 时同样按目标项当前状态裁决。
+普通队列删除和待引导撤回共用这一规则；撤回仍仅在 accepted/duplicate 后恢复原端草稿。
+
+唯一队列所有者仍为 CLI/runtime；CommandInbox 串行接纳并按 sessionId + commandId 去重，
+Host 的 workspaceIdentity、owner/lease、stale-run 路由保护保持原合同。冻结项继续拒绝删除，
+reserved/promoting 或已消费/已删除的项由 runtime 拒绝或 noop，不能因此撤销正在执行的输入。
+删除不启动模型、不改变其他队列项的相对顺序，也不修改 autoDrain。
+
+busy 输入经 `enqueueDeferredInput` 接纳时，可以仅存在于事件投影，`targetTurnId` 仍指向
+当前运行轮。canonical intent 的 `admittedDelivery=queue` 明确表示等待未来轮，不能仅凭
+“目标轮仍 active 且不在 activeTurn.pendingInputs”就当作已消费的 guide。
+只有未明确 admitted 为 queue 的输入继续受读取投影前后 active turn 身份保护，防止撤回
+已经开始提交的 guide；编辑锁和 promotion reservation 始终先于该判断。
+
+```mermaid
+sequenceDiagram
+  participant UI as Desktop / Web 投影
+  participant Host as Host owner/lease 路由
+  participant CLI as CLI CommandInbox
+  participant Runtime as Runtime 权威队列
+  UI->>Host: deleteQueueItem(queueItemId, commandId)
+  Host->>CLI: 按 workspaceIdentity/session 路由
+  CLI->>Runtime: 检查锁与占用，按 ID 删除
+  Runtime->>Runtime: 成功时结算原输入并发布 discard
+  par 命令回执
+    Runtime-->>CLI: removed / locked / missing
+    CLI-->>UI: accepted / rejected / noop
+  and 成功删除的状态交付
+    Runtime-->>UI: desktop-continuous 实时投影
+    Runtime-->>UI: web-remote-replayable 投影与重连快照
+  end
+```
+
+验收：运行中删除、Stop 后 held 删除、落后 revision 的 desktop/mobile 命令、同命令重试、
+编辑锁与已消费项保护。两个 delivery profile 都从同一 runtime 事实移除目标；手机重连不能复活。
+
 `sendQueuedNow` 不先删后发：
 
 ```text

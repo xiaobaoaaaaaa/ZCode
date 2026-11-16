@@ -790,8 +790,8 @@ async function removePendingInputUnlocked(
       (pendingInput) => pendingInput.id === options.pendingInputId,
     ) ?? -1;
   if (!activeTurn || index < 0) {
-    // held 回落（stop/完成后 queue 保留成 held）：held 项只存在于
-    // 事件日志/投影（active turn 已结束），按投影定位后补 TurnSteerDiscarded。
+    // busy deferred 输入与 stop/完成后留下的 held 项都可能仅存在于事件日志，
+    // 不在 active turn 内存队列中；按权威投影定位后补 TurnSteerDiscarded。
     return this.discardHeldPendingInputById(
       options.pendingInputId,
       options.traceContext,
@@ -832,8 +832,8 @@ async function removePendingInputUnlocked(
 }
 
 /**
- * held 项按 id 丢弃（heldQueueDisposition=clearQueueAndSend 的执行件）：
- * active turn 结束后 pendingInputs 内存态即消亡，held queue 的权威在事件日志——
+ * 事件队列项按 id 丢弃（也供 heldQueueDisposition=clearQueueAndSend 使用）：
+ * deferred 输入不进入 pendingInputs，active turn 结束后内存态也会消亡，权威均在事件日志——
  * 经投影反查该项仍未 drain/discard 后补 TurnSteerDiscarded(user_removed)。
  */
 export async function discardHeldPendingInputById(
@@ -848,13 +848,15 @@ export async function discardHeldPendingInputById(
   const activeTurnIdBeforeRead = this.activeTurn?.turnId;
   const projection = await this.rebuildProjection();
   const held = projection.pendingSteerInputs.find((item) => item.pendingInputId === pendingInputId);
-  // 当前 turn 的 guide 已同步被 drain 取出、但 drained 事件可能仍在写库。
-  // 此时旧投影不是 held queue；不能撤回已开始提交的上下文并向 UI 返回成功。
-  // 读取投影期间 turn 也可能结束/切换，必须同时守住 await 前后的身份。
+  // 当前 turn 的 guide 已被 drain 取出但事件尚未写完时，旧投影不能用作撤回依据。
+  // 普通 busy 输入则由 enqueueDeferredInput 只写事件队列，targetTurnId 也会指向当前轮；
+  // 曾把同轮项一律当作已消费 guide，导致真实排队消息始终返回 itemMissing。canonical intent
+  // 明确 admitted 为 queue 的项仍可删除；其余输入继续守住读取前后的 turn 身份。
   if (
     !held ||
-    held.targetTurnId === activeTurnIdBeforeRead ||
-    held.targetTurnId === this.activeTurn?.turnId
+    (held.intent?.admittedDelivery !== "queue" &&
+      (held.targetTurnId === activeTurnIdBeforeRead ||
+        held.targetTurnId === this.activeTurn?.turnId))
   ) {
     return false;
   }

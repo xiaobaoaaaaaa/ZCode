@@ -135,6 +135,46 @@ describe("CommandInbox ACK 裁决", () => {
     }
   });
 
+  it.each([
+    { clientId: "desktop-a", inputOrigin: "desktop" as const, baseRevision: undefined },
+    { clientId: "desktop-b", inputOrigin: "desktop" as const, baseRevision: 3 },
+    { clientId: "mobile", inputOrigin: "mobile" as const, baseRevision: 3 },
+  ])("删除排队消息不因会话投影落后而被拒绝：$clientId", async (client) => {
+    const guard = vi.fn(() => ({ verdict: "allow" as const }));
+    const inbox = new CommandInbox(makeHost({ guard }));
+    const command = envelope({
+      ...client,
+      type: "deleteQueueItem",
+      payload: { queueItemId: "queued-before-unrelated-update" },
+    });
+    const outcome = await inbox.handle(command);
+    expect(outcome.ack).toMatchObject({ status: "accepted", revisionAtDecision: 7 });
+    expect(outcome.kind).toBe("execute");
+    if (outcome.kind !== "execute") return;
+    expect(guard).toHaveBeenCalledOnce();
+    outcome.settle({ status: "accepted" });
+
+    // ACK 丢失后重传不能重复删除；免全局 revision 仍保留 CommandInbox 幂等边界。
+    expect(await inbox.handle(command)).toMatchObject({
+      kind: "ack",
+      ack: { status: "duplicate" },
+    });
+    expect(guard).toHaveBeenCalledOnce();
+  });
+
+  it("落后投影的删除仍服从权威队列 guard", async () => {
+    const inbox = new CommandInbox(
+      makeHost({ guard: () => ({ verdict: "reject", reasonCode: "guard.queueItemEditLocked" }) }),
+    );
+    const outcome = await inbox.handle(
+      envelope({ type: "deleteQueueItem", payload: { queueItemId: "locked" }, baseRevision: 3 }),
+    );
+    expect(outcome).toMatchObject({
+      kind: "ack",
+      ack: { status: "rejected", reasonCode: "guard.queueItemEditLocked" },
+    });
+  });
+
   it("row target entity mismatch stale；当前 entity 但 action 不可用 rejected", async () => {
     const inbox = new CommandInbox(
       makeHost({

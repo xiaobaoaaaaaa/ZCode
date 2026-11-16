@@ -176,6 +176,11 @@ Drain 从 pendingInputs 同步取出是不可撤回边界；旧事件投影不�
 turn 结束或切换导致误取消。回归覆盖撤回/消费两种胜者、重复撤回、写库失败、
 读取旧投影时切轮及 await 期间前序输入被消费；不得误删邻项或改变当前模型请求。
 
+普通 V4 busy 输入经 `enqueueDeferredInput` 只写事件队列，不进入 active turn 的 pendingInputs，
+但 targetTurnId 可以仍是当前轮。删除时必须按 canonical intent 的 `admittedDelivery=queue`
+识别这种等待未来轮的输入，不能套用已消费 guide 的同轮拒绝条件。删除仍先检查编辑锁和
+reservation，再结算原 session input、发布 discard；当前轮和其他队列项保持不变。
+
 后台通知和子 agent 回信（runtime command 队列的 `task-notification` / `subagent-message`）只在带新输入的请求前取出：完整工具批次之后，或文本回复后续上 guide 时，与输入附件同一时机。Stop hook 续跑、流重试、模型降级、Start Plan 排队重试、上下文超限恢复、闲时换票、输出上限续写都重发同一份输入，不取队列；通知留在队列里，本轮结束后开新一轮。轮次已停止时不再取出任何挂起输入：工具批次结算后或文本回复之后、开始取出之前发现已停止，直接结束本轮，挂起的 guide 退回队列（`guide.turnInterrupted`），通知留在队列里。
 
 ## Volatile Queue

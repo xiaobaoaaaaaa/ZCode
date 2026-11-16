@@ -28,6 +28,10 @@ running 时，普通 `sendText` 与 `sendGoalCommand` 都由 CLI admission 决�
 
 UI 可对点击做短暂 pending/disabled 反馈，但不能只改本地数组。刷新、切 pane、桌面与手机同时在线时，均以 snapshot/delta 为准。
 
+删除按稳定 `queueItemId` 在 CLI 检查目标当前状态，不以整个会话的 revision 作前置条件。
+运行中或另一端投影暂时落后时仍可删除；编辑锁、消费竞争与幂等规则见
+[跨端权威输入队列](../web-remote-control-task-command-queue.md#按队列项身份删除)。
+
 第一方桌面、Web 与手机 UI 的“编辑”复用底部 composer，编辑期间队列项留在原位并被 CLI 冻结。
 完整交互、草稿暂存、失效处理与锁释放见 [Composer 编辑态](composer-edit-mode.md)。
 

@@ -9793,146 +9793,149 @@ describe("AgentRuntime tool loop", () => {
     expect((await runtime.getProjection()).pendingSteerInputs).toHaveLength(1);
   });
 
-  it("persists queue edit/reorder and settles user deletion before removing the authoritative item", async () => {
-    const sessionId = createSessionId("runtime-turn-steer-durable-edit");
-    const eventStore = createTestSessionEventStore();
-    const sessionStore = new RecordingSessionStore();
-    const modelStarted = deferred();
-    const finishModel = deferred();
-    let modelCalls = 0;
-    const runtime = createTestAgentRuntime(
-      sessionId,
-      { mode: "build" },
-      {
-        eventStore,
-        sessionStore,
-        modelFactory: createTestModelFactory({
-          async generateText(request: any) {
-            modelCalls += 1;
-            if (modelCalls === 1) {
-              modelStarted.resolve();
-              await finishModel.promise;
-            }
-            return {
-              finishReason: "stop",
-              providerMetadata: undefined,
-              text: "done",
-              usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
-            };
-          },
-        } as never),
-      },
-    );
-    const traceContext = {
-      sessionId,
-      traceId: createTraceId("trace-durable-edit"),
-    };
-    const pendingTurn = runtime.executeTurn("hold queue");
-    await modelStarted.promise;
-    const first = await runtime.steerTurn({
-      input: "first",
-      delivery: "queue",
-      toolDisallowlist: ["CronCreate"],
-      intent: {
-        sourceCommandId: "command-first",
-        queueItemId: "queue-first",
-        clientId: "desktop",
-        kind: "sendText",
-        admissionSeq: 1,
-        admittedAt: 1,
-        requestedDelivery: "queue",
-        admittedDelivery: "queue",
-        attachmentRefs: [
-          {
-            ref: "artifact:first",
-            fileName: "first.txt",
-            mime: "text/plain",
-            bytes: 5,
-          },
-        ],
-      },
-    });
-    const second = await runtime.steerTurn({
-      input: "second",
-      delivery: "queue",
-      intent: {
-        sourceCommandId: "command-second",
-        queueItemId: "queue-second",
-        clientId: "mobile",
-        kind: "sendText",
-        admissionSeq: 2,
-        admittedAt: 2,
-        requestedDelivery: "queue",
-        admittedDelivery: "queue",
-      },
-    });
-    if (first.kind !== "queued" || second.kind !== "queued") {
-      throw new Error("expected queued inputs");
-    }
+  it.each(["steerTurn", "enqueueDeferredInput"] as const)(
+    "%s persists queue edit/reorder and settles user deletion before removing the authoritative item",
+    async (enqueueMethod) => {
+      const sessionId = createSessionId("runtime-turn-steer-durable-edit");
+      const eventStore = createTestSessionEventStore();
+      const sessionStore = new RecordingSessionStore();
+      const modelStarted = deferred();
+      const finishModel = deferred();
+      let modelCalls = 0;
+      const runtime = createTestAgentRuntime(
+        sessionId,
+        { mode: "build" },
+        {
+          eventStore,
+          sessionStore,
+          modelFactory: createTestModelFactory({
+            async generateText(request: any) {
+              modelCalls += 1;
+              if (modelCalls === 1) {
+                modelStarted.resolve();
+                await finishModel.promise;
+              }
+              return {
+                finishReason: "stop",
+                providerMetadata: undefined,
+                text: "done",
+                usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+              };
+            },
+          } as never),
+        },
+      );
+      const traceContext = {
+        sessionId,
+        traceId: createTraceId("trace-durable-edit"),
+      };
+      const pendingTurn = runtime.executeTurn("hold queue");
+      await modelStarted.promise;
+      const first = await runtime[enqueueMethod]({
+        input: "first",
+        delivery: "queue",
+        toolDisallowlist: ["CronCreate"],
+        intent: {
+          sourceCommandId: "command-first",
+          queueItemId: "queue-first",
+          clientId: "desktop",
+          kind: "sendText",
+          admissionSeq: 1,
+          admittedAt: 1,
+          requestedDelivery: "queue",
+          admittedDelivery: "queue",
+          attachmentRefs: [
+            {
+              ref: "artifact:first",
+              fileName: "first.txt",
+              mime: "text/plain",
+              bytes: 5,
+            },
+          ],
+        },
+      });
+      const second = await runtime[enqueueMethod]({
+        input: "second",
+        delivery: "queue",
+        intent: {
+          sourceCommandId: "command-second",
+          queueItemId: "queue-second",
+          clientId: "mobile",
+          kind: "sendText",
+          admissionSeq: 2,
+          admittedAt: 2,
+          requestedDelivery: "queue",
+          admittedDelivery: "queue",
+        },
+      });
+      if (first.kind !== "queued" || second.kind !== "queued") {
+        throw new Error("expected queued inputs");
+      }
 
-    await expect(
-      runtime.editPendingInputById({
-        pendingInputId: first.pendingInputId,
-        newText: "first edited",
-        traceContext,
-      }),
-    ).resolves.toBe("edited");
-    await expect(
-      runtime.reorderPendingInput({
-        pendingInputId: second.pendingInputId,
-        beforePendingInputId: first.pendingInputId,
-        traceContext,
-      }),
-    ).resolves.toBe(true);
-    await expect(
-      runtime.removePendingInputById({
-        pendingInputId: first.pendingInputId,
-        reason: "user_removed",
-        traceContext,
-      }),
-    ).resolves.toBe(true);
-
-    expect(sessionStore.sessionInputUpdates).toEqual([
-      {
-        sessionID: sessionId,
-        updates: [{ id: first.pendingInputId, text: "first edited" }],
-      },
-      {
-        sessionID: sessionId,
-        updates: [
-          { id: second.pendingInputId, queuePosition: 0 },
-          { id: first.pendingInputId, queuePosition: 1 },
-        ],
-      },
-    ]);
-    expect(sessionStore.settledSessionInputs).toContainEqual({
-      id: first.pendingInputId,
-      sessionID: sessionId,
-      status: "cancelled",
-      reason: "user_removed",
-    });
-    const projection = await runtime.getProjection();
-    expect(projection.pendingSteerInputs.map((item) => item.pendingInputId)).toEqual([
-      second.pendingInputId,
-    ]);
-    const queuedEvents = (await eventStore.getEvents(sessionId)).filter(
-      (event) => event.type === SessionEventType.TurnSteerQueued,
-    );
-    expect(queuedEvents).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          payload: expect.objectContaining({
-            pendingInputId: first.pendingInputId,
-            input: "first edited",
-            toolDisallowlist: ["CronCreate"],
-          }),
+      await expect(
+        runtime.editPendingInputById({
+          pendingInputId: first.pendingInputId,
+          newText: "first edited",
+          traceContext,
         }),
-      ]),
-    );
+      ).resolves.toBe("edited");
+      await expect(
+        runtime.reorderPendingInput({
+          pendingInputId: second.pendingInputId,
+          beforePendingInputId: first.pendingInputId,
+          traceContext,
+        }),
+      ).resolves.toBe(true);
+      await expect(
+        runtime.removePendingInputById({
+          pendingInputId: first.pendingInputId,
+          reason: "user_removed",
+          traceContext,
+        }),
+      ).resolves.toBe(true);
 
-    finishModel.resolve();
-    await pendingTurn;
-  });
+      expect(sessionStore.sessionInputUpdates).toEqual([
+        {
+          sessionID: sessionId,
+          updates: [{ id: first.pendingInputId, text: "first edited" }],
+        },
+        {
+          sessionID: sessionId,
+          updates: [
+            { id: second.pendingInputId, queuePosition: 0 },
+            { id: first.pendingInputId, queuePosition: 1 },
+          ],
+        },
+      ]);
+      expect(sessionStore.settledSessionInputs).toContainEqual({
+        id: first.pendingInputId,
+        sessionID: sessionId,
+        status: "cancelled",
+        reason: "user_removed",
+      });
+      const projection = await runtime.getProjection();
+      expect(projection.pendingSteerInputs.map((item) => item.pendingInputId)).toEqual([
+        second.pendingInputId,
+      ]);
+      const queuedEvents = (await eventStore.getEvents(sessionId)).filter(
+        (event) => event.type === SessionEventType.TurnSteerQueued,
+      );
+      expect(queuedEvents).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            payload: expect.objectContaining({
+              pendingInputId: first.pendingInputId,
+              input: "first edited",
+              toolDisallowlist: ["CronCreate"],
+            }),
+          }),
+        ]),
+      );
+
+      finishModel.resolve();
+      await pendingTurn;
+    },
+  );
 
   it("reserves a queued input so roundtrip drain and competing promotion cannot consume it", async () => {
     const sessionId = createSessionId("runtime-turn-steer-reservation");

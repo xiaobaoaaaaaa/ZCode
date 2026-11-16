@@ -414,8 +414,10 @@ export const COMMANDS_REQUIRING_BASE_REVISION: ReadonlySet<CommandType> = new Se
   "sendQueuedNow",
   // editQueueItem 不走 CAS：运行中 revision 随 control/queue 投影频繁递增，用户编辑排队消息的提交
   // 会被 proto.staleRevision 误拒。冻结编辑的并发保护是 CLI 编辑锁（editorId 必须仍持锁）。
+  // deleteQueueItem 同样按稳定 queueItemId 操作：其他输入入队就会推进全局 revision，曾使
+  // 落后投影上的删除在到达 runtime 前被 stale 拒绝。并发裁决由 runtime 的编辑锁、reservation
+  // 和消费状态承担；兼容旧客户端携带 baseRevision，但不能把它作为删除前置条件。
   "reorderQueueItem",
-  "deleteQueueItem",
   "setAutoDrain",
   "switchModelConfig",
   "switchCollaborationMode",

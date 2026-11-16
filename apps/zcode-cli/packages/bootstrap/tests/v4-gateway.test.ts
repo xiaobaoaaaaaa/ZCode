@@ -37,6 +37,7 @@ import type {
 import {
   DELIVERY_PROFILES,
   PROTOCOL_V4_LIMITS,
+  applyConversationDeltas,
   utf8JsonByteLength,
 } from "@zcode/shared/zcode-protocol-v4";
 import {
@@ -339,6 +340,133 @@ describe("订阅与帧调度", () => {
     // 初始帧只进入 server 内部 dispatch result，不走 online notification 出口。
     expect(host.frames).toHaveLength(0);
   });
+
+  it.each(["desktop", "mobile"])(
+    "%s 落后投影删除后 continuous/replayable 均收敛，重连不复活",
+    async (clientId) => {
+      const host = makeHost();
+      const gateway = makeGateway(host);
+      const log = new EventLog();
+      gateway.ingest("session-1", sessionCreated(log));
+      gateway.ingest(
+        "session-1",
+        log.push(
+          SessionEventType.TurnStarted,
+          {
+            turnNumber: 1,
+            input: "running",
+            inputId: "running-command",
+          },
+          { turnId: "turn-1" },
+        ),
+      );
+      const enqueue = (id: string) =>
+        gateway.ingest(
+          "session-1",
+          log.push(
+            SessionEventType.TurnSteerQueued,
+            {
+              pendingInputId: id,
+              inputId: `source-${id}`,
+              input: id,
+              inputPreview: id,
+              inputSize: id.length,
+              delivery: "queue",
+              targetTurnId: "turn-1",
+            },
+            { turnId: "turn-1" },
+          ),
+        );
+      enqueue("delete-me");
+      const desktop = await gateway.subscribe(subscribeParams({ connectionId: "desktop" }));
+      const mobile = await gateway.subscribe(
+        subscribeParams({
+          connectionId: "mobile",
+          clientMode: "web-remote-replayable",
+        }),
+      );
+      const initial = desktop.initialFrame;
+      if (initial?.payload.kind !== "snapshot") throw new Error("missing initial snapshot");
+      const snapshot = initial.payload.snapshot;
+      // 客户端仍持有旧投影；另一输入先被权威队列接纳，确定性推进全局 revision。
+      enqueue("keep-me");
+      const removeQueueItem = vi.fn(async (queueItemId: string) => {
+        if (!gateway.getQueueItem("session-1", queueItemId)) return false;
+        gateway.ingest(
+          "session-1",
+          log.push(
+            SessionEventType.TurnSteerDiscarded,
+            {
+              pendingInputIds: [queueItemId],
+              reason: "cancelled",
+              targetTurnId: "turn-1",
+            },
+            { turnId: "turn-1" },
+          ),
+        );
+        return true;
+      });
+      const record = {
+        app: { sessionId: "session-1", runtime: {}, removeQueueItem },
+      } as unknown as V4SessionRecordView;
+      const executor = new V4CommandExecutor({
+        getRecord: () => record,
+        getQueueItem: (sessionId, queueItemId) => gateway.getQueueItem(sessionId, queueItemId),
+      });
+      host.executeImpl = (envelope, admission) => executor.execute(envelope, admission);
+      const command = commandParams({
+        clientId,
+        type: "deleteQueueItem",
+        payload: { queueItemId: "delete-me" },
+        baseRevision: snapshot.revision,
+      });
+      try {
+        const ack = await gateway.handleCommand(command);
+        expect(ack.status).toBe("accepted");
+        expect(ack.revisionAtDecision).toBeGreaterThan(snapshot.revision);
+        expect(removeQueueItem).toHaveBeenCalledExactlyOnceWith("delete-me");
+        expect((await gateway.handleCommand(command)).status).toBe("duplicate");
+        expect(removeQueueItem).toHaveBeenCalledOnce();
+
+        vi.advanceTimersByTime(REPLAYABLE_WINDOW);
+        for (const subscription of [desktop, mobile]) {
+          const frames = host.frames.filter(
+            (frame) => frame.subscriptionId === subscription.ack.subscriptionId,
+          );
+          expect(frames.length).toBeGreaterThan(0);
+          let projected = snapshot;
+          for (const frame of frames) {
+            projected =
+              frame.payload.kind === "snapshot"
+                ? frame.payload.snapshot
+                : applyConversationDeltas(projected, frame.payload.deltas);
+          }
+          expect(projected.queue.items.map((item) => item.queueItemId)).toEqual(["keep-me"]);
+          expect(projected.queue.autoDrain).toBe(snapshot.queue.autoDrain);
+          expect(projected.control.phase).toBe("running");
+        }
+        const reconnected = await gateway.subscribe(
+          subscribeParams({
+            connectionId: "mobile",
+            clientMode: "web-remote-replayable",
+          }),
+        );
+        if (reconnected.initialFrame?.payload.kind !== "snapshot")
+          throw new Error("missing reconnect snapshot");
+        expect(
+          reconnected.initialFrame.payload.snapshot.queue.items.map((item) => item.queueItemId),
+        ).toEqual(["keep-me"]);
+        expect(
+          await gateway.handleCommand({ ...command, commandId: "delete-again" }),
+        ).toMatchObject({
+          status: "noop",
+          reasonCode: "queue.itemMissing",
+        });
+      } finally {
+        gateway.dispose();
+      }
+    },
+  );
 
   it("只从 live ingest 发送 telemetry fact，并按 eventId 有界入口去重", () => {
     const host = makeHost();
