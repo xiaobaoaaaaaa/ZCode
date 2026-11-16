@@ -7,7 +7,7 @@
 - Pin task
 - Rename task
 - Archive task
-- Mark as unread
+- Mark as read / Mark as unread（按当前未读状态显示）
 - Open in Finder / File Explorer / File Manager
 - Copy path
 - Copy log path
@@ -27,6 +27,9 @@
 - 归档只在左侧侧栏提供（行内归档按钮、grouped 行的关闭按钮、两套右键菜单）；Header 更多菜单不展示归档。任务运行中（侧栏转圈的同一判据：sessions-index phase 为 `prewarming` / `running`）时这些入口禁用，提示「任务运行中，请先停止后再归档」。原因：归档只写 task index、不停止 agent turn，运行中归档后 agent 仍会以该任务 sessionId 新建 Browser tab，而任务已离开列表，没有 scope 能显示或关闭这个 tab。Header 的 task meta 来自 tasks-index，没有实时 phase，残留的 `status=running` 会误禁用，所以不在 Header 提供归档。
 - 任务行 hover 时展示行内归档入口；首次点击进入二次确认态。确认态是显式等待用户决策的状态，鼠标移出任务行后仍保持确认按钮可见；点击任务行外空白处或按 `Esc` 取消确认态。
 - `Mark as unread` 会持久化到 task 元数据；重新启动 app 后仍保留蓝点，打开该任务时再自动清除
+- 未读任务显示 `Mark as read`，直接清除本次未读而不打开任务；包含按未读视图、分组与
+  Header 更多菜单。按用户点击时可见的 `unreadAt` 做 CAS，失败不改变权威状态，见
+  [未读状态](./task-unread-state.md#菜单手动切换已读未读)。
 - 重命名会持久化到 `tasks-index.sqlite` 并同步更新运行中 task 的内存 meta；恢复和快照回写必须遵守 [Task Title Authority](./task-title-authority.md)，避免 raw session snapshot 把手动标题还原成自动标题
 - pin / unread / archive 也会同步更新运行中 task 的内存 meta，避免后续 session 持久化把旧状态写回来
 - `Copy path` 指向 task 的持久化快照文件路径

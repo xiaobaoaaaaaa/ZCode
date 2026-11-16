@@ -10,6 +10,7 @@ export function TaskListItemContextMenu({
   intl,
   isPinned,
   isArchived = false,
+  unreadAt,
   fileManagerLabel,
   taskSessionFile,
   activeSessionId,
@@ -18,7 +19,7 @@ export function TaskListItemContextMenu({
   onTogglePinTask,
   onStartRenameTask,
   onArchiveTask,
-  onMarkTaskAsUnread,
+  onSetTaskUnread,
   onOpenTaskFeedback,
   onOpenTaskPathInFileManager,
   onCopyWorkspacePath,
@@ -37,6 +38,7 @@ export function TaskListItemContextMenu({
   };
   isPinned: boolean;
   isArchived?: boolean;
+  unreadAt?: number;
   fileManagerLabel: string;
   taskSessionFile: { loading: boolean; path: string | null; exists: boolean };
   activeSessionId?: string | null;
@@ -49,7 +51,7 @@ export function TaskListItemContextMenu({
   onTogglePinTask: () => void;
   onStartRenameTask: () => void;
   onArchiveTask: () => void;
-  onMarkTaskAsUnread: () => void;
+  onSetTaskUnread: (unread: boolean, expectedUnreadAt?: number) => void;
   onOpenTaskFeedback: () => void;
   onOpenTaskPathInFileManager: () => void;
   onCopyWorkspacePath: () => void;
@@ -69,6 +71,7 @@ export function TaskListItemContextMenu({
         intl={intl}
         isPinned={isPinned}
         isArchived={isArchived}
+        unreadAt={unreadAt}
         fileManagerLabel={fileManagerLabel}
         taskSessionFile={taskSessionFile}
         activeSessionId={activeSessionId}
@@ -79,7 +82,7 @@ export function TaskListItemContextMenu({
         onTogglePinTask={onTogglePinTask}
         onStartRenameTask={onStartRenameTask}
         onArchiveTask={onArchiveTask}
-        onMarkTaskAsUnread={onMarkTaskAsUnread}
+        onSetTaskUnread={onSetTaskUnread}
         onOpenTaskFeedback={onOpenTaskFeedback}
         onOpenTaskPathInFileManager={onOpenTaskPathInFileManager}
         onCopyWorkspacePath={onCopyWorkspacePath}

@@ -85,7 +85,7 @@ interface TaskListItemProps {
   onTogglePinTask: (taskId: string, pinned: boolean) => void;
   onStartRenameTask: (taskId: string, currentTitle: string) => void;
   onArchiveTask: (taskId: string) => void;
-  onMarkTaskAsUnread: (taskId: string) => void;
+  onSetTaskUnread: (taskId: string, unread: boolean, expectedUnreadAt?: number) => void;
   onOpenTaskContextMenu?: (taskId: string) => void;
   onOpenFileTree?: () => void | Promise<void>;
   variant?: "default" | "timeline";
@@ -159,7 +159,7 @@ function areTaskListItemPropsEqual(left: TaskListItemProps, right: TaskListItemP
     left.onTogglePinTask === right.onTogglePinTask &&
     left.onStartRenameTask === right.onStartRenameTask &&
     left.onArchiveTask === right.onArchiveTask &&
-    left.onMarkTaskAsUnread === right.onMarkTaskAsUnread &&
+    left.onSetTaskUnread === right.onSetTaskUnread &&
     left.onOpenTaskContextMenu === right.onOpenTaskContextMenu &&
     left.onOpenFileTree === right.onOpenFileTree
   );
@@ -908,7 +908,7 @@ export function TaskListItemContextMenuContent({
   onTogglePinTask,
   onStartRenameTask,
   onArchiveTask,
-  onMarkTaskAsUnread,
+  onSetTaskUnread,
   disableTaskActions = false,
   disabledReason,
 }: {
@@ -922,7 +922,7 @@ export function TaskListItemContextMenuContent({
   onTogglePinTask: (taskId: string, pinned: boolean) => void;
   onStartRenameTask: (taskId: string, currentTitle: string) => void;
   onArchiveTask: (taskId: string) => void;
-  onMarkTaskAsUnread: (taskId: string) => void;
+  onSetTaskUnread: (taskId: string, unread: boolean, expectedUnreadAt?: number) => void;
   disableTaskActions?: boolean;
   disabledReason?: string;
 }) {
@@ -1006,6 +1006,7 @@ export function TaskListItemContextMenuContent({
       intl={intl}
       isPinned={isPinned}
       isArchived={isArchived}
+      unreadAt={task.unreadAt}
       fileManagerLabel={fileManagerLabel}
       taskSessionFile={taskSessionFile}
       activeSessionId={task.taskId}
@@ -1023,8 +1024,8 @@ export function TaskListItemContextMenuContent({
       onArchiveTask={() => {
         onArchiveTask(task.taskId);
       }}
-      onMarkTaskAsUnread={() => {
-        onMarkTaskAsUnread(task.taskId);
+      onSetTaskUnread={(unread, expectedUnreadAt) => {
+        onSetTaskUnread(task.taskId, unread, expectedUnreadAt);
       }}
       onOpenTaskFeedback={() => {
         void handleOpenTaskFeedback();

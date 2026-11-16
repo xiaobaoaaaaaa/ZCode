@@ -3226,6 +3226,7 @@ const koKR: Record<string, string> = {
   "chat.slash.app.reload.description":
     "Reload the task runtime, preserving history and stopping current execution.",
   "taskList.markAsUnread": "읽지 않음으로 표시",
+  "taskList.markAsRead": "읽음으로 표시",
   "chat.toolCall.agent.openInSidePane": "사이드 패널에서 열기",
   "v4Pane.renamePlaceholder": "세션 이름 바꾸기…",
   "v4Pane.renameSession": "세션 이름 바꾸기",
@@ -3234,6 +3235,7 @@ const koKR: Record<string, string> = {
   "v4Pane.closePaneTitle": "패널 닫기(세션은 계속 실행됨)",
   "v4Pane.remote": "원격",
   "taskList.markAsUnreadFailed": "작업을 읽지 않음으로 표시할 수 없습니다",
+  "taskList.markAsReadFailed": "작업을 읽음으로 표시할 수 없습니다",
   "taskList.feedback": "문제 신고",
   "taskList.viewModelTrajectory": "모델 호출 기록 보기",
   "taskList.feedbackOpened": "현재 작업 컨텍스트가 첨부된 상태로 피드백을 열었습니다",

@@ -57,7 +57,7 @@ function GroupedTaskRowComponent({
   onMoveTaskToTop,
   onStartRenameTask,
   onArchiveTask,
-  onMarkTaskAsUnread,
+  onSetTaskUnread,
   dragId,
   dragging,
   dragOverlay,
@@ -77,7 +77,7 @@ function GroupedTaskRowComponent({
   onMoveTaskToTop: (task: ZCodeTaskMeta) => void;
   onStartRenameTask: (task: ZCodeTaskMeta) => void;
   onArchiveTask: (task: ZCodeTaskMeta) => void;
-  onMarkTaskAsUnread: (task: ZCodeTaskMeta) => void;
+  onSetTaskUnread: (task: ZCodeTaskMeta, unread: boolean) => void;
   dragId?: UniqueIdentifier;
   dragging?: boolean;
   dragOverlay?: boolean;
@@ -517,7 +517,7 @@ function GroupedTaskRowComponent({
           onMoveTaskToTop={onMoveTaskToTop}
           onStartRenameTask={onStartRenameTask}
           onArchiveTask={onArchiveTask}
-          onMarkTaskAsUnread={onMarkTaskAsUnread}
+          onSetTaskUnread={onSetTaskUnread}
           onOpenTaskPathInFileManager={() => void handleOpenTaskPathInFileManager()}
           onCopyText={(label, text) => void handleCopyText(label, text)}
           onOpenProviderConfig={() => void handleOpenProviderConfig()}

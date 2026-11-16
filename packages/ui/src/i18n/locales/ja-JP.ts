@@ -3315,6 +3315,7 @@ const jaJP: Record<string, string> = {
   "chat.slash.app.reload.description":
     "Reload the task runtime, preserving history and stopping current execution.",
   "taskList.markAsUnread": "未読にする",
+  "taskList.markAsRead": "既読にする",
   "chat.toolCall.agent.openInSidePane": "サイドペインで開く",
   "v4Pane.renamePlaceholder": "セッションの名前を変更…",
   "v4Pane.renameSession": "セッションの名前を変更",
@@ -3323,6 +3324,7 @@ const jaJP: Record<string, string> = {
   "v4Pane.closePaneTitle": "ペインを閉じる（セッションは実行を継続）",
   "v4Pane.remote": "リモート",
   "taskList.markAsUnreadFailed": "タスクを未読にできませんでした",
+  "taskList.markAsReadFailed": "タスクを既読にできませんでした",
   "taskList.feedback": "問題を報告",
   "taskList.viewModelTrajectory": "モデルの軌跡を表示",
   "taskList.feedbackOpened": "現在のタスクのコンテキストを添付してフィードバックを開きました",

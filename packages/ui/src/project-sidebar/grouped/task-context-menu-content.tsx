@@ -25,7 +25,7 @@ export function GroupedTaskContextMenuContent({
   onMoveTaskToTop,
   onStartRenameTask,
   onArchiveTask,
-  onMarkTaskAsUnread,
+  onSetTaskUnread,
   onOpenTaskPathInFileManager,
   onCopyText,
   onOpenProviderConfig,
@@ -47,7 +47,7 @@ export function GroupedTaskContextMenuContent({
   onMoveTaskToTop: (task: ZCodeTaskMeta) => void;
   onStartRenameTask: (task: ZCodeTaskMeta) => void;
   onArchiveTask: (task: ZCodeTaskMeta) => void;
-  onMarkTaskAsUnread: (task: ZCodeTaskMeta) => void;
+  onSetTaskUnread: (task: ZCodeTaskMeta, unread: boolean) => void;
   onOpenTaskPathInFileManager: () => void;
   onCopyText: (label: string, text: string | null) => void;
   onOpenProviderConfig: () => void;
@@ -149,11 +149,13 @@ export function GroupedTaskContextMenuContent({
           title={disabledReason}
           onSelect={() => {
             if (!disabledReason) {
-              onMarkTaskAsUnread(task);
+              onSetTaskUnread(task, typeof task.unreadAt !== "number");
             }
           }}
         >
-          {intl.formatMessage({ id: "taskList.markAsUnread" })}
+          {intl.formatMessage({
+            id: typeof task.unreadAt === "number" ? "taskList.markAsRead" : "taskList.markAsUnread",
+          })}
         </ContextMenuItem>
       </SidebarNativeTooltip>
       <ContextMenuSeparator />

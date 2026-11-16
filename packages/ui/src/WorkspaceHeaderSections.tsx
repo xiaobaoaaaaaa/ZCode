@@ -53,7 +53,10 @@ import type {
   WorkspaceHeaderState,
   WorkspaceHeaderTitleSectionProps,
 } from "@/WorkspaceHeaderSections/shared.js";
-import { applyTaskQueryCacheMutation } from "@/store/taskQueryCacheStore.js";
+import {
+  applyTaskQueryCacheMutation,
+  reconcileTaskQueryCacheUnread,
+} from "@/store/taskQueryCacheStore.js";
 import { useZCodeSessionStore } from "@/store/zcodeSessionStore.js";
 import { TaskRenameDialog } from "@/TaskRenameDialog.js";
 import {
@@ -123,7 +126,6 @@ export function WorkspaceHeaderTitleSection({
   const removeOptimisticTaskListItem = useZCodeSessionStore(
     (state) => state.removeOptimisticTaskListItem,
   );
-  const setTaskUnreadIndicator = useZCodeSessionStore((state) => state.setTaskUnreadIndicator);
   const [taskMenuOpen, setTaskMenuOpen] = useState(false);
   const [workspaceContextOpen, setWorkspaceContextOpen] = useState(false);
   const [renamingTaskId, setRenamingTaskId] = useState<string | null>(null);
@@ -626,31 +628,35 @@ export function WorkspaceHeaderTitleSection({
                     });
                 }}
                 onStartRenameTask={handleStartRenameTask}
-                onMarkTaskAsUnread={() => {
-                  if (!resolvedTaskActionTaskId) {
+                unreadAt={activeTaskMeta?.unreadAt}
+                onSetTaskUnread={(unread, expectedUnreadAt) => {
+                  if (
+                    !resolvedTaskActionTaskId ||
+                    (!unread && typeof expectedUnreadAt !== "number")
+                  ) {
                     return;
                   }
+                  const target = {
+                    taskId: resolvedTaskActionTaskId,
+                    workspacePath: workspaceAbsPath,
+                    ...(workspaceIdentity ? { workspaceIdentity } : {}),
+                  };
                   void services.zcodeTaskService
                     .setTaskUnread({
-                      taskId: resolvedTaskActionTaskId,
-                      workspacePath: workspaceAbsPath,
-                      unread: true,
-                      ...(workspaceIdentity ? { workspaceIdentity } : {}),
+                      ...target,
+                      unread,
+                      ...(!unread ? { expectedUnreadAt } : {}),
                     })
                     .then((meta) => {
-                      setTaskUnreadIndicator(
-                        workspaceAbsPath,
-                        resolvedTaskActionTaskId,
-                        true,
-                        workspaceIdentity,
+                      // CAS 可能保留新 marker；只对账权威 unreadAt，不用旧完整 meta 覆盖活动和排序。
+                      reconcileTaskQueryCacheUnread(target, meta.unreadAt);
+                    })
+                    .catch(() => {
+                      toast(
+                        intl.formatMessage({
+                          id: unread ? "taskList.markAsUnreadFailed" : "taskList.markAsReadFailed",
+                        }),
                       );
-                      upsertOptimisticTaskListItem(workspaceAbsPath, meta, workspaceIdentity);
-                      applyTaskQueryCacheMutation({
-                        previousTask: buildHeaderTaskSnapshot(meta),
-                        nextTask: meta,
-                        previousState: { pinned: isPinned, archived: false },
-                        nextState: { pinned: isPinned, archived: false },
-                      });
                     });
                 }}
                 onOpenTaskFeedback={() => {

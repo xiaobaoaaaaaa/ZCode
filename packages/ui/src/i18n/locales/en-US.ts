@@ -3601,6 +3601,7 @@ const enUS: Record<string, string> = {
   "chat.slash.app.reload.description":
     "Reload the task runtime, preserving history and stopping current execution.",
   "taskList.markAsUnread": "Mark as unread",
+  "taskList.markAsRead": "Mark as read",
   "chat.toolCall.agent.openInSidePane": "Open in side pane",
   "v4Pane.renamePlaceholder": "Rename session…",
   "v4Pane.renameSession": "Rename session",
@@ -3609,6 +3610,7 @@ const enUS: Record<string, string> = {
   "v4Pane.closePaneTitle": "Close pane (session keeps running)",
   "v4Pane.remote": "Remote",
   "taskList.markAsUnreadFailed": "Could not mark task as unread",
+  "taskList.markAsReadFailed": "Could not mark task as read",
   "taskList.feedback": "Report issue",
   "taskList.viewModelTrajectory": "View model trajectory",
   "taskList.feedbackOpened": "Feedback opened with the current task context attached",

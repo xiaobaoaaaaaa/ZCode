@@ -3288,6 +3288,7 @@ const ruRU: Record<string, string> = {
   "chat.slash.app.reload.description":
     "Reload the task runtime, preserving history and stopping current execution.",
   "taskList.markAsUnread": "Отметить как непрочитанную",
+  "taskList.markAsRead": "Отметить как прочитанную",
   "chat.toolCall.agent.openInSidePane": "Открыть в боковой панели",
   "v4Pane.renamePlaceholder": "Переименовать сеанс…",
   "v4Pane.renameSession": "Переименовать сеанс",
@@ -3296,6 +3297,7 @@ const ruRU: Record<string, string> = {
   "v4Pane.closePaneTitle": "Закрыть панель (сеанс продолжит работу)",
   "v4Pane.remote": "Удалённая",
   "taskList.markAsUnreadFailed": "Не удалось отметить задачу как непрочитанную",
+  "taskList.markAsReadFailed": "Не удалось отметить задачу как прочитанную",
   "taskList.feedback": "Сообщить о проблеме",
   "taskList.viewModelTrajectory": "Траектория модели",
   "taskList.feedbackOpened": "Форма обратной связи открыта с контекстом текущей задачи",

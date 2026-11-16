@@ -77,7 +77,11 @@ export const TaskList = memo(function TaskList({
   onSetTaskPinned: (taskId: string, pinned: boolean) => Promise<ZCodeTaskMeta | null>;
   onArchiveTask: (taskId: string) => Promise<ZCodeTaskMeta | null>;
   isArchived?: boolean;
-  onSetTaskUnread: (taskId: string, unread: boolean) => Promise<ZCodeTaskMeta | null>;
+  onSetTaskUnread: (
+    taskId: string,
+    unread: boolean,
+    expectedUnreadAt?: number,
+  ) => Promise<ZCodeTaskMeta | null>;
   mobileActiveTaskKey?: string | null;
   readOnlyReason?: string;
   onOpenFileTree?: () => void | Promise<void>;
@@ -299,12 +303,12 @@ export const TaskList = memo(function TaskList({
     ],
   );
 
-  const handleMarkTaskAsUnread = useCallback(
-    (taskId: string) => {
+  const handleSetTaskUnread = useCallback(
+    (taskId: string, unread: boolean, expectedUnreadAt?: number) => {
       if (readOnlyReason) {
         return;
       }
-      void onSetTaskUnreadRef.current(taskId, true);
+      void onSetTaskUnreadRef.current(taskId, unread, expectedUnreadAt);
     },
     [readOnlyReason],
   );
@@ -390,7 +394,7 @@ export const TaskList = memo(function TaskList({
         onTogglePinTask={handleTogglePinTask}
         onStartRenameTask={handleStartRenameTask}
         onArchiveTask={handleArchiveTask}
-        onMarkTaskAsUnread={handleMarkTaskAsUnread}
+        onSetTaskUnread={handleSetTaskUnread}
         onOpenTaskContextMenu={handleOpenTaskContextMenu}
         onOpenFileTree={onOpenFileTree}
         actionsDisabled={Boolean(readOnlyReason)}
@@ -483,7 +487,7 @@ export const TaskList = memo(function TaskList({
                   onTogglePinTask={handleTogglePinTask}
                   onStartRenameTask={handleStartRenameTask}
                   onArchiveTask={handleArchiveTask}
-                  onMarkTaskAsUnread={handleMarkTaskAsUnread}
+                  onSetTaskUnread={handleSetTaskUnread}
                   disableTaskActions={Boolean(readOnlyReason)}
                   disabledReason={readOnlyReason}
                 />

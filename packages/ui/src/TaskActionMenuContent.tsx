@@ -14,6 +14,7 @@ export function TaskActionMenuContent({
   intl,
   isPinned,
   isArchived = false,
+  unreadAt,
   fileManagerLabel,
   taskSessionFile,
   activeSessionId,
@@ -30,7 +31,7 @@ export function TaskActionMenuContent({
   onTogglePinTask,
   onStartRenameTask,
   onArchiveTask,
-  onMarkTaskAsUnread,
+  onSetTaskUnread,
   onRestartTask,
   restartPending = false,
   onOpenTaskFeedback,
@@ -47,6 +48,7 @@ export function TaskActionMenuContent({
   };
   isPinned: boolean;
   isArchived?: boolean;
+  unreadAt?: number;
   fileManagerLabel: string;
   taskSessionFile: { loading: boolean; path: string | null; exists: boolean };
   activeSessionId?: string | null;
@@ -69,7 +71,7 @@ export function TaskActionMenuContent({
   onStartRenameTask: () => void;
   /** 不传则不展示归档项：Header 拿不到实时运行态，归档只在侧栏提供。 */
   onArchiveTask?: () => void;
-  onMarkTaskAsUnread: () => void;
+  onSetTaskUnread: (unread: boolean, expectedUnreadAt?: number) => void;
   onRestartTask?: () => void;
   restartPending?: boolean;
   onOpenTaskFeedback?: () => void;
@@ -82,6 +84,8 @@ export function TaskActionMenuContent({
   onOpenProviderConfig: () => void;
 }) {
   const taskTargetActionsDisabled = disableTaskActions || disableTaskTargetActions;
+  // 原菜单固定写 true，未读任务因此没有手动清除入口；文案与命令都由同一 marker 决定。
+  const isUnread = typeof unreadAt === "number";
 
   return (
     <>
@@ -125,11 +129,11 @@ export function TaskActionMenuContent({
         title={disabledReason}
         onSelect={() => {
           if (!taskTargetActionsDisabled) {
-            onMarkTaskAsUnread();
+            onSetTaskUnread(!isUnread, unreadAt);
           }
         }}
       >
-        {intl.formatMessage({ id: "taskList.markAsUnread" })}
+        {intl.formatMessage({ id: isUnread ? "taskList.markAsRead" : "taskList.markAsUnread" })}
       </Item>
       {onRestartTask ? (
         <Item

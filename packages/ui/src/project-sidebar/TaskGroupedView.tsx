@@ -270,8 +270,17 @@ export function TaskGroupedView({
       setRenamingTask(task);
       setRenameDraft(task.title ?? "");
     },
-    onMarkTaskAsUnread: (task: ProjectTask) =>
-      action(() => mutate(task, { kind: "mark-unread" }), "taskList.markAsUnreadFailed"),
+    onSetTaskUnread: (task: ProjectTask, unread: boolean) =>
+      action(
+        () =>
+          mutate(
+            task,
+            unread
+              ? { kind: "mark-unread" }
+              : { kind: "mark-read", expectedUnreadAt: task.unreadAt },
+          ),
+        unread ? "taskList.markAsUnreadFailed" : "taskList.markAsReadFailed",
+      ),
   };
   // Bug 根因：一条任务活动会重建整组行回调，击穿所有未变任务的 memo。
   // 行事件只转发到最近已提交的实现，既稳定引用，也不捕获过期的任务/分组和远端地址。
@@ -290,7 +299,8 @@ export function TaskGroupedView({
         rowActionsRef.current.onMoveTaskToGroup(task, id),
       onMoveTaskToTop: (task: ProjectTask) => rowActionsRef.current.onMoveTaskToTop(task),
       onStartRenameTask: (task: ProjectTask) => rowActionsRef.current.onStartRenameTask(task),
-      onMarkTaskAsUnread: (task: ProjectTask) => rowActionsRef.current.onMarkTaskAsUnread(task),
+      onSetTaskUnread: (task: ProjectTask, unread: boolean) =>
+        rowActionsRef.current.onSetTaskUnread(task, unread),
     }),
     [],
   );

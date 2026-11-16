@@ -82,19 +82,21 @@ export function useProjectTaskActions(task: ProjectTask, refresh: () => Promise<
     }
   }, [mutate, refresh, task, removeTaskState, report]);
   const unread = useCallback(
-    async (_id: string, value: boolean) => {
+    async (_id: string, value: boolean, expectedUnreadAt?: number) => {
+      // 清除只能使用菜单点击时可见的 marker，不能借更新后的行把新产生的未读一并清掉。
+      if (!value && typeof expectedUnreadAt !== "number") return null;
       try {
         const result = await mutate(
-          value ? { kind: "mark-unread" } : { kind: "mark-read", expectedUnreadAt: task.unreadAt },
+          value ? { kind: "mark-unread" } : { kind: "mark-read", expectedUnreadAt },
         );
         await refresh();
         return result ?? null;
       } catch (error) {
-        report("markAsUnread", error);
+        report(value ? "markAsUnread" : "markAsRead", error);
         return null;
       }
     },
-    [mutate, refresh, task.unreadAt, report],
+    [mutate, refresh, report],
   );
   return { remoteSessionId, rename, pin, archive, unread };
 }

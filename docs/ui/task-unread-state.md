@@ -38,6 +38,32 @@ SBV07：桌面验证菜单、更新时间顺序、分页、重载偏好、已读
 - renderer 只对 query row 应用 `{ unreadAt }` 字段 overlay；成功后与 tasks-index membership 对账，
   禁止把返回的整个 task meta 覆盖 session activity/status
 
+### 菜单手动切换已读／未读
+
+- 普通、置顶、最近更新、按未读与分组任务行，以及任务 Header 更多菜单，按所属 Host
+  的 `unreadAt` 显示相反动作：有 marker 显示「标记为已读」，否则显示「标记为未读」。
+- 标记已读不打开任务、不切换会话或工作区，不改标题、活动时间、排序、归档和置顶。
+  按未读视图在 Host 提交后移除该行，当前聊天继续保留。
+- 菜单点击携带当时可见的 `unreadAt`，沿既有 `mark-read(expectedUnreadAt)` /
+  `setTaskUnread(false, expectedUnreadAt)` 路由到精确 workspaceIdentity + remoteSessionId
+  的 Host，仍由 repository 原子 compare-and-clear；迟到请求不能清掉后续新增的 marker。
+- UI 只采用返回的权威 `unreadAt` 并刷新原目录投影；CAS 未命中时继续显示未读。
+  写入失败显示对应的「标记已读失败」或「标记未读失败」，不伪造成功。
+- 桌面右键、手机长按菜单共用规则；离线／只读与无正式任务 ID 的禁用规则保持一致。
+
+```mermaid
+sequenceDiagram
+  participant UI as 任务菜单（marker A）
+  participant Host as 所属 Host tasks-index
+  UI->>Host: mark-read(expectedUnreadAt=A，完整任务身份)
+  Host->>Host: 原子比较当前 marker；相等才清除
+  Host-->>UI: 当前 unreadAt + 原目录变更事件
+  UI->>UI: 刷新蓝点、菜单、按未读列表与角标
+```
+
+验收 TSL04a：后台任务不打开即可清未读、菜单双向切换、Header 与分组入口一致、持久化与
+切换视图后不反弹、活动时间不变；旧 marker 的清除仍遵守既有 CAS 合同。
+
 ### 被动标记未读
 
 - 入口：Host 明确携带 `background_terminal` 的实时完成信号；普通 status、历史读取和 replay 不制造未读。仅 `completedSuccess`（且 Goal 已验证/无 Goal）与 `error` 产生该信号；`completedInterrupted` 表示用户主动停止、发新消息打断或新建对话时中断旧执行，不产生未读提醒。

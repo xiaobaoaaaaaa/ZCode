@@ -3363,6 +3363,7 @@ const zhCN: Record<string, string> = {
   "chat.slash.app.reload.description":
     "Reload the task runtime, preserving history and stopping current execution.",
   "taskList.markAsUnread": "标记为未读",
+  "taskList.markAsRead": "标记为已读",
   "chat.toolCall.agent.openInSidePane": "在右侧打开",
   "v4Pane.renamePlaceholder": "重命名会话…",
   "v4Pane.renameSession": "重命名会话",
@@ -3371,6 +3372,7 @@ const zhCN: Record<string, string> = {
   "v4Pane.closePaneTitle": "关闭窗格（会话继续运行）",
   "v4Pane.remote": "远程",
   "taskList.markAsUnreadFailed": "标记未读失败",
+  "taskList.markAsReadFailed": "标记已读失败",
   "taskList.feedback": "反馈问题",
   "taskList.viewModelTrajectory": "查看调用轨迹",
   "taskList.feedbackOpened": "已打开反馈，并自动带上当前任务信息",
