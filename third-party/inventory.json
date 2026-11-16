@@ -796,7 +796,7 @@
     "docs/knip/docs/src/styles/theme-light.css": "e2e85900fd43b5b563f56b9ce7e2a09f07d7420a78e80f0133efffeb8fce2aa0",
     "docs/knip/docs/src/util/post.ts": "6d7c45bd29035a73f1b67d24524760c7e317f367d32216de2c9a240dda7a40d1",
     "docs/knip/docs/tsconfig.json": "662b1f10a5e572b49a45669e4be9ee46c22f987dcf277c204948777b367df1cd",
-    "package.json": "7bc26de07248081bf638372a477fe39280585793bee4aa3adf5b5989e4f82332",
+    "package.json": "d30e6b0a9f454610c3b0c7c09f3ee6c60bce3c84d7ade430b7ed868d6ff95860",
     "packages/client/package.json": "e76f441549130dc3e5e68072a36b6cb9044e19a6625f1e813f19a4def2b1b689",
     "packages/design-runtime/package.json": "647d36a7bb3b5b13f87ddb8a94811152a1a024f0293eebd0b16032e1c0976d9c",
     "packages/desktop/package.json": "f8c1184f5204f7b8944f7bcf728a3aac2d106b666233011f9842f1896c9118b6",
@@ -2059,7 +2059,7 @@
     "packages/ui/src/components/ui/command.tsx": "7c754bc80704163ce505d08d961a5a4b3e57107e7d53ea319483a896d448cbdb",
     "packages/ui/src/components/ui/context-menu.tsx": "20494ade60dbf21716e7c63a26c71d674015f67947b28486176bb5602062d9f6",
     "packages/ui/src/components/ui/dialog.tsx": "bf2363e87106b4787666a67282212c0c552ed700d9bca35fd98b59464b79b230",
-    "packages/ui/src/components/ui/diff-viewer.tsx": "f02208b316e6dc4043ed1794455422bc74cdd521285fcac5a2c0d589c2eb9af2",
+    "packages/ui/src/components/ui/diff-viewer.tsx": "d499751965c4c256fdd1f166cfef3b854428b0b280c8e2b53eecc6e9fa4e5267",
     "packages/ui/src/components/ui/dropdown-menu.tsx": "598ad410fa58893274a5271d1d49093c9172ecc9320a20ea88a0243217c12e43",
     "packages/ui/src/components/ui/flip-metric-value.tsx": "ce2d6cf063003e1023191b0fa4e3eb9b365e04a14eb0d498b897326600bf4071",
     "packages/ui/src/components/ui/floating-particles.tsx": "88250e9104721c35f6119e9ffadac4c9795c798976cf06c0e4f4e584e8195fd2",
@@ -2070,7 +2070,7 @@
     "packages/ui/src/components/ui/input.tsx": "946d37bdf07c81e70ad13242b904c27618d5d09f7c17a74f6b6c8cb613fa93dc",
     "packages/ui/src/components/ui/kbd.tsx": "f8bd1d5a51f991d60781f62a8bd7f1db06a237f2a7a7bb39f0127bd1ba067066",
     "packages/ui/src/components/ui/label.tsx": "717bd1167a7c8c136abfe0b3e23e8cfcb38abbe51b04c74d6d01ba1ea0b53fa5",
-    "packages/ui/src/components/ui/lightweight-diff-preview.tsx": "7d1ff2a02815d988f5ffd2d6549848920c98488a4dba43f67ba9d81a3da49d01",
+    "packages/ui/src/components/ui/lightweight-diff-preview.tsx": "3087c4e2302808d8156603bc5e6bda68ff878335adfc67b0bf369b7862210af9",
     "packages/ui/src/components/ui/pdf-viewer.tsx": "19ba82ab97a84599bb99178de85a4d5c6a89da6924ba55a0dc14f33286187fdc",
     "packages/ui/src/components/ui/popover.tsx": "627acab0c99804a405357734a4a901b2a1875b9a7a9f03d95b94b677247ec76b",
     "packages/ui/src/components/ui/pptx-preview-viewer.tsx": "e56c491eb311338bac84709c6353778cda4e9323c17820ed8070917493deac67",
@@ -19809,7 +19809,7 @@
         },
         {
           "file": "packages/ui/src/components/ui/diff-viewer.tsx",
-          "sha256": "f02208b316e6dc4043ed1794455422bc74cdd521285fcac5a2c0d589c2eb9af2"
+          "sha256": "d499751965c4c256fdd1f166cfef3b854428b0b280c8e2b53eecc6e9fa4e5267"
         },
         {
           "file": "packages/ui/src/components/ui/dropdown-menu.tsx",
@@ -19849,7 +19849,7 @@
         },
         {
           "file": "packages/ui/src/components/ui/lightweight-diff-preview.tsx",
-          "sha256": "7d1ff2a02815d988f5ffd2d6549848920c98488a4dba43f67ba9d81a3da49d01"
+          "sha256": "3087c4e2302808d8156603bc5e6bda68ff878335adfc67b0bf369b7862210af9"
         },
         {
           "file": "packages/ui/src/components/ui/pdf-viewer.tsx",

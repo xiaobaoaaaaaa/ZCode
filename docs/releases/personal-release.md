@@ -164,3 +164,17 @@ versionCode 递增至 5。本次授权含提交与推送发布分支（触发构
 合入官方 `fec97590`；范围及验收见 [合入规格](../specs/upstream-3.18.2-personal-integration.md)。
 根版本为 `3.18.2-personal.1`，Android versionCode 递增至 6。沿用五平台桌面与签名 Android
 联合发布，全部构建、启动检查与远端资产核验通过后正式公开并设为 Latest。
+
+## 3.18.2-personal.2：队列删除、手动已读与右侧 Diff 换行
+
+用户于 2026-11-16 授权发布新版并清理陈旧分支。从已发布 `v3.18.2-personal.1` 创建
+发布分支，快进接收 `fix/queued-message-delete` 的三项修复：运行中排队消息删除、
+任务菜单双向切换已读状态，以及右侧代码变更跟随全局长行换行设置。
+产品规则与回归证据见 [队列规格](../web-remote-control-task-command-queue.md)、
+[未读规格](../ui/task-unread-state.md) 和 [Diff 规格](../ui/diff-viewer.md)。
+
+根版本为 `3.18.2-personal.2`，Android versionCode 递增至 7，包名与签名身份保持不变。
+沿用五平台桌面与签名 Android 联合发布；所有构建、启动检查及远端资产的版本、源码提交、
+名称、大小和 SHA-256 核对通过后公开并设为 Latest。本次授权含发布分支推送、构建、资产
+上传和最终公开。成功发布后仅删除已被新版本完整包含且不被其他 worktree/开放 PR 使用的
+旧修复、功能及发布分支；保留 `main`、当前发布分支与历史发布 tag。
