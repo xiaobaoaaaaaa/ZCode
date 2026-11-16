@@ -17,6 +17,46 @@ The default options intentionally follow the official docs more closely while fi
 
 Current `DiffViewer` integrations are the `PreviewPane` and Git pane. Change-summary `Review` actions open a `PreviewPane` diff source rather than mounting `DiffViewer` directly. Expanded edit tool inline previews use `HighlightedLightweightDiffPreview`, not `DiffViewer`.
 
+## Long-line wrapping
+
+The global code-preview setting `codePreviewSettings.wrapLongLines` also applies to right-side
+code changes: Git review cards and Preview Pane diffs, for both patch-only and before/after inputs.
+The UI settings store owns this preference; callers pass it to `DiffViewer.wrapLongLines`, which
+derives Pierre's `overflow: "wrap" | "scroll"` option. The renderer does not keep a second preference
+or read the store itself. Its default remains `false` for callers without a preference.
+
+```mermaid
+flowchart LR
+  Settings[Code-preview settings store] --> Callers[Git review / Preview Pane]
+  Callers -->|wrapLongLines| DiffViewer
+  DiffViewer -->|overflow wrap or scroll| Pierre[PatchDiff / MultiFileDiff]
+  Callers -->|same settings| Lightweight[Lightweight fallback]
+```
+
+Changing the setting updates already-open diffs. When enabled, long lines, including uninterrupted
+tokens, wrap inside the available pane width and preserve line numbers, additions/deletions and
+syntax highlighting. When disabled, the same content is available through horizontal scrolling.
+Narrow panes and mobile Web use the same rule. Existing large/unsafe-patch fallback selection stays
+unchanged and the lightweight renderer follows the same preference.
+
+Browser acceptance case `DV-WRAP-01` is accepted for the actual Git card and Preview Pane content
+components: full-file, patch-only and lightweight-fallback paths; toggle off → on → off; light/dark
+themes and 390/1200px viewports; persistence after reload and no page-level horizontal overflow.
+The reproducible case is `packages/ui/test/browser/manual-review/pending/diff-wrap.test.mjs`.
+This component-browser case does not claim real SSH/mobile-relay transport coverage.
+
+2026-11-16 acceptance: four viewport/theme combinations passed, each exercising all six renderer
+paths, live toggles, long unbroken tokens and persistence after reload. Geometry assertions and
+screenshots are in `packages/desktop/.e2e-artifacts/diff-wrap-browser/`. Before the fix, the rich
+renderers stayed on one visual line with horizontal scrolling after enabling wrapping; the
+lightweight fallback still overflowed on unbroken tokens because its flex child could not shrink.
+The fix passes the preference to both rich renderers and permits the lightweight code cell to shrink.
+
+Replay from the repository root with
+`node --test packages/ui/test/browser/manual-review/pending/diff-wrap.test.mjs`;
+set `CHROME_EXECUTABLE_PATH` when Chrome is not installed in its default location. This is browser
+acceptance against the actual UI components, not an App business unit test or a promoted desktop gate.
+
 ## Patch Input Safety Boundary
 
 `DiffViewer` is intentionally a rendering primitive. Patch safety belongs to the callers that decide whether mounting `PatchDiff` is valid:

@@ -52,6 +52,7 @@ export function PatchFallbackContent({
       patch={patch}
       diffClassName="block"
       fontSizePx={codePreviewSettings.fontSizePx}
+      wrapLongLines={codePreviewSettings.wrapLongLines}
       lightTheme={codePreviewSettings.lightTheme}
       darkTheme={codePreviewSettings.darkTheme}
       themeType={resolvedTheme}

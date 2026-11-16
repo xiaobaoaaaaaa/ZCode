@@ -166,9 +166,10 @@ export function LightweightDiffPreview({
                   {index + 1}
                 </span>
               ) : null}
+              {/* flex 子项默认最小宽度会被无空格长 token 撑开；允许收缩后 break-words 才能在侧栏宽度内换行。 */}
               <code
                 className={cn(
-                  "block flex-1 px-3",
+                  "block min-w-0 flex-1 px-3",
                   codePreviewSettings.wrapLongLines
                     ? "whitespace-pre-wrap break-words"
                     : "whitespace-pre",

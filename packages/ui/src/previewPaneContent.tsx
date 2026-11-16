@@ -190,6 +190,7 @@ export function PreviewPaneContent({
         newFile={multiFileDiffFiles.newFile}
         diffClassName="block"
         fontSizePx={codePreviewSettings.fontSizePx}
+        wrapLongLines={codePreviewSettings.wrapLongLines}
         lightTheme={codePreviewSettings.lightTheme}
         darkTheme={codePreviewSettings.darkTheme}
         themeType={resolvedTheme}

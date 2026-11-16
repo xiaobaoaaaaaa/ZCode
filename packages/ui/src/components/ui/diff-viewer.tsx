@@ -37,6 +37,7 @@ export type DiffViewerProps = Omit<HTMLAttributes<HTMLDivElement>, "children"> &
     disableWorkerPool?: boolean;
     diffClassName?: string;
     fontSizePx?: number;
+    wrapLongLines?: boolean;
     lightTheme?: BundledTheme;
     darkTheme?: BundledTheme;
     themeType?: "light" | "dark";
@@ -59,6 +60,7 @@ function DiffViewerComponent(props: DiffViewerProps) {
     themeType,
     diffClassName,
     fontSizePx = 12,
+    wrapLongLines = false,
     selectedLines,
     className,
     style,
@@ -84,7 +86,8 @@ function DiffViewerComponent(props: DiffViewerProps) {
       // 使用 simple 避免展示无法点击展开的 “unmodified lines”；MultiFileDiff 保留可展开提示。
       hunkSeparators: rendersPatch ? "simple" : "line-info",
       lineDiffType: "word-alt",
-      overflow: "scroll",
+      // 右侧 Diff 曾固定横向滚动，导致全局换行设置失效；由调用方透传同一偏好，切换时重建渲染选项。
+      overflow: wrapLongLines ? "wrap" : "scroll",
       unsafeCSS: DIFF_VIEWER_UNSAFE_CSS,
       // @pierre/diffs 的 code 节点在 Shadow DOM 内，外层 Tailwind class 无法命中；
       // 需要覆盖其内部样式时走 unsafeCSS 注入，且只做最小覆盖，不做大范围样式重写。
@@ -99,7 +102,7 @@ function DiffViewerComponent(props: DiffViewerProps) {
       preferredHighlighter: DIFFS_PREFERRED_HIGHLIGHTER,
       ...optionsOverride,
     }),
-    [darkTheme, lightTheme, optionsOverride, rendersPatch, themeType],
+    [darkTheme, lightTheme, optionsOverride, rendersPatch, themeType, wrapLongLines],
   );
 
   const diffNode = rendersPatch ? (
@@ -152,6 +155,7 @@ function omitPatchDiffProps({
   disableWorkerPool: _disableWorkerPool,
   diffClassName: _diffClassName,
   fontSizePx: _fontSizePx,
+  wrapLongLines: _wrapLongLines,
   lightTheme: _lightTheme,
   darkTheme: _darkTheme,
   themeType: _themeType,
@@ -170,6 +174,7 @@ function omitMultiFileDiffProps({
   disableWorkerPool: _disableWorkerPool,
   diffClassName: _diffClassName,
   fontSizePx: _fontSizePx,
+  wrapLongLines: _wrapLongLines,
   lightTheme: _lightTheme,
   darkTheme: _darkTheme,
   themeType: _themeType,
