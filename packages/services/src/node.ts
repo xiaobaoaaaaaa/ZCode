@@ -49,6 +49,10 @@ import { getDataBaseDir } from "#src/paths.js";
 import { createGitWorktreeRepo } from "#src/git/managed-worktree/index.js";
 import { createGitCommandProvider } from "#src/git/providers/gitCommandProvider.js";
 import { HOST_WORKTREE_COMMAND } from "#src/zcode-agent/zcodeAgent.js";
+import {
+  createWorkspaceAssistantService,
+  IWorkspaceAssistantService,
+} from "#src/workspace-assistant/index.js";
 import { createTaskGroupService, ITaskGroupService, groupTaskKey } from "#src/task-groups/index.js";
 import { IGenUiService } from "./gen-ui/contract.js";
 import { createGenUiService } from "./gen-ui/node.js";
@@ -1234,6 +1238,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  *        用于 BroadcastService 跨窗口中转。传 null 则广播为空操作。
  */
 export function createLocalServices(options: {
+  workspaceAssistantEnabled?: boolean;
   /** Desktop 注入 Main 的私有加解密桥；系统主密钥不进入 Host/CLI。 */
   credentialCipherProvider?: CredentialCipher;
   /** 已鉴权 Desktop stdio 连接提供的私有回查频道；不作为公共 service 暴露。 */
@@ -3333,6 +3338,17 @@ export function createLocalServices(options: {
     .register(IProviderSettingsService, providerRuntime.providerSettings)
     .register(ICodexSubscriptionService, codexSubscription.service)
     .register(IModelSelectionService, providerRuntime.modelSelection);
+  if (options.workspaceAssistantEnabled && !isDesktopAttachedRemote) {
+    services.register(
+      IWorkspaceAssistantService,
+      createWorkspaceAssistantService({
+        database: () => taskIndexRepo.getOrganizationDatabase(),
+        index: zcodeTaskIndexSyncer,
+        agent: zcodeAgentService,
+        models: providerRuntime.modelSelection,
+      }),
+    );
+  }
   if (isDesktopAttachedRemote || options.providerProvisioningTargetEnabled === true) {
     services.register(
       IProviderProvisioningTargetService,

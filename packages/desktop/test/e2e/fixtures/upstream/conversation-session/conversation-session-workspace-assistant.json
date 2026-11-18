@@ -1,0 +1,396 @@
+{
+  "version": 1,
+  "caseName": "conversation-session-workspace-assistant",
+  "spec": "./test/e2e/conversation-session/session-control/conversation-session-workspace-assistant.test.ts",
+  "fixtures": [
+    {
+      "id": "wa-title",
+      "description": "标题旁路返回稳定标签，避免远端依赖。",
+      "metadata": {
+        "kind": "common",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "标题旁路返回稳定标签，避免远端依赖。"
+      },
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["Generate a concise title", "E2E_WA_"]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": {
+          "id": "wa-title",
+          "text": "{\"title\": \"Workspace task\"}"
+        }
+      }
+    },
+    {
+      "id": "wa-router-general",
+      "description": "固定路由决定，验证真实分派和任务关联。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "固定路由决定，验证真实分派和任务关联。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["Workspace assistant router", "E2E_WA_GENERAL"],
+        "bodyExcludes": ["Generate a concise title"]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": {
+          "id": "wa-router-general",
+          "text": "{\"kind\": \"answer\", \"text\": \"WA_GENERAL_ANSWER\"}"
+        }
+      }
+    },
+    {
+      "id": "wa-router-queue_stale",
+      "description": "固定路由决定，验证真实分派和任务关联。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "固定路由决定，验证真实分派和任务关联。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["Workspace assistant router", "E2E_WA_QUEUE_STALE"],
+        "bodyExcludes": ["Generate a concise title"]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": {
+          "id": "wa-router-queue_stale",
+          "text": "{\"kind\": \"new\", \"title\": \"Queue investigation\"}"
+        }
+      }
+    },
+    {
+      "id": "wa-router-diff_wrap",
+      "description": "固定路由决定，验证真实分派和任务关联。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "固定路由决定，验证真实分派和任务关联。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["Workspace assistant router", "E2E_WA_DIFF_WRAP"],
+        "bodyExcludes": ["Generate a concise title"]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": {
+          "id": "wa-router-diff_wrap",
+          "text": "{\"kind\": \"new\", \"title\": \"Diff investigation\"}"
+        }
+      }
+    },
+    {
+      "id": "wa-router-ambiguous",
+      "description": "固定路由决定，验证真实分派和任务关联。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "固定路由决定，验证真实分派和任务关联。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["Workspace assistant router", "E2E_WA_AMBIGUOUS"],
+        "bodyExcludes": ["Generate a concise title"]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": {
+          "id": "wa-router-ambiguous",
+          "text": "{\"kind\": \"clarify\", \"text\": \"WA_CHOOSE_A_TASK\", \"choices\": [\"{{workspaceAssistantTask:Queue investigation}}\", \"{{workspaceAssistantTask:Diff investigation}}\"]}"
+        }
+      }
+    },
+    {
+      "id": "wa-worker-queue_stale",
+      "description": "工作任务走真实 Host 与 CLI，使用可重复的回复验证结果归属。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "controlled-stream",
+        "source": "synthetic",
+        "syntheticReason": "工作任务走真实 Host 与 CLI，使用可重复的回复验证结果归属。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["E2E_WA_QUEUE_STALE"],
+        "bodyExcludes": ["Workspace assistant router", "Generate a concise title"]
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "content-type": "text/event-stream; charset=utf-8"
+        },
+        "chunks": [
+          {
+            "offsetMs": 0,
+            "text": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"wa-worker-queue_stale\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"deepseek-v4-flash\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":80,\"output_tokens\":0}}}\n\n"
+          },
+          {
+            "offsetMs": 0,
+            "text": "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n"
+          },
+          {
+            "offsetMs": 0,
+            "text": "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"WA_A_WORKING \"}}\n\n"
+          },
+          {
+            "offsetMs": 0,
+            "text": "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"WA_A_INITIAL_COMPLETE\"}}\n\n"
+          },
+          {
+            "offsetMs": 0,
+            "text": "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n"
+          },
+          {
+            "offsetMs": 0,
+            "text": "event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"input_tokens\":80,\"output_tokens\":16}}\n\n"
+          },
+          {
+            "offsetMs": 0,
+            "text": "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"
+          }
+        ],
+        "releaseAfterChunks": 3
+      }
+    },
+    {
+      "id": "wa-worker-diff_wrap",
+      "description": "工作任务走真实 Host 与 CLI，使用可重复的回复验证结果归属。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "工作任务走真实 Host 与 CLI，使用可重复的回复验证结果归属。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["E2E_WA_DIFF_WRAP"],
+        "bodyExcludes": ["Workspace assistant router", "Generate a concise title"]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": {
+          "id": "wa-worker-diff_wrap",
+          "text": "WA_B_RESULT"
+        }
+      }
+    },
+    {
+      "id": "wa-worker-followup",
+      "description": "工作任务走真实 Host 与 CLI，使用可重复的回复验证结果归属。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "工作任务走真实 Host 与 CLI，使用可重复的回复验证结果归属。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["E2E_WA_FOLLOWUP"],
+        "bodyExcludes": ["Workspace assistant router", "Generate a concise title"]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": {
+          "id": "wa-worker-followup",
+          "text": "WA_A_FINAL_RESULT"
+        }
+      }
+    },
+    {
+      "id": "wa-worker-takeover",
+      "description": "工作任务走真实 Host 与 CLI，使用可重复的回复验证结果归属。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "工作任务走真实 Host 与 CLI，使用可重复的回复验证结果归属。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["E2E_WA_TAKEOVER"],
+        "bodyExcludes": ["Workspace assistant router", "Generate a concise title"]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": {
+          "id": "wa-worker-takeover",
+          "text": "WA_B_TAKEOVER_RESULT"
+        }
+      }
+    },
+    {
+      "id": "wa-router-routed",
+      "description": "固定路由决定，验证真实分派和任务关联。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "固定路由决定，验证真实分派和任务关联。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["Workspace assistant router", "E2E_WA_ROUTED"],
+        "bodyExcludes": ["Generate a concise title"]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": {
+          "id": "wa-router-routed",
+          "text": "{\"kind\": \"continue\", \"taskId\": \"{{workspaceAssistantTask:Diff investigation}}\"}"
+        }
+      }
+    },
+    {
+      "id": "wa-worker-routed",
+      "description": "工作任务走真实 Host 与 CLI，使用可重复的回复验证结果归属。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "工作任务走真实 Host 与 CLI，使用可重复的回复验证结果归属。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["E2E_WA_ROUTED"],
+        "bodyExcludes": ["Workspace assistant router", "Generate a concise title"]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": {
+          "id": "wa-worker-routed",
+          "text": "WA_B_ROUTED_RESULT"
+        }
+      }
+    },
+    {
+      "id": "wa-invalid-target",
+      "description": "固定路由决定，验证真实分派和任务关联。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "固定路由决定，验证真实分派和任务关联。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["Workspace assistant router", "E2E_WA_RETRY"],
+        "bodyExcludes": ["Generate a concise title"]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": {
+          "id": "wa-invalid-target",
+          "text": "{\"kind\": \"continue\", \"taskId\": \"absent-from-this-workspace\"}"
+        }
+      }
+    },
+    {
+      "id": "wa-retry-answer",
+      "description": "固定路由决定，验证真实分派和任务关联。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "固定路由决定，验证真实分派和任务关联。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["Workspace assistant router", "E2E_WA_RETRY"],
+        "bodyExcludes": ["Generate a concise title"]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": {
+          "id": "wa-retry-answer",
+          "text": "{\"kind\": \"answer\", \"text\": \"WA_RETRY_RECOVERED\"}"
+        }
+      }
+    },
+    {
+      "id": "wa-worker-cold",
+      "description": "工作任务走真实 Host 与 CLI，使用可重复的回复验证结果归属。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "工作任务走真实 Host 与 CLI，使用可重复的回复验证结果归属。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["E2E_WA_COLD", "E2E_WA_TAKEOVER", "WA_B_TAKEOVER_RESULT"],
+        "bodyExcludes": ["Workspace assistant router", "Generate a concise title"]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": {
+          "id": "wa-worker-cold",
+          "text": "WA_B_COLD_RESULT"
+        }
+      }
+    },
+    {
+      "id": "wa-worker-choice",
+      "description": "工作任务走真实 Host 与 CLI，使用可重复的回复验证结果归属。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "工作任务走真实 Host 与 CLI，使用可重复的回复验证结果归属。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["E2E_WA_AMBIGUOUS", "E2E_WA_DIFF_WRAP", "WA_B_RESULT"],
+        "bodyExcludes": ["Workspace assistant router", "Generate a concise title"],
+        "lastUserMessageIncludes": ["E2E_WA_AMBIGUOUS"]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": {
+          "id": "wa-worker-choice",
+          "text": "WA_B_CHOICE_RESULT"
+        }
+      }
+    }
+  ]
+}

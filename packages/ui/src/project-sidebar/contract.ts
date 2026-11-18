@@ -161,6 +161,8 @@ export interface ProjectSidebarProps {
   onOpenCommandCenter: () => void;
   onOpenRepoWiki?: () => void;
   repoWikiActive?: boolean;
+  onOpenAssistant?: () => void;
+  assistantActive?: boolean;
   onOpenAutomations?: () => void;
   onOpenPluginStore?: () => void;
   automationsActive?: boolean;

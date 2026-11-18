@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "spec": "./test/e2e/conversation-session/session-control/conversation-session-workspace-assistant-attention.test.ts",
+  "caseName": "conversation-session-workspace-assistant-attention",
+  "providerFixtures": [
+    "./test/e2e/fixtures/upstream/common.json",
+    "./test/e2e/fixtures/upstream/conversation-session/conversation-session-workspace-assistant-attention.json"
+  ],
+  "fileFixtures": [],
+  "requests": [
+    {
+      "id": "wa-title",
+      "kind": "common",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "标题旁路返回稳定标签，避免远端依赖。"
+    },
+    {
+      "id": "wa-attention-router",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "固定路由决定，验证真实分派和任务关联。"
+    },
+    {
+      "id": "wa-attention-question",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "稳定制造 AskUserQuestion 单题等待态，避免真实模型是否提问影响 UI 投影复现。"
+    },
+    {
+      "id": "wa-attention-resumed",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "该响应只证明问答回答已被 agent 消费，核心断言在 UI 是否保留用户可见记录。"
+    }
+  ]
+}

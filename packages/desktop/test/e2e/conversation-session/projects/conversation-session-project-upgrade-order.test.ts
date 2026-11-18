@@ -96,6 +96,7 @@ describe("虚拟项目升级顺序", () => {
         "0006_task_group_admissions",
         // 同上：tasks 库新增 0007 迁移后清单没有同步。
         "0007_task_permanent_deletion",
+        "0008_workspace_assistant",
       ]);
       const projectAppliedAt = db
         .prepare("SELECT applied_at FROM schema_migration WHERE id='0005_projects'")

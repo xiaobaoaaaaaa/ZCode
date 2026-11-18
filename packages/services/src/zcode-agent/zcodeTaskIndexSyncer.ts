@@ -96,6 +96,9 @@ export interface ZCodeTaskIndexReadyEvent {
 }
 
 export interface ZCodeTaskIndexSyncer {
+  /** 当前代际已应用的索引投影；读取不订阅、启动或恢复会话。 */
+  getSessionSummary(target: ZCodeAgentSessionTarget): SessionSummary | undefined;
+
   mutateSessionFacts(
     target: ZCodeAgentSessionTarget,
     intent: TaskFactMutation,
@@ -1760,6 +1763,12 @@ export function createZCodeTaskIndexSyncer(
   }
 
   return {
+    getSessionSummary(target) {
+      const state = workspaceIngests.get(resolveWorkspaceKey(target));
+      if (!state?.indexSubscriptionId || !state.indexHasAppliedBase || state.indexRecovery)
+        return undefined;
+      return state.summaries.get(target.sessionId);
+    },
     activeTaskRefs() {
       return [...workspaceIngests.values()].flatMap((state) =>
         [...state.summaries.values()]

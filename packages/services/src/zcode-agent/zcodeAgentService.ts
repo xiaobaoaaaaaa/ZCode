@@ -7625,10 +7625,15 @@ export function createZCodeAgentService(
     // 按 topic 前缀由 CLI server 分派 ──
 
     async reconcileSessionsIndexV4(params) {
-      const client = await getReadOnlyClient(params, "existing-only");
+      // 显式打开工作区助手时可以启动只读 CLI 读取历史正文；侧栏后台对账仍只观察现有进程。
+      const client = await getReadOnlyClient(params, params.runtimePolicy ?? "existing-only");
       return client.request(
         V4_METHODS.sessionsIndexReconcile,
-        { workspaceId: resolveWorkspaceKey(params), sessionIds: params.sessionIds },
+        {
+          workspaceId: resolveWorkspaceKey(params),
+          sessionIds: params.sessionIds,
+          ...(params.includeAssistantPreview ? { includeAssistantPreview: true } : {}),
+        },
         sessionsIndexReconcileResultSchema,
       );
     },

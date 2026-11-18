@@ -16,6 +16,7 @@ import {
   IZCodeAgentService,
   IZCodeSessionService,
   IProjectService,
+  IWorkspaceAssistantService,
   IManagedWorktreeService,
   ITaskGroupService,
   IRemoteProjectService,
@@ -90,6 +91,7 @@ export class RemoteServiceAccess implements IServiceAccessor {
   readonly windowControllerService: IWindowControllerService;
   readonly zcodeAgentService: IZCodeAgentService;
   readonly zcodeSessionService: IZCodeSessionService;
+  readonly workspaceAssistantService?: IWorkspaceAssistantService;
   readonly taskGroupService: ITaskGroupService;
   readonly projectService: IProjectService;
   readonly managedWorktreeService?: IManagedWorktreeService;
@@ -151,6 +153,7 @@ export class RemoteServiceAccess implements IServiceAccessor {
       sourceServerManagementService?: boolean;
       deviceSyncStateService?: boolean;
       extensionsService?: boolean;
+      workspaceAssistantService?: boolean;
       managedWorktreeService?: boolean;
       windowProjectDirectory?: boolean;
     } = {},
@@ -220,6 +223,11 @@ export class RemoteServiceAccess implements IServiceAccessor {
       channelClient.getChannel(IProjectService.channelName),
     );
     // 代理对象不能证明远端注册了频道；只在桌面 base 明确提供能力时创建，避免远程/手机误订阅。
+    this.workspaceAssistantService = options.workspaceAssistantService
+      ? ProxyChannel.toService<IWorkspaceAssistantService>(
+          channelClient.getChannel(IWorkspaceAssistantService.channelName),
+        )
+      : undefined;
     this.managedWorktreeService = options.managedWorktreeService
       ? ProxyChannel.toService<IManagedWorktreeService>(
           channelClient.getChannel(IManagedWorktreeService.channelName),

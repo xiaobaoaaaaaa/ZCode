@@ -414,6 +414,7 @@ export { createHighspeedMockTransport } from "./highspeed/highspeedMockTransport
 export { IGenUiService } from "./gen-ui/contract.js";
 export type { GenUiPrepareParams } from "./gen-ui/contract.js";
 
+export * from "#src/workspace-assistant/contract.js";
 export { ITaskGroupService } from "#src/task-groups/contract.js";
 export type {
   TaskGroup,

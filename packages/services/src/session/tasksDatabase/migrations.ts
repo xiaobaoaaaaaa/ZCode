@@ -59,6 +59,14 @@ const executionColumns = [
 
 // 与 Agent 同样是库级串行事务，但不跨域依赖其具体 adapter。TS 转换使用冻结语义版本，
 // 禁用 function.toString 哈希：Electron/SEA 打包会改变函数文本而非迁移语义。
+const workspaceAssistantSql = `
+      CREATE TABLE workspace_assistant_inputs (
+        workspace_key TEXT NOT NULL, input_id TEXT NOT NULL, text TEXT NOT NULL,
+        target_id TEXT, project_id TEXT, decision TEXT, assigned_id TEXT, settled INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY(workspace_key,input_id)
+      );
+    `;
+
 const definitions = [
   {
     id: "0001_adopt_task_schema",
@@ -136,6 +144,12 @@ const definitions = [
       WHEN EXISTS(SELECT 1 FROM task_purge WHERE workspace_key=new.workspace_key AND task_id=new.task_id AND state='deleted')
       BEGIN SELECT RAISE(ABORT, 'task.permanently-deleted'); END;
     `),
+  },
+  {
+    id: "0008_workspace_assistant",
+    touchedTables: ["workspace_assistant_inputs"],
+    checksumInput: [workspaceAssistantSql],
+    apply: (db: DatabaseSync) => db.exec(workspaceAssistantSql),
   },
 ] as const;
 

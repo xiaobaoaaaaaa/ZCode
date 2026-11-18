@@ -1,3 +1,4 @@
+import { selectActiveConversationBranch } from "@zcode/contracts";
 import { resolve } from "node:path";
 import { SessionLifecycleError } from "../session-lifecycle/index.js";
 import { closeSessionRuntime, getSessionLifecycle } from "./session-residency.js";
@@ -15,6 +16,7 @@ import { readBackgroundBashOutputFromOwner } from "./background-work-owner.js";
 // 不做桥接：依赖方向只允许 旧目录 → v4 目录。
 // 本文件在旧目录，import v4 executor 合法；v4 目录禁止反向 import 本目录任何模块。
 import {
+  getConversationMessageProjectionPolicy,
   isConversationRealUserTurnStarter,
   parseRemoteWorkspaceIdentity,
   type ZCodeSessionContextUsage,
@@ -1568,6 +1570,54 @@ export function createConversationV4Gateway(
     },
   };
   nativeExecutor = new V4CommandExecutor(coreHost);
+  const previewCache = new Map<
+    string,
+    { updated: number; branch: number | undefined; text: string }
+  >();
+  async function readStoredAssistantPreview(session: SessionInfo): Promise<string> {
+    const cached = previewCache.get(session.id);
+    if (
+      cached?.updated === session.time.updated &&
+      cached.branch === session.revert?.branchGeneration
+    )
+      return cached.text;
+    const store = context.deps.sessionStore!;
+    // 回退后的旧分支仍在消息账本中，必须用完整活动分支裁剪；普通会话先只读最近消息。
+    const tail = 8;
+    const read = async (bounded: boolean) => {
+      const messages = await store.messages({
+        sessionID: session.id,
+        ...(bounded ? { tail } : {}),
+      });
+      const active = selectActiveConversationBranch(messages, {
+        branchCutAfterMessageId: session.revert?.branchCutAfterMessageID,
+        rewindCreatedMessageId: session.revert?.createdMessageID,
+        rewindKeptMessageIds: session.revert?.keptMessageIDs,
+        rewindTargetMessageId: session.revert?.targetMessageID,
+      });
+      for (let i = active.length - 1; i >= 0; i--) {
+        const message = active[i]!;
+        if (
+          message.info.role !== "assistant" ||
+          getConversationMessageProjectionPolicy(message) !== "visibleAssistant"
+        )
+          continue;
+        const part = message.parts.findLast(
+          (p) => p.type === "text" && !p.ignored && p.text.trim(),
+        );
+        if (part?.type === "text") return part.text.slice(0, 120);
+      }
+      return bounded && messages.length >= tail ? undefined : "";
+    };
+    const text = (await read(!session.revert)) ?? (await read(false)) ?? "";
+    if (previewCache.size >= 256) previewCache.delete(previewCache.keys().next().value!);
+    previewCache.set(session.id, {
+      updated: session.time.updated,
+      branch: session.revert?.branchGeneration,
+      text,
+    });
+    return text;
+  }
   // 存储元信息 → SessionSummary；目录扫描与受管 worktree 白名单两条读取路径共用。
   const storedSessionSummary = (
     session: SessionInfo,
@@ -1702,7 +1752,7 @@ export function createConversationV4Gateway(
     isSessionStopping: (sessionId) => context.sessionLifecycle?.isStopping(sessionId) ?? false,
     sessionExists: (sessionId) =>
       context.sessions.has(sessionId) && (context.sessionLifecycle?.isReady(sessionId) ?? true),
-    reconcileSessions: async ({ workspaceId, sessionIds }) => {
+    reconcileSessions: async ({ workspaceId, sessionIds, includeAssistantPreview }) => {
       const store = context.deps.sessionStore;
       if (!store) throw new Error("Session store is unavailable");
       const remote = parseRemoteWorkspaceIdentity(workspaceId);
@@ -1724,6 +1774,9 @@ export function createConversationV4Gateway(
             // 首次 Host 镜像也可能由 reconcile 触发，不能丢掉 fork 的持久父身份。
             ...(session.parentID ? { parentSessionId: String(session.parentID) } : {}),
             deleted: session.time.deleted !== undefined,
+            ...(includeAssistantPreview && session.time.deleted === undefined
+              ? { lastAssistantPreview: await readStoredAssistantPreview(session) }
+              : {}),
             title: session.title,
             titleSource: normalizeStoredTitleSource(session.titleSource),
             createdAt: session.time.created,

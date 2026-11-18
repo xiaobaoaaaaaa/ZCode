@@ -223,26 +223,29 @@ export async function removePart(
   );
 }
 
-export function messages(db: DatabaseSync, input: { sessionID: SessionId }): MessageWithParts[] {
-  const messageRows = db
-    .prepare(
-      `
-      select * from message
-      where session_id = ?
-      order by sequence is null, sequence, time_created, rowid
-      `,
-    )
-    .all(input.sessionID) as unknown as MessageRow[];
-
+export function messages(
+  db: DatabaseSync,
+  input: { sessionID: SessionId; tail?: number },
+): MessageWithParts[] {
+  const limited = input.tail !== undefined;
+  const messageRows = (limited
+    ? db
+        .prepare(`select * from message where session_id=?
+        order by sequence is null desc, sequence desc, time_created desc, rowid desc limit ?`)
+        .all(input.sessionID, input.tail!)
+        .reverse()
+    : db
+        .prepare(`select * from message where session_id=?
+        order by sequence is null, sequence, time_created, rowid`)
+        .all(input.sessionID)) as unknown as MessageRow[];
+  const partFilter = limited ? "and message_id in (select value from json_each(?))" : "";
   const partRows = db
-    .prepare(
-      `
-      select * from part
-      where session_id = ?
-      order by message_id, sequence is null, sequence, time_created, id
-      `,
-    )
-    .all(input.sessionID) as unknown as PartRow[];
+    .prepare(`select * from part where session_id=? ${partFilter}
+      order by message_id, sequence is null, sequence, time_created, id`)
+    .all(
+      input.sessionID,
+      ...(limited ? [JSON.stringify(messageRows.map((row) => row.id))] : []),
+    ) as unknown as PartRow[];
   const partsByMessage = new Map<string, MessagePart[]>();
 
   for (const row of partRows) {

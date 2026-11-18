@@ -17,6 +17,19 @@ rules:
     - "evidence-only"
 
 nodes:
+  - id: "capability.workspace-assistant"
+    kind: "capability"
+    label: "Desktop workspace assistant"
+    aliases: ["工作区助手", "workspace assistant", "super-agent"]
+    docs: ["docs/workspace-assistant.md"]
+    codeSeeds:
+      - file: "packages/services/src/workspace-assistant/index.ts"
+        symbol: "createWorkspaceAssistantService"
+      - file: "packages/ui/src/workspace-assistant/WorkspaceAssistantPage.tsx"
+        symbol: "WorkspaceAssistantPage"
+    invariants:
+      - "The Host persists routing decisions; ordinary root sessions own execution and results."
+      - "Explicit item selection bypasses model routing."
   - id: "capability.archive-permanent-deletion"
     kind: "capability"
     label: "Permanent deletion of archived conversations"
@@ -5659,6 +5672,10 @@ nodes:
       - "An in-flight directory publication finishes or rolls back before releasing its lock; late results cannot restore capabilities."
 
 edges:
+  - from: "capability.workspace-assistant"
+    to: "capability.workspace-identity"
+    type: "preserves"
+    rank: "must-inspect"
   - from: "capability.archive-permanent-deletion"
     to: "surface.archive-management"
     type: "implemented-in"

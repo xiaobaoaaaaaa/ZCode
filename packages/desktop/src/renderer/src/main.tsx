@@ -336,6 +336,7 @@ function initializeBusinessRoot(port: MessagePort): void {
   const services = connectViaMessagePort(port, {
     sourceServerManagementService: true,
     deviceSyncStateService: true,
+    workspaceAssistantService: true,
     managedWorktreeService: true,
     // 扩展门面只在桌面本机 Host 注册（docs/plugins/extension-host.md）。
     extensionsService: true,

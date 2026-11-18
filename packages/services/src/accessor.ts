@@ -1,5 +1,6 @@
 import type { ICodexSubscriptionService } from "./codex-subscription/contract.js";
 import type { IRemoteProjectService } from "#src/remote-projects/contract.js";
+import type { IWorkspaceAssistantService } from "#src/workspace-assistant/contract.js";
 import type { ITaskGroupService } from "#src/task-groups/contract.js";
 import type { WindowProjectDirectoryServices } from "#src/window-project-directory/contract.js";
 import type { IProjectService } from "#src/project/contract.js";
@@ -66,6 +67,7 @@ import type { IConversationShareService } from "./conversation-share/conversatio
 
 /** UI 层消费的统一服务接口 */
 export interface IServiceAccessor {
+  readonly workspaceAssistantService?: IWorkspaceAssistantService;
   readonly taskGroupService?: ITaskGroupService;
   readonly projectService?: IProjectService;
   /** 受管 worktree 管理；仅本地桌面 Host 提供，手机与旧 Host 缺省。 */

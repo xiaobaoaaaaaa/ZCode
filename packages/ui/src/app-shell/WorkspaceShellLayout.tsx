@@ -11,10 +11,12 @@ import type {
 } from "react";
 import type { PanelImperativeHandle } from "react-resizable-panels";
 import { GripHorizontal, LoaderCircle } from "lucide-react";
+import { isRemoteWorkspaceIdentity } from "@zcode/shared";
 import { TID_APP_HEADER } from "@zcode/shared/test-ids";
 // 保活：workspace tab 真正关闭时，按 workspaceKey 回收 side pane terminal 的常驻 PTY/xterm。
 // 对称下侧 Terminal.tsx 的 openWorkspaceKeys 回收。
 import { sidePaneTerminalSessionRegistry } from "@/terminal/sidePaneTerminalSessionRegistry.js";
+import { WorkspaceAssistantPage } from "@/workspace-assistant/index.js";
 import { V4ChatPane } from "@/v4/V4ChatPane.js";
 import { V4WorkspaceChatArea } from "@/v4/V4WorkspaceChatArea.js";
 import { V4SplitPaneEntryProvider } from "@/v4/splitPaneEntryContext.js";
@@ -1487,19 +1489,33 @@ const WorkspaceShellLayoutContent = memo(function WorkspaceShellLayoutComponent(
     }),
     [activeTaskId, handleOpenDraftPluginUi, showChatMainView],
   );
-  const primaryNavigationBack =
-    workspaceMainView === "plugin-store" ? showChatMainView : handleTaskNavBack;
-  const canPrimaryNavigationBack = workspaceMainView === "plugin-store" || canTaskNavBack;
+  const assistantAvailable = Boolean(
+    isDesktop &&
+    !isWebRemoteControlShell &&
+    !workspaceRemoteSessionId &&
+    !workspaceRemoteTarget &&
+    !workspaceReadOnlyReason &&
+    !isRemoteWorkspaceIdentity(workspaceIdentity ?? "") &&
+    baseServices.workspaceAssistantService,
+  );
+  const handleOpenAssistant = useCallback(
+    () => onWorkspaceMainViewChange("workspace-assistant"),
+    [onWorkspaceMainViewChange],
+  );
+  const auxiliaryView =
+    workspaceMainView === "plugin-store" || workspaceMainView === "workspace-assistant";
+  const primaryNavigationBack = auxiliaryView ? showChatMainView : handleTaskNavBack;
+  const canPrimaryNavigationBack = auxiliaryView || canTaskNavBack;
   useEffect(() => {
     if (
-      isWebRemoteControlShell &&
-      (workspaceMainView === "automations" || workspaceMainView === "plugin-store")
+      (isWebRemoteControlShell && workspaceMainView !== "chat") ||
+      (!assistantAvailable && workspaceMainView === "workspace-assistant")
     ) {
       // 修复原因：手机远控复用桌面 shell 时可能保留上一次主视图状态；
       // 远控不承载 Automations，必须立即回落到 continuous/replayable 边界之外的聊天页。
       onWorkspaceMainViewChange("chat");
     }
-  }, [isWebRemoteControlShell, onWorkspaceMainViewChange, workspaceMainView]);
+  }, [assistantAvailable, isWebRemoteControlShell, onWorkspaceMainViewChange, workspaceMainView]);
   const handleCreateTaskInChat = useCallback(
     (request?: Parameters<typeof onCreateTask>[0]) => {
       // workspaceReadOnlyReason 判定的是活动 workspace；当 request 显式带 targetWorkspace 时
@@ -2319,8 +2335,7 @@ const WorkspaceShellLayoutContent = memo(function WorkspaceShellLayoutComponent(
   // 修复原因：Draft 之前维护一套独立轻量 header，导致 side pane、caption 安全区和拖拽入口
   // 与 Task Header 分叉。桌面与宽屏远控统一复用 WorkspaceHeader，由 variant 裁剪 task 专属内容；
   // Bugfix: 平板草稿也需要文件面板入口。窄屏远控仍通过移动导航提供入口，不改变 replayable 边界。
-  const shouldRenderMainViewHeader =
-    workspaceMainView !== "automations" && workspaceMainView !== "plugin-store";
+  const shouldRenderMainViewHeader = workspaceMainView === "chat";
   const shouldRenderWorkspaceHeader =
     shouldRenderMainViewHeader &&
     (activeTaskId !== null || isDesktop || isWideWebRemoteControlShell);
@@ -2390,6 +2405,8 @@ const WorkspaceShellLayoutContent = memo(function WorkspaceShellLayoutComponent(
       goBackShortcutLabel={goBackShortcutLabel}
       goForwardShortcutLabel={goForwardShortcutLabel}
       onOpenCommandCenter={handleOpenCommandCenter}
+      onOpenAssistant={assistantAvailable ? handleOpenAssistant : undefined}
+      assistantActive={workspaceMainView === "workspace-assistant"}
       onOpenAutomations={handleOpenAutomations}
       automationsActive={workspaceMainView === "automations"}
       onOpenPluginStore={handleOpenPluginStore}
@@ -2998,6 +3015,25 @@ const WorkspaceShellLayoutContent = memo(function WorkspaceShellLayoutComponent(
                               </div>
                             </AutomationsMainBreadcrumbFrame>
                           </main>
+                        ) : workspaceMainView === "workspace-assistant" && assistantAvailable ? (
+                          <ScopedErrorBoundary
+                            scope="workspace-assistant"
+                            resetKeys={workspaceOnlyResetKeys}
+                            variant="panel"
+                            className="h-full"
+                          >
+                            <WorkspaceAssistantPage
+                              visible={isWorkspaceVisible}
+                              key={workspaceKey}
+                              workspaceIdentity={workspaceIdentity}
+                              workspacePath={workspaceAbsPath}
+                              activeTaskId={activeTaskId}
+                              draftProjectId={draftProjectId}
+                              onOpenTask={(id) =>
+                                handleSelectTaskInChat(workspaceAbsPath, id, workspaceIdentity)
+                              }
+                            />
+                          </ScopedErrorBoundary>
                         ) : workspaceMainView === "plugin-store" && !isWebRemoteControlShell ? (
                           <main className="flex h-full min-h-0 flex-1 flex-col bg-background">
                             <AutomationsMainBreadcrumbFrame
@@ -3124,8 +3160,7 @@ const WorkspaceShellLayoutContent = memo(function WorkspaceShellLayoutComponent(
                       </div>
                     </section>
                   </ResizablePanel>
-                  {isWebRemoteControlShell ||
-                  (workspaceMainView !== "automations" && workspaceMainView !== "plugin-store") ? (
+                  {isWebRemoteControlShell || workspaceMainView === "chat" ? (
                     <AnimatedTerminalPanel
                       frameClassName={cn(
                         isSidePaneVisible

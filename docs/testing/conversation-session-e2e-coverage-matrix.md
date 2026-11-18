@@ -4,6 +4,19 @@
 
 # Conversation Session E2E Coverage Matrix
 
+## 桌面工作区助手（WA）
+
+候选位于 `conversation-session/session-control/manual-review/pending/`，包括 `conversation-session-workspace-assistant.test.ts` 和 `conversation-session-workspace-assistant-attention.test.ts`。Electron 驱动真实入口，受控上游区分路由模型和任务模型，并以流闸门固定先完成 B 的顺序。
+
+| Case | 状态    | 证据与边界                                                                                                                                                                                                         |
+| ---- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| WA01 | covered | Fedora Electron `desktop-e2e-20261118-095014-384`；两项重叠运行、B 先完成，模型续接 B、显式续接 A，卡片及原任务独立                                                                                                |
+| WA02 | covered | 同轮 `desktop-e2e-20261118-095014-384`；简答、两个真实候选；用户选择 B 前无派工，点击将原输入唯一送入 B。无效模型目标重试成功且输入唯一。模型响应为隔离 fixture                                                    |
+| WA03 | partial | `desktop-e2e-20261118-095014-384` 离开重入、完整冷重启后 B 显式续接带回旧上下文。测试在隔离 Host 关闭后回退 A 的结算标记；重试后同一 ID 和最新结果恢复，A 初次模型请求总数仍为 1。未做双窗口 UI 和跨工作区 UI 验收 |
+| WA04 | partial | `desktop-e2e-20261118-095014-384` 从助手打开 B 原会话，手动续发后的最新回复回到 B 卡片；独立 `desktop-e2e-20261118-095440-044` 真实 AskUserQuestion 等待时卡片显示需要处理，用户进入原会话回答，下一条模型请求携带该回答，结果回到原卡片且变为已完成。权限批准/拒绝、删除、失败及不可达未在桌面实跑                                                                                         |
+
+本轮交互截图在 `packages/desktop/.e2e-artifacts/desktop-e2e-20261118-095014-384/workspace-assistant-results.png`（1280×800）与同目录 `workspace-assistant-results-compact.png`（480×640）。用例保留为 pending。
+
 ## 思考阶段提前接收引导（GI，2026-11-12）
 
 | Case      | Status  | Evidence                                                                                                 |

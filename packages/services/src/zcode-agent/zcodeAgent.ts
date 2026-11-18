@@ -1145,7 +1145,11 @@ export interface IZCodeAgentService {
   >;
   /** 只读 CLI 持久事实；不恢复会话运行实例。旧远端可以不提供此能力。 */
   reconcileSessionsIndexV4?(
-    params: ZCodeAgentWorkspaceTarget & { sessionIds: string[] },
+    params: ZCodeAgentWorkspaceTarget & {
+      sessionIds: string[];
+      includeAssistantPreview?: true;
+      runtimePolicy?: ZCodeAgentRuntimePolicy;
+    },
   ): Promise<SessionsIndexReconcileResult>;
   // ── M5 sessions-index 通道（列表活性）──
   subscribeSessionsIndexV4(

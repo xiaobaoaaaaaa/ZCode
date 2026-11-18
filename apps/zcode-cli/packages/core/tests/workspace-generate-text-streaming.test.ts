@@ -255,35 +255,38 @@ describe("workspace generateText streaming aggregation", () => {
     },
   );
 
-  it("keeps non-stream generateText for the git commit message querySource", async () => {
-    let streamCalled = false;
-    let boundOptions: ModelOptions | undefined;
-    const model = createStreamingModel({
-      onBind: (options) => {
-        boundOptions = options;
-      },
-    });
-    model.streamText = ((request: ModelRequest) => {
-      void request;
-      streamCalled = true;
-      throw new Error("streamText should not be called");
-    }) as never;
-    model.generateText = async () => ({
-      finishReason: "stop",
-      text: "fix: commit message",
-      usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
-    });
-    const runtime = createRuntimeWithModel(model);
+  it.each(["git_commit_message", "workspace_assistant_router"])(
+    "binds auxiliary options for %s",
+    async (querySource) => {
+      let streamCalled = false;
+      let boundOptions: ModelOptions | undefined;
+      const model = createStreamingModel({
+        onBind: (options) => {
+          boundOptions = options;
+        },
+      });
+      model.streamText = ((request: ModelRequest) => {
+        void request;
+        streamCalled = true;
+        throw new Error("streamText should not be called");
+      }) as never;
+      model.generateText = async () => ({
+        finishReason: "stop",
+        text: "fix: commit message",
+        usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+      });
+      const runtime = createRuntimeWithModel(model);
 
-    const result = await runtime.generateWorkspaceText({
-      selection: { providerId: "test-provider", modelId: "glm-test" },
-      prompt: "Generate a commit message",
-      querySource: "git_commit_message",
-      maxOutputTokens: 256,
-    });
+      const result = await runtime.generateWorkspaceText({
+        selection: { providerId: "test-provider", modelId: "glm-test" },
+        prompt: "Generate a commit message",
+        querySource,
+        ...(querySource === "git_commit_message" ? { maxOutputTokens: 256 } : {}),
+      });
 
-    expect(streamCalled).toBe(false);
-    expect(result.text).toBe("fix: commit message");
-    expect(boundOptions).toEqual({ maxOutputTokens: 5_000, reasoningLevel: "disabled" });
-  });
+      expect(streamCalled).toBe(false);
+      expect(result.text).toBe("fix: commit message");
+      expect(boundOptions).toEqual({ maxOutputTokens: 5_000, reasoningLevel: "disabled" });
+    },
+  );
 });

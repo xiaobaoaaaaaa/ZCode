@@ -1048,9 +1048,10 @@ export function App({
   const handleSelectNextConversation = useCallback(() => {
     handleSelectAdjacentConversation("next");
   }, [handleSelectAdjacentConversation]);
-  const handlePrimaryNavigationBack =
-    workspaceMainView === "plugin-store" ? handleNavigateToTaskMain : handleTaskNavBack;
-  const canPrimaryNavigationBack = workspaceMainView === "plugin-store" || canTaskNavBack;
+  const auxiliaryView =
+    workspaceMainView === "plugin-store" || workspaceMainView === "workspace-assistant";
+  const handlePrimaryNavigationBack = auxiliaryView ? handleNavigateToTaskMain : handleTaskNavBack;
+  const canPrimaryNavigationBack = auxiliaryView || canTaskNavBack;
   const shellPanelIds = useMemo(() => ["sidebar", "content"], []);
 
   useAppKeyboard({

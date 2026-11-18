@@ -194,6 +194,12 @@ CREATE TABLE tasks (
 
 CREATE TABLE "tasks_schema_migration" (id text primary key, checksum text not null,  "time_applied" integer not null);
 
+CREATE TABLE workspace_assistant_inputs (
+        workspace_key TEXT NOT NULL, input_id TEXT NOT NULL, text TEXT NOT NULL,
+        target_id TEXT, project_id TEXT, decision TEXT, assigned_id TEXT, settled INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY(workspace_key,input_id)
+      );
+
 CREATE INDEX idx_automation_runs_by_automation
       ON automation_runs (automation_id, created_at DESC);
 

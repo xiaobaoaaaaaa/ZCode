@@ -4064,6 +4064,7 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
           log: (message, details) => logger.warn(message, details),
           establishOwner: () => {
             const initializedServices = createLocalServices({
+              workspaceAssistantEnabled: true,
               onAppControlServiceCreated: (handle) => {
                 appControlForExtensions = handle;
               },

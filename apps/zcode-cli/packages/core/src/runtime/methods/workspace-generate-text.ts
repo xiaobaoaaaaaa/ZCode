@@ -151,8 +151,11 @@ async function generateWorkspaceTextImpl(
   const baseModel = createRuntimeModel(this, { selection: requestedSelection, scope: "workspace" });
   // 辅助请求需要的是最低公开档位，不是扫描 off/nothink 等名称后强制关闭。
   // 输入预测按键触发、要求低延迟，同样走最低档位。
+  // 工作区助手路由也只做结构化判定，使用模型声明的辅助档位与输出预算。
   const model =
-    querySource === GIT_COMMIT_MESSAGE_QUERY_SOURCE || querySource === INPUT_PREDICTION_QUERY_SOURCE
+    querySource === GIT_COMMIT_MESSAGE_QUERY_SOURCE ||
+    querySource === INPUT_PREDICTION_QUERY_SOURCE ||
+    querySource === "workspace_assistant_router"
       ? baseModel.bind(auxiliaryModelOptions(baseModel))
       : baseModel;
   const baseTraceContext = options?.traceContext ?? this.rootTraceContext;

@@ -1,0 +1,117 @@
+{
+  "version": 1,
+  "caseName": "conversation-session-workspace-assistant",
+  "spec": "./test/e2e/conversation-session/session-control/conversation-session-workspace-assistant.test.ts",
+  "providerFixtures": [
+    "./test/e2e/fixtures/upstream/common.json",
+    "./test/e2e/fixtures/upstream/conversation-session/conversation-session-workspace-assistant.json"
+  ],
+  "fileFixtures": [],
+  "requests": [
+    {
+      "id": "wa-title",
+      "kind": "common",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "标题旁路返回稳定标签，避免远端依赖。"
+    },
+    {
+      "id": "wa-router-general",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "固定路由决定，验证真实分派和任务关联。"
+    },
+    {
+      "id": "wa-router-queue_stale",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "固定路由决定，验证真实分派和任务关联。"
+    },
+    {
+      "id": "wa-router-diff_wrap",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "固定路由决定，验证真实分派和任务关联。"
+    },
+    {
+      "id": "wa-router-ambiguous",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "固定路由决定，验证真实分派和任务关联。"
+    },
+    {
+      "id": "wa-worker-queue_stale",
+      "kind": "main",
+      "timingPolicy": "controlled-stream",
+      "source": "synthetic",
+      "syntheticReason": "工作任务走真实 Host 与 CLI，使用可重复的回复验证结果归属。"
+    },
+    {
+      "id": "wa-worker-diff_wrap",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "工作任务走真实 Host 与 CLI，使用可重复的回复验证结果归属。"
+    },
+    {
+      "id": "wa-worker-followup",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "工作任务走真实 Host 与 CLI，使用可重复的回复验证结果归属。"
+    },
+    {
+      "id": "wa-worker-takeover",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "工作任务走真实 Host 与 CLI，使用可重复的回复验证结果归属。"
+    },
+    {
+      "id": "wa-router-routed",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "固定路由决定，验证真实分派和任务关联。"
+    },
+    {
+      "id": "wa-worker-routed",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "工作任务走真实 Host 与 CLI，使用可重复的回复验证结果归属。"
+    },
+    {
+      "id": "wa-invalid-target",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "固定路由决定，验证真实分派和任务关联。"
+    },
+    {
+      "id": "wa-retry-answer",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "固定路由决定，验证真实分派和任务关联。"
+    },
+    {
+      "id": "wa-worker-cold",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "工作任务走真实 Host 与 CLI，使用可重复的回复验证结果归属。"
+    },
+    {
+      "id": "wa-worker-choice",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "工作任务走真实 Host 与 CLI，使用可重复的回复验证结果归属。"
+    }
+  ]
+}

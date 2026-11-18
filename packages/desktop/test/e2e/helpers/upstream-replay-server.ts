@@ -99,6 +99,7 @@ interface UpstreamReplayFixture {
 }
 
 interface ReplayVariables {
+  workspaceAssistantPrompt?: string;
   browserFixtureUrl?: string;
   latestBrowserTabAId?: string;
   latestBrowserTabBId?: string;
@@ -569,6 +570,9 @@ function extractReplayVariables(requestText: string, requestJson: unknown): Repl
   const requestContent = `${requestText}\n${JSON.stringify(requestJson ?? {})}`;
   const browserTabIds = readLatestBrowserTabIds(requestJson);
   return {
+    workspaceAssistantPrompt: requestContent.includes("Workspace assistant router")
+      ? readLatestUserMessageText(requestJson)
+      : undefined,
     appControlTargetRef: readAppControlTargetRef(requestContent, requestJson),
     appControlResults: readAppControlResults(requestJson),
     browserFixtureUrl: readBrowserFixtureUrl(requestContent),
@@ -866,6 +870,20 @@ function applyReplayVariables(value: unknown, variables: ReplayVariables): unkno
 
 function applyReplayVariablesToString(value: string, variables: ReplayVariables): string {
   let resolved = value;
+  if (value.includes("{{workspaceAssistantTask:")) {
+    // 只读本次请求列出的真实事项。重复标题不能用第一个匹配伪造一次成功消歧。
+    const items: unknown = JSON.parse(variables.workspaceAssistantPrompt ?? "{}").items;
+    resolved = value.replace(
+      /\{\{workspaceAssistantTask:([^{}]+)\}\}/gu,
+      (_token, title: string) => {
+        const matches = Array.isArray(items) ? items.filter((item) => item?.title === title) : [];
+        if (matches.length !== 1 || typeof matches[0].taskId !== "string") {
+          throw new Error(`Fixture needs exactly one workspace assistant item titled ${title}`);
+        }
+        return matches[0].taskId;
+      },
+    );
+  }
   if (variables.latestBrowserTabId !== undefined) {
     resolved = resolved
       .split(LATEST_BROWSER_TAB_ID_REPLAY_TOKEN)

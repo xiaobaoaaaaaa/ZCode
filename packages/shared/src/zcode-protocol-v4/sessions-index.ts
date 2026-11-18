@@ -78,8 +78,10 @@ export const sessionsIndexReconcileParamsSchema = z
   .object({
     workspaceId: z.string().min(1),
     sessionIds: z.array(z.string().min(1)).max(256),
+    includeAssistantPreview: z.literal(true).optional(),
   })
-  .strict();
+  .strict()
+  .refine((input) => !input.includeAssistantPreview || input.sessionIds.length <= 8);
 export type SessionsIndexReconcileParams = z.infer<typeof sessionsIndexReconcileParamsSchema>;
 export const sessionsIndexReconcileResultSchema = z
   .object({
@@ -95,6 +97,7 @@ export const sessionsIndexReconcileResultSchema = z
               exists: z.literal(true),
               parentSessionId: z.string().optional(),
               deleted: z.boolean(),
+              lastAssistantPreview: z.string().max(120).optional(),
               title: z.string(),
               titleSource: sessionMetaStateSchema.shape.titleSource,
               createdAt: timestampSchema,

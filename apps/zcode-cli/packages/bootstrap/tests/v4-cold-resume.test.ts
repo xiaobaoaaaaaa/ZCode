@@ -1329,6 +1329,98 @@ describe("v4 冷恢复（集成：真 sqlite + server + binder）", () => {
     return { server, store };
   }
 
+  it("按工作区集中读取冷事项的最后可见回复，不创建运行会话", async () => {
+    const dbPath = join(tempRoot, "assistant-preview.db");
+    await seedPersistedSession(dbPath);
+    const created: ZCodeAppOptions[] = [];
+    const { server, store } = await bootRestartedServer(dbPath, [], undefined, created);
+    const query = (id: string, workspaceId: string, includeAssistantPreview?: true) =>
+      requestResult(server, {
+        id,
+        method: V4_METHODS.sessionsIndexReconcile,
+        params: { workspaceId, sessionIds: [SESSION_ID], includeAssistantPreview },
+      });
+    try {
+      expect(await query("preview", WORKSPACE_PATH, true)).toMatchObject({
+        sessions: [{ exists: true, lastAssistantPreview: "历史回答二" }],
+      });
+      expect(await query("other", "/other", true)).toMatchObject({ sessions: [{ exists: false }] });
+      expect(JSON.stringify(await query("metadata", WORKSPACE_PATH))).not.toContain(
+        "lastAssistantPreview",
+      );
+      const target = "msg_cold_user_2" as MessageId;
+      await store.setRevert({
+        sessionID: SESSION_ID,
+        revert: {
+          messageID: target,
+          kind: "conversation_rewind",
+          scope: "conversation",
+          targetMessageID: target,
+          branchCutAfterMessageID: "msg_cold_assistant_2" as MessageId,
+          keptMessageIDs: ["msg_cold_user_1" as MessageId, "msg_cold_assistant_1" as MessageId],
+          branchGeneration: 1,
+        },
+      });
+      expect(await query("rewound", WORKSPACE_PATH, true)).toMatchObject({
+        sessions: [{ exists: true, lastAssistantPreview: "历史回答一" }],
+      });
+      expect(created).toHaveLength(0);
+    } finally {
+      store.close();
+    }
+  });
+
+  it.each([false, true])(
+    "cold worker dispatch rechecks deletion (%s) before accepting input",
+    async (deleted) => {
+      const dbPath = join(tempRoot, "assistant-dispatch.db");
+      await seedPersistedSession(dbPath);
+      const sent: Array<{ text: string }> = [];
+      const created: ZCodeAppOptions[] = [];
+      const { server, store } = await bootRestartedServer(dbPath, sent, undefined, created);
+      const workspace = { workspaceKey: WORKSPACE_PATH, workspacePath: WORKSPACE_PATH };
+      try {
+        if (deleted) await store.softDeleteSession(SESSION_ID);
+        const ready = requestResult(server, {
+          id: "worker-ready",
+          method: zcodeProtocolMethods.sessionLifecycleEnsureReady,
+          params: { sessionId: SESSION_ID, workspace },
+        });
+        if (deleted) {
+          await expect(ready).rejects.toThrow();
+          expect(created).toHaveLength(0);
+          expect(sent).toEqual([]);
+          expect((await store.getSession(SESSION_ID))?.time.deleted).toBeDefined();
+          return;
+        }
+        await ready;
+        const ack = await requestResult(server, {
+          id: "send-worker",
+          method: V4_METHODS.command,
+          params: {
+            sessionId: SESSION_ID,
+            commandId: "assistant-followup",
+            clientId: "workspace-assistant",
+            type: "sendText",
+            payload: {
+              text: "next",
+              requestedDelivery: "queue",
+              heldQueueDisposition: "keepQueueAndSend",
+            },
+            issuedAt: Date.now(),
+            workspace,
+          },
+        });
+        expect(ack).toMatchObject({ status: "accepted", result: { type: "inputAccepted" } });
+        await vi.waitFor(() =>
+          expect(sent).toContainEqual(expect.objectContaining({ text: "next" })),
+        );
+      } finally {
+        store.close();
+      }
+    },
+  );
+
   it.each(["restart", "ensureReady"] as const)(
     "冷打开的启动读取未返回时 %s 共享生命周期并最终完成",
     async (operation) => {

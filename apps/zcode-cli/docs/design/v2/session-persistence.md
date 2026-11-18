@@ -695,3 +695,7 @@ interface SessionStore {
 - `0025_session_permanent_deletion` 保留已发布 SQL 与 checksum。已记账的数据库继续校验后跳过；未记账但已有部分或全部同版结构时，`apply` 仅补缺失的表、索引和触发器，保留现有数据与删除凭据，再由原迁移事务记账。此守卫不改写已有同名对象，也不修复不兼容的表结构。
 - 顺序为准入 → 释放空闲 runtime → 删除私有文件 → 删除 owned tree 数据行 → 标记完成 → 移除 Host 索引。任一步失败保留凭据，用户重试继续清理；无法把部分删除的会话恢复为普通会话。完成后同 ID 不能重建。
 - 独立 fork 保留；仍被保留会话引用的附件文件留下，原对话正文继续删除。已发布分享、工作目录、导出、备份与系统日志不联动。不承诺磁盘取证级擦除。
+
+### 桌面工作区助手的冷结果摘要
+
+工作区助手可在 `sessionsIndex/reconcile` 请求设置 `includeAssistantPreview: true`。每批至多 8 项。所属 workspace 及删除状态校验通过后，CLI 从有效分支取最后可见的助手正文片段，返回至多 120 字的 `lastAssistantPreview`。已回退会话按 `keptMessageIDs` 与分支截点过滤；普通会话先读消息尾窗。冷读取只需存储连接。普通索引对账沿用原元数据读取。

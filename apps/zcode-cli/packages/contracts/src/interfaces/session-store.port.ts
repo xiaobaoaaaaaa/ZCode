@@ -1276,7 +1276,7 @@ export interface SessionStorePort {
     sessionID: SessionId;
     messageID: MessageId;
   }): Promise<MessageWithParts | null>;
-  messages(input: { sessionID: SessionId }): Promise<MessageWithParts[]>;
+  messages(input: { sessionID: SessionId; tail?: number }): Promise<MessageWithParts[]>;
   /** 冷启动命令去重只读取持久标识，避免把整个会话的工具输出和附件载入内存。 */
   readMessageCommandIds?(
     sessionID: SessionId,

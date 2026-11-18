@@ -1,5 +1,43 @@
 /** Russian translations（缺失 key 由 IntlProvider 回退到 en-US） */
 const ruRU: Record<string, string> = {
+  "workspaceAssistant.earlier": "Предыдущие сообщения",
+  "workspaceAssistant.details": "Подробности ошибки",
+  "workspaceAssistant.error.model-unavailable":
+    "Настройте доступную модель для этой рабочей области.",
+  "workspaceAssistant.error.invalid-decision":
+    "Модель вернула некорректное решение о направлении запроса.",
+  "workspaceAssistant.error.deleted": "Задача удалена.",
+  "workspaceAssistant.error.unavailable": "Не удалось проверить состояние исходной задачи.",
+  "workspaceAssistant.error.invalid-target":
+    "Выбранная задача не относится к этой рабочей области.",
+  "workspaceAssistant.error.unconfirmed-input": "Не удалось подтвердить приём запроса задачей.",
+  "workspaceAssistant.error.unknown-task": "Поручение не найдено.",
+  "workspaceAssistant.error.input-conflict":
+    "Этот идентификатор запроса уже связан с другим содержимым.",
+  "workspaceAssistant.previous": "Предыдущая страница",
+  "workspaceAssistant.next": "Следующая страница",
+  "workspaceAssistant.title": "Ассистент рабочей области",
+  "workspaceAssistant.empty": "Задайте вопрос или опишите работу, которую хотите начать.",
+  "workspaceAssistant.prompt": "Сообщение ассистенту…",
+  "workspaceAssistant.send": "Отправить",
+  "workspaceAssistant.sending": "Запрос обрабатывается…",
+  "workspaceAssistant.items": "Поручения",
+  "workspaceAssistant.open": "Открыть задачу",
+  "workspaceAssistant.continue": "Продолжить",
+  "workspaceAssistant.clearTarget": "Снять выбор задачи",
+  "workspaceAssistant.retry": "Повторить",
+  "workspaceAssistant.refresh": "Обновить",
+  "workspaceAssistant.readError": "Не удалось получить последние изменения.",
+  "workspaceAssistant.sendError": "Не удалось подтвердить запрос.",
+  "workspaceAssistant.loading": "Загрузка переписки…",
+  "workspaceAssistant.status.loading": "Проверка состояния…",
+  "workspaceAssistant.status.running": "В работе",
+  "workspaceAssistant.status.waiting": "Требуется внимание",
+  "workspaceAssistant.status.completed": "Завершено",
+  "workspaceAssistant.status.interrupted": "Прервано",
+  "workspaceAssistant.status.failed": "Ошибка",
+  "workspaceAssistant.status.unavailable": "Состояние недоступно",
+  "workspaceAssistant.status.deleted": "Удалено",
   "plugin.discovery.installAndEnable": "Установить и включить в этой рабочей области",
   "plugin.discovery.enableInWorkspace": "Включить в этой рабочей области",
   "plugin.discovery.workspaceInstall":
