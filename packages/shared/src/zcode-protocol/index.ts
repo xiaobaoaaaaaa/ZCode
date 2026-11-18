@@ -504,6 +504,7 @@ export const zcodeProtocolMessageSchema = z.union([
 export type ZCodeProtocolMessage = z.infer<typeof zcodeProtocolMessageSchema>;
 
 export const zcodeProtocolNotifications = {
+  workspaceGenerateTextProgress: "workspace/generateTextProgress",
   pluginStartupDegraded: "startup/pluginsDegraded",
   storageStartup: "startup/storageState",
   providerRuntimeHeadersCancelled: "interaction/providerRuntimeHeadersCancelled",
@@ -2592,6 +2593,17 @@ const zcodeWorkspaceModelToolSchema = z
   })
   .strict();
 
+export const zcodeWorkspaceGenerateTextProgressSchema = z.strictObject({
+  toolActivity: z
+    .strictObject({ name: nonEmptyString, status: z.enum(["running", "completed", "failed"]) })
+    .optional(),
+  operationId: nonEmptyString,
+  text: z.string(),
+  reasoning: z.string(),
+});
+export type ZCodeWorkspaceGenerateTextProgress = z.infer<
+  typeof zcodeWorkspaceGenerateTextProgressSchema
+>;
 export const zcodeWorkspaceGenerateTextParamsSchema = z
   .object({
     workspace: zcodeWorkspaceRefSchema,
@@ -2602,6 +2614,7 @@ export const zcodeWorkspaceGenerateTextParamsSchema = z
     querySource: nonEmptyString,
     maxOutputTokens: z.number().int().positive().optional(),
     operationId: nonEmptyString.optional(),
+    streamProgress: z.literal(true).optional(),
   })
   .strict()
   .refine((value) => value.prompt !== undefined || value.messages !== undefined, {
@@ -2609,6 +2622,7 @@ export const zcodeWorkspaceGenerateTextParamsSchema = z
   });
 export const zcodeWorkspaceGenerateTextResultSchema = z
   .object({
+    reasoning: z.string().optional(),
     text: z.string(),
     selection: modelSelectionSchema,
     toolCalls: z.array(zcodeWorkspaceModelToolCallSchema).optional(),
@@ -4352,6 +4366,15 @@ export type SessionLifecycleOperation = z.infer<typeof sessionLifecycleOperation
 export type SessionLifecycleFailure = z.infer<typeof sessionLifecycleFailureSchema>;
 export type SessionLifecycleSnapshot = z.infer<typeof sessionLifecycleSnapshotSchema>;
 
+export const workspaceAssistantMailSchema = z.strictObject({
+  assistantIntent: z.enum(["question", "update"]).optional(),
+  sessionId: z.string().min(1),
+  callId: z.string().min(1).max(512),
+  turnId: z.string().min(1),
+  text: z.string().trim().min(1).max(20000),
+});
+export type WorkspaceAssistantMail = z.infer<typeof workspaceAssistantMailSchema>;
+export const workspaceAssistantMailAckSchema = z.strictObject({ accepted: z.literal(true) });
 export const zcodeProtocolMethods = {
   appControlListProjects: appControlProtocol.listProjects.method,
   appControlListSessions: appControlProtocol.listSessions.method,
@@ -4484,6 +4507,7 @@ export const zcodeProtocolMethods = {
   pluginsMentionItems: "plugins/mentionItems",
   automationCreate: "automation/create",
   topicResourceRead: "topic/resource/read",
+  workspaceAssistantMail: "workspaceAssistant/mail",
   channelReply: "bot/channel/reply",
   topicResourceCancel: "topic/resource/cancel",
   automationUpdate: "automation/update",

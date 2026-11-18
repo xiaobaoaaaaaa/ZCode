@@ -177,6 +177,10 @@ export interface ZCodeProtocolAgentServerContext {
   sessionRequestCounts?: Map<string, number>;
   /** context 组成修订号的唯一 owner（context-composition/tracker.ts），首次使用时创建。 */
   contextCompositionTracker?: import("./context-composition/tracker.js").ContextCompositionRevisionTracker;
+  workspaceAssistantSessions?: Map<
+    string,
+    import("./workspace-model-runtime.js").WorkspaceAssistantSlot
+  >;
   sessions: Map<string, ZCodeProtocolSessionRecord>;
   /** 仅覆盖异步创建窗口，结束即释放；输入命令仍由 CommandInbox 排队。 */
   sessionCreationIds?: Set<string>;

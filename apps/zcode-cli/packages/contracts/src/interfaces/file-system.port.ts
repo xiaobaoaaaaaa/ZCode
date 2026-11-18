@@ -212,6 +212,8 @@ export interface FileSystemListDirectoryResult {
 }
 
 export interface FileSystemSearchFilesRequest {
+  /** Trusted absolute subtree to omit while traversing a scoped workspace search. */
+  excludedDirectory?: string;
   /** Normalized absolute directory path. Relative paths are resolved by the tool layer. */
   path: string;
   /** Glob pattern relative to path unless the adapter documents additional support. */
@@ -233,6 +235,8 @@ export interface FileSystemSearchFilesResult {
 export type FileSystemTextSearchOutputMode = "content" | "files_with_matches" | "count";
 
 export interface FileSystemSearchTextRequest {
+  /** Trusted absolute subtree to omit while traversing a scoped workspace search. */
+  excludedDirectory?: string;
   /** Normalized absolute file or directory path. Relative paths are resolved by the tool layer. */
   path: string;
   pattern: string;

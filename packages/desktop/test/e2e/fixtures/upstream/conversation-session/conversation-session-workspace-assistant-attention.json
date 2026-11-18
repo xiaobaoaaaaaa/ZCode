@@ -120,6 +120,26 @@
         "statusCode": 200,
         "text": "WA_HUMAN_CONFIRMED"
       }
+    },
+    {
+      "id": "wa-attention-report",
+      "description": "根据真实普通任务的输出和原始委托在助手对话中生成总结。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "根据真实普通任务的输出和原始委托在助手对话中生成总结。"
+      },
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["Workspace assistant reporter", "E2E_WA_ATTENTION"],
+        "bodyExcludes": []
+      },
+      "response": {
+        "statusCode": 200,
+        "text": "WA_ATTENTION_SUMMARY"
+      }
     }
   ]
 }

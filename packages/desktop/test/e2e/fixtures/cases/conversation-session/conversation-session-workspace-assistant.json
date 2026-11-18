@@ -1,13 +1,27 @@
 {
   "version": 1,
-  "caseName": "conversation-session-workspace-assistant",
   "spec": "./test/e2e/conversation-session/session-control/conversation-session-workspace-assistant.test.ts",
+  "caseName": "conversation-session-workspace-assistant",
   "providerFixtures": [
     "./test/e2e/fixtures/upstream/common.json",
     "./test/e2e/fixtures/upstream/conversation-session/conversation-session-workspace-assistant.json"
   ],
   "fileFixtures": [],
   "requests": [
+    {
+      "id": "wa-reporter-diff",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "根据真实普通任务的输出和原始委托在助手对话中生成总结。"
+    },
+    {
+      "id": "wa-reporter",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "根据真实普通任务的输出和原始委托在助手对话中生成总结。"
+    },
     {
       "id": "wa-title",
       "kind": "common",

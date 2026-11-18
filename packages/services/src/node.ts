@@ -500,7 +500,7 @@ import { createZCodeSessionService } from "./zcode-session/zcodeSessionService.j
 import { createZCodeTaskIndexSyncer } from "./zcode-agent/zcodeTaskIndexSyncer.js";
 import { TaskIndexRepo } from "./session/taskIndexRepo.js";
 import { AutomationRepo } from "#src/session/automationRepo.js";
-import type { AppSettings } from "@zcode/shared";
+import { isRemoteWorkspaceIdentity, type AppSettings } from "@zcode/shared";
 import { createBotsService } from "./bots/botsService.js";
 import { BotsRepo } from "#src/bots/repo.js";
 import {
@@ -770,6 +770,7 @@ const providerProvisioningTriggerDisposers = new WeakMap<
   readonly (() => void)[]
 >();
 // 自动归档定时扫描器不是 IPC 服务，随 services 释放时停掉定时器与设置监听。
+const workspaceAssistantDisposers = new WeakMap<ServiceCollection, () => void>();
 const taskAutoArchiveDisposers = new WeakMap<ServiceCollection, () => void>();
 // TaskIndexRepo / OffPeakTaskRepo 等各自持有 tasks-index.sqlite 的连接句柄；
 // dispose 链必须统一关闭：Windows 上句柄悬着会让宿主回收后临时目录 rm 撞 EBUSY
@@ -2389,6 +2390,7 @@ export function createLocalServices(options: {
     workspaceIdentity: undefined,
   });
   let appControlService: AppControlService | undefined;
+  let assistantMailbox: ReturnType<typeof createWorkspaceAssistantService>["mailbox"] | undefined;
   // 受管 worktree 的删除租约：worktree 服务取得，Agent 服务与终端服务据此拒绝新操作（§8.3）。
   // 租约只在本 Host 内生效，前提是一台机器只有一个本地 Host：应用持有单实例锁，主窗口只经
   // primaryWindowCoordinator 创建并复用已有窗口，renderer 刷新复用原 Host。以后支持多个主窗口时，
@@ -2411,6 +2413,18 @@ export function createLocalServices(options: {
         },
         operation,
       ),
+    receiveAssistantMail: async (workspace, mail) => {
+      if (
+        !assistantMailbox ||
+        workspace.remoteSessionId ||
+        isRemoteWorkspaceIdentity(workspace.workspaceIdentity ?? "")
+      )
+        throw new Error("workspace-assistant.unavailable");
+      await assistantMailbox.receive(
+        { workspaceIdentity: workspace.workspaceIdentity, workspacePath: workspace.workspacePath },
+        mail,
+      );
+    },
     resolveAppControlService: () => appControlService,
     appControlSourceServerId: options?.projectStorageHostId ?? "local",
     useSharedTaskRuntime: async (target) => {
@@ -3339,15 +3353,23 @@ export function createLocalServices(options: {
     .register(ICodexSubscriptionService, codexSubscription.service)
     .register(IModelSelectionService, providerRuntime.modelSelection);
   if (options.workspaceAssistantEnabled && !isDesktopAttachedRemote) {
-    services.register(
-      IWorkspaceAssistantService,
-      createWorkspaceAssistantService({
-        database: () => taskIndexRepo.getOrganizationDatabase(),
-        index: zcodeTaskIndexSyncer,
-        agent: zcodeAgentService,
-        models: providerRuntime.modelSelection,
-      }),
-    );
+    const assistant = createWorkspaceAssistantService({
+      database: () => taskIndexRepo.getOrganizationDatabase(),
+      index: zcodeTaskIndexSyncer,
+      agent: zcodeAgentService,
+      models: providerRuntime.modelSelection,
+    });
+    assistantMailbox = assistant.mailbox;
+    services.register(IWorkspaceAssistantService, assistant.service);
+    workspaceAssistantDisposers.set(services, assistant.mailbox.dispose);
+    void assistant.mailbox
+      .recover()
+      .catch(() =>
+        createServiceLogger("WorkspaceAssistant").warn(
+          undefined,
+          "Could not recover pending worker messages",
+        ),
+      );
   }
   if (isDesktopAttachedRemote || options.providerProvisioningTargetEnabled === true) {
     services.register(
@@ -3502,6 +3524,8 @@ export function disposeServiceResources(services: ServiceCollection): void {
   for (const dispose of providerProvisioningTriggerDisposers.get(services) ?? []) dispose();
   providerProvisioningTriggerDisposers.delete(services);
   providerProvisioningSources.delete(services);
+  workspaceAssistantDisposers.get(services)?.();
+  workspaceAssistantDisposers.delete(services);
   taskAutoArchiveDisposers.get(services)?.();
   taskAutoArchiveDisposers.delete(services);
   managedHostApiNetworkTransports.get(services)?.dispose();
@@ -3547,6 +3571,8 @@ export async function disposeServiceResourcesAndWait(services: ServiceCollection
   for (const dispose of providerProvisioningTriggerDisposers.get(services) ?? []) dispose();
   providerProvisioningTriggerDisposers.delete(services);
   providerProvisioningSources.delete(services);
+  workspaceAssistantDisposers.get(services)?.();
+  workspaceAssistantDisposers.delete(services);
   taskAutoArchiveDisposers.get(services)?.();
   taskAutoArchiveDisposers.delete(services);
   await managedHostApiNetworkTransports

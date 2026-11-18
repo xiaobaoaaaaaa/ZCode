@@ -10,7 +10,7 @@ import {
 import { ZCodeStorageStartupGate } from "#src/zcode-agent/zcodeStorageStartupGate.js";
 import { Emitter } from "@zcode/rpc";
 import { zcodePluginStartupDegradedSchema, zcodeProtocolNotifications } from "@zcode/shared";
-import type { IDisposable } from "@zcode/rpc";
+import type { Event, IDisposable } from "@zcode/rpc";
 import type {
   ZCodeProtocolMethod,
   ZCodeProtocolNotification,
@@ -57,6 +57,8 @@ interface ZCodeProtocolClientRequestOptions {
   signal?: AbortSignal;
   trace?: ZCodeProtocolTrace;
   timeoutMs?: number;
+  /** 只有调用方已绑定同一协议 operation 的进度事件才可续期。 */
+  timeoutActivity?: Event<void>;
 }
 
 export const DEFAULT_ZCODE_PROTOCOL_REQUEST_TIMEOUT_MS = 3 * 60_000;
@@ -283,6 +285,15 @@ export class ZCodeProtocolClient implements IDisposable {
         resultSchema,
         cleanupAbort: () => options?.signal?.removeEventListener("abort", abortHandler),
       };
+      if (options?.timeoutActivity) {
+        const progress = options.timeoutActivity(() => {
+          if (!this.storageStartup.isWaiting) pending.timeout.refresh();
+        });
+        pending.cleanupAbort = () => {
+          options.signal?.removeEventListener("abort", abortHandler);
+          progress.dispose();
+        };
+      }
       this.pending.set(requestKey, pending as PendingRequest<unknown>);
       if (options?.signal?.aborted) {
         abortHandler();

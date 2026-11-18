@@ -47,17 +47,20 @@ export function initializeRuntimeTooling(
 
 function registerRuntimeBuiltInTools(runtime: AgentRuntimeInternal, deps: AgentRuntimeDeps): void {
   const nodeReplEnabled = runtime.config.runtimeFeatures?.nodeRepl === true;
-  runtime.sessionControlKind = sessionControlForRuntime(
+  const sessionControl = sessionControlForRuntime(
     deps.sessionControl,
     runtime.config.taskType,
     runtime.sessionId,
-  )?.kind;
+  );
+  runtime.sessionControlKind = sessionControl?.kind;
   const browserUseEnabled = resolveRuntimeBrowserUseEnabled(runtime, deps);
   registerBuiltInTools(runtime.registry, {
     bashTimeoutPolicy: runtime.config.bashTimeoutPolicy,
     includeSkill: Boolean(runtime.skillPort),
     includeAgent: Boolean(runtime.subagentPort),
-    includeSendMessage: runtime.subagentPort?.sendMessage !== undefined,
+    includeSendMessage:
+      runtime.subagentPort?.sendMessage !== undefined ||
+      (sessionControl?.kind === "app" && Boolean(sessionControl.sendAssistantMessage)),
     includeRespondToCoordinator:
       runtime.config.taskType === "subagent_child" && Boolean(deps.coordinatorResponsePort),
     // submit_result 只在注入了 workflowSubmitPort 的 workflow actor 会话注册。以端口存在为门，
@@ -101,6 +104,8 @@ function createRuntimeHookRunner(
   deps: AgentRuntimeDeps,
   sessionId: SessionId,
 ): HookRunner | undefined {
+  // 原生会话还可从受信任的工作区快照装配 hooks。助手查询不得间接执行其中的脚本。
+  if (runtime.config.workspaceAssistantReadScope) return undefined;
   let hookRunner =
     deps.hookRunner ??
     ((runtime.config.hooks?.enabled || deps.workspaceHookSnapshot) && deps.executionPort
@@ -242,6 +247,12 @@ function createRuntimeToolExecutor(
     remoteSessionId: runtime.config.remoteSessionId,
     clientMode: runtime.config.clientMode,
     deliveryKind: runtime.config.deliveryKind,
+    workspaceAssistantReadScope: runtime.config.workspaceAssistantReadScope
+      ? {
+          cliStorageRoot: runtime.config.memory?.cliStorageRoot,
+          memoryRoot: resolveEnabledProjectMemoryRoot(runtime.config, runtime.workspaceRoot),
+        }
+      : undefined,
     getMemoryRoot: () =>
       deps.memoryRoot ?? resolveEnabledProjectMemoryRoot(runtime.config, runtime.workspaceRoot),
     runtimeScope: runtime.config.taskType === "subagent_child" ? "subagent" : "main",

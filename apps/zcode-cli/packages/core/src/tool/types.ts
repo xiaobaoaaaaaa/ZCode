@@ -1,3 +1,4 @@
+import type { AssistantReadScope } from "./path-policy.js";
 import type { ToolSearchExecutionContext, ModelCallWrapper } from "@zcode/contracts";
 import type { SessionControlBinding } from "./session-control/contract.js";
 import type { McpToolUiDescriptor } from "@zcode/shared/mcp-apps";
@@ -221,6 +222,7 @@ export interface ToolExecutionContext {
   clientMode?: "desktop-continuous" | "web-remote-replayable";
   deliveryKind?: "desktop-continuous" | "web-remote-replayable";
   memoryRoot?: string;
+  workspaceAssistantReadScope?: AssistantReadScope;
   runtimeScope?: ToolRuntimeScope;
   providerVisibleToolNames?: readonly string[];
   sessionId: SessionId;

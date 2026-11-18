@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "caseName": "conversation-session-workspace-assistant-stream",
+  "spec": "./test/e2e/conversation-session/session-control/conversation-session-workspace-assistant-stream.test.ts",
+  "providerFixtures": [
+    "./test/e2e/fixtures/upstream/common.json",
+    "./test/e2e/fixtures/upstream/conversation-session/conversation-session-workspace-assistant-stream.json"
+  ],
+  "fileFixtures": [],
+  "requests": [
+    {
+      "id": "wa8-direct-stream",
+      "kind": "main",
+      "timingPolicy": "controlled-stream",
+      "source": "synthetic",
+      "syntheticReason": "在正文尚不构成完整 JSON 时控制模型流，验收实时思考、正文和最终结算。"
+    }
+  ]
+}

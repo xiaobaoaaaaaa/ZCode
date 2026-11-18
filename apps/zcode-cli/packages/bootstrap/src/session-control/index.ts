@@ -5,6 +5,9 @@ import {
   type AppTrustedContext,
 } from "@zcode/session-control/contracts";
 import {
+  zcodeProtocolMethods,
+  workspaceAssistantMailAckSchema,
+  workspaceAssistantMailSchema,
   appControlCancelMethod,
   appControlCancelResultSchema,
   appControlProtocol,
@@ -116,5 +119,24 @@ export function createAppSessionControlBinding(
     setSessionPinned: (ctx, input) =>
       call("setSessionPinned", ctx, input) as ReturnType<AppSessionControl["setSessionPinned"]>,
   };
-  return { kind: "app", control, context };
+  return {
+    kind: "app",
+    control,
+    context,
+    async sendAssistantMessage(callId, turnId, text, assistantIntent, signal) {
+      const params = workspaceAssistantMailSchema.parse({
+        sessionId: options.sessionId,
+        callId,
+        turnId,
+        text,
+        assistantIntent,
+      });
+      await options.requestClient(
+        zcodeProtocolMethods.workspaceAssistantMail,
+        params,
+        workspaceAssistantMailAckSchema,
+        { signal },
+      );
+    },
+  };
 }

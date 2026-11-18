@@ -2,6 +2,17 @@ import { codexSubscriptionMessagesEn as codexSubscriptionMessages } from "@/code
 import { requestSecurityMessagesEnUS } from "@/request-security-edition/messages.js";
 /** English translations */
 const enUS: Record<string, string> = {
+  "workspaceAssistant.worker": "Message from task",
+  "workspaceAssistant.reply": "Assistant reply to task",
+  "workspaceAssistant.newOptions":
+    "Model and reasoning apply to the assistant and new tasks. Permissions apply to new tasks.",
+  "workspaceAssistant.targetOptions": "Follow-ups use the original task’s model and permissions.",
+  "workspaceAssistant.batchReport": "Overall findings",
+  "workspaceAssistant.report": "Task report",
+  "workspaceAssistant.scopeError": "Couldn’t read the project settings.",
+  "workspaceAssistant.scopeLoading": "Waiting for project settings…",
+  "workspaceAssistant.selectModel": "Select an available model and reasoning level to send.",
+  "workspaceAssistant.tooLong": "Messages can contain up to 32,000 characters.",
   "workspaceAssistant.earlier": "Earlier messages",
   "workspaceAssistant.details": "Error details",
   "workspaceAssistant.error.model-unavailable": "Configure an available model for this workspace.",
@@ -30,6 +41,7 @@ const enUS: Record<string, string> = {
   "workspaceAssistant.loading": "Loading conversation…",
   "workspaceAssistant.status.loading": "Checking status…",
   "workspaceAssistant.status.running": "Running",
+  "workspaceAssistant.status.waiting_dependency": "Waiting for another task",
   "workspaceAssistant.status.waiting": "Needs attention",
   "workspaceAssistant.status.completed": "Completed",
   "workspaceAssistant.status.interrupted": "Interrupted",

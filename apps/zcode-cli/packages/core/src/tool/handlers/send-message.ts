@@ -40,6 +40,33 @@ const SEND_MESSAGE_TOOL_OUTPUT_SCHEMA = {
 const sendMessageHandler: ToolHandler = async (input, context) => {
   const parsed = SendMessageRuntimeInputSchema.parse(input) as SendMessageInput;
 
+  if (parsed.to === "workspace-assistant") {
+    const binding = context.sessionControl;
+    if (
+      binding?.kind !== "app" ||
+      !binding.sendAssistantMessage ||
+      binding.context().rootSession.sessionId !== context.sessionId ||
+      !context.turnId
+    )
+      throw new Error("Workspace assistant messaging requires a delegated desktop task");
+    await binding.sendAssistantMessage(
+      context.toolCallId,
+      context.turnId,
+      parsed.message,
+      parsed.assistantIntent,
+      context.abortSignal,
+    );
+    return {
+      status: "success",
+      messageId: context.toolCallId,
+      delivery: "queued",
+      // 真机中执行者曾在同一轮重复询问同一依赖。收件回执明确区分单向进度与自动唤醒。
+      message:
+        parsed.assistantIntent === "update"
+          ? "Workspace assistant received the message. This progress update needs no reply."
+          : "Workspace assistant received the message. If awaiting information, finish this turn now. The reply will resume this task automatically. Do not poll or repeat this question.",
+    };
+  }
   if (!context.subagentPort?.sendMessage) {
     throw createCoreError(
       CoreErrorType.ConfigurationError,

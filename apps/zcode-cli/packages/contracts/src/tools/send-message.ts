@@ -16,7 +16,15 @@ export const SendMessageInputSchema = z
       .string()
       .min(1)
       .max(200)
-      .describe("Recipient: local agent ID returned by Agent (format agent_<uuid>)."),
+      .describe(
+        "Recipient: a local agent ID returned by Agent, or workspace-assistant when the current task was delegated by the workspace assistant.",
+      ),
+    assistantIntent: z
+      .enum(["question", "update"])
+      .optional()
+      .describe(
+        "Only for workspace-assistant. Use question when a reply is needed, or update to report progress without resuming this task.",
+      ),
     summary: z
       .string()
       .max(SEND_MESSAGE_MAX_SUMMARY_CHARS)
@@ -49,6 +57,8 @@ export const SendMessageRuntimeInputSchema = SendMessageInputSchema.extend({
         ? `${dropTrailingHighSurrogate(summary.slice(0, SEND_MESSAGE_MAX_SUMMARY_CHARS - 1))}${SEND_MESSAGE_SUMMARY_ELLIPSIS}`
         : summary,
     ),
+}).refine((input) => !input.assistantIntent || input.to === "workspace-assistant", {
+  message: "assistantIntent requires the workspace-assistant recipient",
 });
 
 export const SendMessageOutputSchema = z

@@ -14,7 +14,11 @@ import {
   type GlobOutput,
   type TraceContext,
 } from "@zcode/contracts";
-import { resolveToolWorkingDirectory, resolveWorkspacePath } from "../path-policy.js";
+import {
+  resolveToolWorkingDirectory,
+  resolveWorkspacePath,
+  scopeAssistantReadPath,
+} from "../path-policy.js";
 import type { ToolEntry, ToolHandler } from "../types.js";
 
 const MAX_GLOB_RESULTS = 100;
@@ -40,7 +44,7 @@ export const globHandler: ToolHandler = async (input, context) => {
     );
   }
 
-  const searchPath = path
+  const requestedPath = path
     ? resolveWorkspacePath({
         inputPath: path,
         operation: "read",
@@ -52,10 +56,18 @@ export const globHandler: ToolHandler = async (input, context) => {
         workingDirectory: context.workingDirectory,
         workspaceRoot: context.workspaceRoot,
       });
+  const { path: searchPath, excludedDirectory } = context.workspaceAssistantReadScope
+    ? await scopeAssistantReadPath(
+        context.workspaceAssistantReadScope,
+        context.workspaceRoot,
+        requestedPath,
+      )
+    : { path: requestedPath, excludedDirectory: undefined };
 
   const result = await fileSystemPort.searchFiles(
     {
       path: searchPath,
+      ...(excludedDirectory ? { excludedDirectory } : {}),
       pattern,
       maxResults: MAX_GLOB_RESULTS,
       trace: {

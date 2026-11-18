@@ -4,7 +4,7 @@
  */
 export const workspaceAssistantUiModule = {
   id: "workspace-assistant-ui",
-  requires: ["project-sidebar", "ui"],
+  requires: ["conversation-user-input-presentation", "project-sidebar", "shared", "ui"],
   provides: ["workspace-assistant-ui"],
   publicEntrypoints: ["index.ts", "contract.ts"],
 } as const;

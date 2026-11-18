@@ -1,5 +1,16 @@
 /** Japanese translations（缺失 key 由 IntlProvider 回退到 en-US） */
 const jaJP: Record<string, string> = {
+  "workspaceAssistant.worker": "タスクからのメッセージ",
+  "workspaceAssistant.reply": "タスクへの返信",
+  "workspaceAssistant.newOptions":
+    "モデルと推論レベルはアシスタントと新規タスクに、権限は新規タスクに適用されます。",
+  "workspaceAssistant.targetOptions": "続きの作業には元のタスクのモデルと権限を使用します。",
+  "workspaceAssistant.batchReport": "全体のまとめ",
+  "workspaceAssistant.report": "タスクからの報告",
+  "workspaceAssistant.scopeError": "プロジェクト設定を読み込めませんでした。",
+  "workspaceAssistant.scopeLoading": "プロジェクト設定を待機中…",
+  "workspaceAssistant.selectModel": "使用可能なモデルと推論レベルを選択してください。",
+  "workspaceAssistant.tooLong": "1 件のメッセージは 32,000 文字までです。",
   "workspaceAssistant.earlier": "以前のメッセージを表示",
   "workspaceAssistant.details": "エラーの詳細",
   "workspaceAssistant.error.model-unavailable":
@@ -29,6 +40,7 @@ const jaJP: Record<string, string> = {
   "workspaceAssistant.loading": "会話を読み込み中…",
   "workspaceAssistant.status.loading": "状態を確認中…",
   "workspaceAssistant.status.running": "実行中",
+  "workspaceAssistant.status.waiting_dependency": "他のタスクを待機中",
   "workspaceAssistant.status.waiting": "要対応",
   "workspaceAssistant.status.completed": "完了",
   "workspaceAssistant.status.interrupted": "中断",

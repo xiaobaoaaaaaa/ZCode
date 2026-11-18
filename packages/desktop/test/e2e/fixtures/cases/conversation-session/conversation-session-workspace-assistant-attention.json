@@ -35,6 +35,13 @@
       "timingPolicy": "fast-text",
       "source": "synthetic",
       "syntheticReason": "该响应只证明问答回答已被 agent 消费，核心断言在 UI 是否保留用户可见记录。"
+    },
+    {
+      "id": "wa-attention-report",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "根据真实普通任务的输出和原始委托在助手对话中生成总结。"
     }
   ]
 }

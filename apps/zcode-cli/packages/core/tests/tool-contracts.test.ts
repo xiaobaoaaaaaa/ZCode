@@ -328,6 +328,52 @@ describe("tool contract declarations", () => {
     }
   });
 
+  it("delivers workspace assistant messages through the bound app session", async () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    const result = await sendMessageToolEntry.handler(
+      {
+        to: "workspace-assistant",
+        assistantIntent: "question",
+        message: "Which interface should I implement?",
+      },
+      {
+        sessionId: "worker-a",
+        toolCallId: "call-1",
+        turnId: "turn-1",
+        sessionControl: {
+          kind: "app",
+          context: () => ({ rootSession: { sessionId: "worker-a" } }),
+          sendAssistantMessage: send,
+        },
+      } as unknown as Parameters<typeof sendMessageToolEntry.handler>[1],
+    );
+    expect(send).toHaveBeenCalledWith(
+      "call-1",
+      "turn-1",
+      "Which interface should I implement?",
+      "question",
+      undefined,
+    );
+    expect(result).toMatchObject({ status: "success", delivery: "queued" });
+  });
+
+  it("rejects assistant mail from an unrelated root session", async () => {
+    const send = vi.fn();
+    await expect(
+      sendMessageToolEntry.handler({ to: "workspace-assistant", message: "hello" }, {
+        sessionId: "unrelated",
+        turnId: "turn-1",
+        toolCallId: "test",
+        sessionControl: {
+          kind: "app",
+          context: () => ({ rootSession: { sessionId: "delegated" } }),
+          sendAssistantMessage: send,
+        },
+      } as unknown as Parameters<typeof sendMessageToolEntry.handler>[1]),
+    ).rejects.toThrow("delegated desktop task");
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it("matches the SendMessage prompt for the supported local-agent subset", () => {
     const registry = createToolRegistry();
     registerBuiltInTools(registry, { includeSendMessage: true });
@@ -338,7 +384,7 @@ describe("tool contract declarations", () => {
     expect(getSchemaPath(contract?.inputSchema, ["required"])).toEqual(["to", "message"]);
     expect(getSchemaPath(contract?.inputSchema, ["additionalProperties"])).toBe(false);
     expect(getSchemaPath(contract?.inputSchema, ["properties", "to", "description"])).toBe(
-      "Recipient: local agent ID returned by Agent (format agent_<uuid>).",
+      "Recipient: a local agent ID returned by Agent, or workspace-assistant when the current task was delegated by the workspace assistant.",
     );
     expect(getSchemaPath(contract?.inputSchema, ["properties", "summary"])).toEqual({
       description:

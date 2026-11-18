@@ -539,6 +539,7 @@ export class ZCodeProtocolAgentServer {
   disposeProjections(): void {
     this.context.v4Gateway?.dispose();
     this.context.sessions.clear();
+    this.context.workspaceAssistantSessions?.clear();
   }
 
   /** 一次性取走某 request 的 post-response messages；重复 take 返回空数组。 */

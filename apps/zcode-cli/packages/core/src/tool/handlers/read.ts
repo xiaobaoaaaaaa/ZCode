@@ -33,7 +33,7 @@ import {
   type FileSystemStatResult,
   type TraceContext,
 } from "@zcode/contracts";
-import { resolveWorkspacePath } from "../path-policy.js";
+import { resolveWorkspacePath, scopeAssistantReadPath } from "../path-policy.js";
 import {
   findLatestReadFileState,
   normalizeReadFileStateMtimeMs,
@@ -174,12 +174,22 @@ export const readHandler: ToolHandler = async (input, context) => {
     );
   }
 
-  const filePath = resolveWorkspacePath({
+  const requestedPath = resolveWorkspacePath({
     inputPath: file_path,
     operation: "read",
     workingDirectory: context.workingDirectory,
     workspaceRoot: context.workspaceRoot,
   });
+
+  const filePath = context.workspaceAssistantReadScope
+    ? (
+        await scopeAssistantReadPath(
+          context.workspaceAssistantReadScope,
+          context.workspaceRoot,
+          requestedPath,
+        )
+      ).path
+    : requestedPath;
 
   try {
     const imageMime = inferImageMimeFromPath(filePath);

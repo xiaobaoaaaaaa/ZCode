@@ -4,7 +4,7 @@
  */
 export const workspaceAssistantModule = {
   id: "workspace-assistant",
-  requires: ["services", "shared"],
+  requires: ["services", "shared", "rpc"],
   provides: ["workspace-assistant"],
   publicEntrypoints: ["index.ts", "contract.ts"],
 } as const;

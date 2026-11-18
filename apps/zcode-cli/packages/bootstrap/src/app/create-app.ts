@@ -484,7 +484,10 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
         maxOutputBytes: runtimeConfig.hooks?.maxOutputBytes ?? 32_768,
       },
       sessionId,
-      snapshot: configResult.sources.project.workspaceHookSnapshot,
+      // 只读助手的原生回合不安装工作区脚本及其审核流程。
+      snapshot: runtimeConfig.workspaceAssistantReadScope
+        ? undefined
+        : configResult.sources.project.workspaceHookSnapshot,
       userConfigPath: configResult.sources.user.path,
       workingDirectory,
       ...(options.workspaceHookReviewHost

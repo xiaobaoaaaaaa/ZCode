@@ -1,5 +1,16 @@
 /** Russian translations（缺失 key 由 IntlProvider 回退到 en-US） */
 const ruRU: Record<string, string> = {
+  "workspaceAssistant.worker": "Сообщение от задачи",
+  "workspaceAssistant.reply": "Ответ ассистента задаче",
+  "workspaceAssistant.newOptions":
+    "Модель и уровень рассуждения применяются к ассистенту и новым задачам. Права действуют для новых задач.",
+  "workspaceAssistant.targetOptions": "Продолжение использует модель и права исходной задачи.",
+  "workspaceAssistant.batchReport": "Общие выводы",
+  "workspaceAssistant.report": "Отчёт задачи",
+  "workspaceAssistant.scopeError": "Не удалось загрузить настройки проекта.",
+  "workspaceAssistant.scopeLoading": "Ожидание настроек проекта…",
+  "workspaceAssistant.selectModel": "Выберите доступную модель и уровень рассуждения.",
+  "workspaceAssistant.tooLong": "Длина сообщения не может превышать 32 000 символов.",
   "workspaceAssistant.earlier": "Предыдущие сообщения",
   "workspaceAssistant.details": "Подробности ошибки",
   "workspaceAssistant.error.model-unavailable":
@@ -32,6 +43,7 @@ const ruRU: Record<string, string> = {
   "workspaceAssistant.loading": "Загрузка переписки…",
   "workspaceAssistant.status.loading": "Проверка состояния…",
   "workspaceAssistant.status.running": "В работе",
+  "workspaceAssistant.status.waiting_dependency": "Ожидает другую задачу",
   "workspaceAssistant.status.waiting": "Требуется внимание",
   "workspaceAssistant.status.completed": "Завершено",
   "workspaceAssistant.status.interrupted": "Прервано",

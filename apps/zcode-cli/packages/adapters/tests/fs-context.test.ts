@@ -433,6 +433,35 @@ describe("Node file and context adapters", () => {
     }
   });
 
+  it.each(["ripgrep", "javascript"] as const)(
+    "omits the scoped project-memory subtree in %s and Glob",
+    async (textSearchEngine) => {
+      const dir = await mkdtemp(join(tmpdir(), "zcode-scoped-search-"));
+      try {
+        const excluded = join(dir, "profiles [local]", "memory");
+        await mkdir(excluded, { recursive: true });
+        const ordinary = join(dir, "visible.md");
+        await Promise.all([
+          writeFile(ordinary, "sample"),
+          writeFile(join(excluded, "private.md"), "sample"),
+        ]);
+        const fs = createNodeFileSystemAdapter({ textSearchEngine });
+        const options = { path: dir, excludedDirectory: excluded };
+        const files = await fs.searchFiles({ ...options, pattern: "**/*" });
+        const content = await fs.searchText({
+          ...options,
+          pattern: "sample",
+          glob: "**/*.md",
+          outputMode: "content",
+        });
+        expect(files.files).toEqual([ordinary]);
+        expect(content.entries.map((entry) => entry.path)).toEqual([ordinary]);
+      } finally {
+        await rm(dir, { force: true, recursive: true });
+      }
+    },
+  );
+
   it("searches files and text through FileSystemPort", async () => {
     const dir = await mkdtemp(join(tmpdir(), "zcode-fs-search-"));
     const fs = createNodeFileSystemAdapter();

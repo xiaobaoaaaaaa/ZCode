@@ -695,7 +695,7 @@ reasoning/thinking provider options，避免用户当前会话的高推理档位
 开关，GLM-5.2 等明确支持 `none` 的 effort-only 模型写入 canonical
 `reasoningEffort=none`；不得只删除 effort，也不得重新合成 `extra_body`。
 
-桌面工作区助手使用 `querySource = "workspace_assistant_router"`，将协调规则和工作区上下文作为 system / user 消息发送。路由请求不注册工具，沿用辅助调用的最低公开推理档与模型支持范围内的输出预算。普通委托会话沿用用户的模型选项。
+桌面工作区助手的协调、回报和答疑沿用原生会话 submitPrompt 与工具循环。前台按工作区继续原生历史，后台工作使用独立回合；Host 以 workspace/generateTextProgress 接收原生 ModelStreaming 正文与思考快照。助手前台在计划模式下通过只读工具查阅当前工作区与已启用的项目记忆。回报和依赖答复使用对应委托的执行证据。各次请求使用选定模型的思考档位，可返回提供商提供的思考文本。普通委托会话沿用用户的模型选项。
 
 关键事件：
 

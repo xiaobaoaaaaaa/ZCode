@@ -194,11 +194,24 @@ CREATE TABLE tasks (
 
 CREATE TABLE "tasks_schema_migration" (id text primary key, checksum text not null,  "time_applied" integer not null);
 
+CREATE TABLE workspace_assistant_batch_items (
+  workspace_key TEXT NOT NULL, input_id TEXT NOT NULL, ordinal INTEGER NOT NULL,
+  task_id TEXT NOT NULL, accepted INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY(workspace_key,input_id,ordinal), UNIQUE(workspace_key,task_id)
+);
+
 CREATE TABLE workspace_assistant_inputs (
         workspace_key TEXT NOT NULL, input_id TEXT NOT NULL, text TEXT NOT NULL,
-        target_id TEXT, project_id TEXT, decision TEXT, assigned_id TEXT, settled INTEGER NOT NULL DEFAULT 0,
+        target_id TEXT, project_id TEXT, decision TEXT, assigned_id TEXT, settled INTEGER NOT NULL DEFAULT 0, preferences TEXT,
         PRIMARY KEY(workspace_key,input_id)
       );
+
+CREATE TABLE workspace_assistant_mail (
+  workspace_key TEXT NOT NULL, event_id TEXT NOT NULL, task_id TEXT NOT NULL,
+  after_input INTEGER NOT NULL, kind TEXT NOT NULL, body TEXT NOT NULL,
+  response TEXT, waiting_for TEXT, delivered INTEGER NOT NULL DEFAULT 0, attempts INTEGER NOT NULL DEFAULT 0, retry_at INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY(workspace_key,event_id)
+);
 
 CREATE INDEX idx_automation_runs_by_automation
       ON automation_runs (automation_id, created_at DESC);
@@ -249,6 +262,10 @@ CREATE INDEX idx_tasks_workspace_archived_updated
 CREATE INDEX idx_tasks_workspace_pinned_updated
       ON tasks (workspace_key, pinned, updated_at DESC)
       WHERE deleted = 0;
+
+CREATE INDEX idx_workspace_assistant_assigned ON workspace_assistant_inputs(workspace_key,assigned_id) WHERE assigned_id IS NOT NULL;
+
+CREATE INDEX idx_workspace_assistant_pending ON workspace_assistant_mail(workspace_key,kind,task_id) WHERE delivered=0;
 
 CREATE TRIGGER task_purge_insert_guard BEFORE INSERT ON tasks
       WHEN EXISTS(SELECT 1 FROM task_purge WHERE workspace_key=new.workspace_key AND task_id=new.task_id AND state='deleted')

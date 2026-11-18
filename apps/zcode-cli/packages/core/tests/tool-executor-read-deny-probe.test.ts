@@ -1,3 +1,9 @@
+import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { globToolEntry } from "../src/tool/handlers/glob.js";
+import { grepToolEntry } from "../src/tool/handlers/grep.js";
+import { resolveProjectMemoryRoot } from "../src/memory/project-root.js";
 import { describe, expect, it, vi } from "vitest";
 import {
   createRootTraceContext,
@@ -211,4 +217,80 @@ describe("compaction restore under a Read deny rule written as a relative path",
       ]);
     },
   );
+});
+
+describe("workspace assistant native Plan tools", () => {
+  it("bounds all native read tools after resolving directory links and honors disabled project memory", async () => {
+    const base = await mkdtemp(join(tmpdir(), "zcode-assistant-scope-"));
+    try {
+      const workspaceRoot = join(base, "workspace");
+      const outside = join(base, "other");
+      const storage = join(workspaceRoot, "profile");
+      const memory = resolveProjectMemoryRoot({
+        cliStorageRoot: storage,
+        workspacePath: workspaceRoot,
+      });
+      await Promise.all([mkdir(memory, { recursive: true }), mkdir(outside)]);
+      const files = {
+        [join(workspaceRoot, "sample.txt")]: "local",
+        [join(memory, "fact.md")]: "remembered",
+        [join(outside, "other.txt")]: "other",
+      };
+      await Promise.all(Object.entries(files).map(([path, value]) => writeFile(path, value)));
+      await symlink(
+        outside,
+        join(workspaceRoot, "outside-alias"),
+        process.platform === "win32" ? "junction" : "dir",
+      );
+      const registry = createToolRegistry();
+      for (const entry of [readToolEntry, globToolEntry, grepToolEntry]) registry.register(entry);
+      const fileSystemPort = new MemoryFileSystem(files);
+      const createScoped = (memoryRoot?: string) =>
+        createToolExecutor({
+          registry,
+          sessionId: createSessionId("assistant-read-scope"),
+          fileSystemPort,
+          workingDirectory: workspaceRoot,
+          workspaceRoot,
+          permissionService: new PermissionService(defaultPermissionConfig),
+          mode: "plan",
+          emitEvent: async () => {},
+          workspaceAssistantReadScope: { cliStorageRoot: storage, memoryRoot },
+        });
+      const disabled = createScoped();
+      const enabled = createScoped(memory);
+      for (const [name, input] of [
+        ["Read", { file_path: join(workspaceRoot, "outside-alias", "other.txt") }],
+        ["Glob", { pattern: "**/*", path: join(workspaceRoot, "outside-alias") }],
+        ["Grep", { pattern: "other", path: join(workspaceRoot, "outside-alias") }],
+        ["Read", { file_path: join(memory, "fact.md") }],
+        ["Glob", { pattern: "**/*", path: memory }],
+        ["Grep", { pattern: "remembered", path: memory }],
+      ] as const) {
+        const result = await disabled.execute({
+          id: createToolCallId("bounded-" + name),
+          name,
+          input,
+        });
+        expect(result).toMatchObject({
+          success: false,
+          error: { message: expect.stringContaining("outside the workspace") },
+        });
+      }
+      expect(fileSystemPort.readRequests).toEqual([]);
+      for (const [executor, target] of [
+        [enabled, join(memory, "fact.md")],
+        [disabled, join(workspaceRoot, "sample.txt")],
+      ] as const) {
+        const result = await executor.execute({
+          id: createToolCallId("permitted-read"),
+          name: "Read",
+          input: { file_path: target },
+        });
+        expect(result.success).toBe(true);
+      }
+    } finally {
+      await rm(base, { force: true, recursive: true });
+    }
+  });
 });

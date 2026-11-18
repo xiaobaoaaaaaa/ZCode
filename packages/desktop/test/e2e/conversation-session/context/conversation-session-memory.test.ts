@@ -1,6 +1,6 @@
-import { createHash } from "node:crypto";
+import { resolveE2EProjectMemoryRoot } from "#e2e/helpers/project-memory";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { basename, dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import {
   TID_SETTINGS_BACK_BUTTON,
   TID_SETTINGS_MEMORY_COUNT,
@@ -85,7 +85,7 @@ const MEMORY_ENABLED_MAIN_FIXTURES = [
 ] as const;
 const PROFILE_NAME = "memory-window-curator";
 
-const PROJECT_MEMORY_ROOT = resolveProjectMemoryRoot(DEFAULT_WORKSPACE);
+const PROJECT_MEMORY_ROOT = resolveE2EProjectMemoryRoot(DEFAULT_WORKSPACE);
 const PROJECT_MEMORY_INDEX = join(PROJECT_MEMORY_ROOT, "MEMORY.md");
 const EXISTING_FILE = join(PROJECT_MEMORY_ROOT, "database-test-policy.md");
 const EXTRACTED_FILE = join(PROJECT_MEMORY_ROOT, "deployment-approval-policy.md");
@@ -671,26 +671,6 @@ Review and preserve durable collaboration guidance.
     join(CUSTOM_MEMORY_ROOT, "MEMORY.md"),
     "- [Review convention](review-convention.md): Keep review findings evidence-first.\n",
     "utf8",
-  );
-}
-
-function resolveProjectMemoryRoot(workspacePath: string) {
-  const normalizedWorkspace = resolve(workspacePath);
-  const key =
-    process.platform === "win32" ? normalizedWorkspace.toLowerCase() : normalizedWorkspace;
-  const hash = createHash("sha256").update(key).digest("hex").slice(0, 16);
-  const slug = basename(normalizedWorkspace)
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/gu, "-")
-    .replace(/^-+|-+$/gu, "")
-    .slice(0, 48);
-  return join(
-    getE2EAppDataPaths().storageRoot,
-    "cli",
-    "memories",
-    "projects",
-    `${slug || "project"}-${hash}`,
-    "memory",
   );
 }
 

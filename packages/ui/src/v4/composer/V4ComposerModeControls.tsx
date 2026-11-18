@@ -51,6 +51,8 @@ function V4ComposerModeSwitchImpl({
   activeConfigPicker,
   onConfigPickerOpenChange,
   onSwitchMode,
+  planMode = "optional",
+  inputTestId = TID_V4_COMPOSER_INPUT,
 }: Pick<
   V4ComposerToolbarProps,
   | "workspacePath"
@@ -61,7 +63,7 @@ function V4ComposerModeSwitchImpl({
   | "activeConfigPicker"
   | "onConfigPickerOpenChange"
   | "onSwitchMode"
->) {
+> & { planMode?: "optional" | "fixed"; inputTestId?: string }) {
   const { intl } = useZCodeIntl();
   // 原草稿回调随 scope 换代，旧确认不能把权限写入后来选中的任务。
   const confirmMode = useYoloModeConfirmation(disabled ? null : onSwitchMode, draftConfig?.mode);
@@ -153,28 +155,30 @@ function V4ComposerModeSwitchImpl({
           onCloseAutoFocus={(event) => {
             event.preventDefault();
             if (!useConfirmDialogStore.getState().pendingRequest && !isCoarseTouchDevice())
-              document
-                .querySelector<HTMLElement>(`[data-testid="${TID_V4_COMPOSER_INPUT}"]`)
-                ?.focus();
+              document.querySelector<HTMLElement>(`[data-testid="${inputTestId}"]`)?.focus();
           }}
         >
-          <DropdownMenuCheckboxItem
-            checked={draftConfig?.planEnabled ?? false}
-            onCheckedChange={(checked) => onSwitchMode(checked ? "plan" : "plan-off")}
-            data-testid={testId(TID_CHAT_MODE_SELECT_ITEM, "plan")}
-            className="min-h-13 items-start gap-3 py-2"
-          >
-            <LightbulbIcon className="mt-0.5 size-4.5 shrink-0" />
-            <span className="flex min-w-0 flex-col gap-0.5">
-              <span>{planLabel}</span>
-              {planDescriptionId && (
-                <span className="text-ui-sm text-foreground-subtle">
-                  {intl.formatMessage({ id: planDescriptionId })}
+          {planMode === "optional" && (
+            <>
+              <DropdownMenuCheckboxItem
+                checked={draftConfig?.planEnabled ?? false}
+                onCheckedChange={(checked) => onSwitchMode(checked ? "plan" : "plan-off")}
+                data-testid={testId(TID_CHAT_MODE_SELECT_ITEM, "plan")}
+                className="min-h-13 items-start gap-3 py-2"
+              >
+                <LightbulbIcon className="mt-0.5 size-4.5 shrink-0" />
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span>{planLabel}</span>
+                  {planDescriptionId && (
+                    <span className="text-ui-sm text-foreground-subtle">
+                      {intl.formatMessage({ id: planDescriptionId })}
+                    </span>
+                  )}
                 </span>
-              )}
-            </span>
-          </DropdownMenuCheckboxItem>
-          <DropdownMenuSeparator />
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
           <DropdownMenuRadioGroup value={selected.id} onValueChange={requestSwitchMode}>
             {permissions.map((mode) => {
               const ModeIcon = resolveModeOptionIcon(mode.id);
@@ -203,31 +207,38 @@ function V4ComposerModeSwitchImpl({
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
-      {draftConfig?.planEnabled && (
+      {(planMode === "fixed" || draftConfig?.planEnabled) && (
         <span data-testid="v4-composer-plan-marker" className="flex items-center gap-1">
           <span
             role="separator"
             aria-orientation="vertical"
             className="h-3 w-px shrink-0 bg-border"
           />
-          <ControlHintTooltip title={intl.formatMessage({ id: "chat.plan.removeMarker" })}>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={disabled}
-              data-composer-collapse-priority="2"
-              onClick={() => onSwitchMode("plan-off")}
-              aria-label={intl.formatMessage({ id: "chat.plan.removeMarker" })}
-              className="group/plan h-7 gap-1 rounded-lg px-2 text-ui-base text-foreground-subtle hover:text-foreground-subtle data-[composer-compact=true]:w-7 data-[composer-compact=true]:px-0"
-            >
-              <LightbulbIcon className="size-4 group-hover/plan:hidden group-focus-visible/plan:hidden" />
-              <XIcon className="hidden size-4 group-hover/plan:block group-focus-visible/plan:block" />
-              <span className="inline group-data-[composer-compact=true]/plan:hidden">
-                {intl.formatMessage({ id: "mode.plan" })}
-              </span>
-            </Button>
-          </ControlHintTooltip>
+          {planMode === "fixed" ? (
+            <span className="inline-flex h-7 items-center gap-1 px-2 text-ui-base text-foreground-subtle">
+              <LightbulbIcon className="size-4" />
+              {intl.formatMessage({ id: "mode.plan" })}
+            </span>
+          ) : (
+            <ControlHintTooltip title={intl.formatMessage({ id: "chat.plan.removeMarker" })}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={disabled}
+                data-composer-collapse-priority="2"
+                onClick={() => onSwitchMode("plan-off")}
+                aria-label={intl.formatMessage({ id: "chat.plan.removeMarker" })}
+                className="group/plan h-7 gap-1 rounded-lg px-2 text-ui-base text-foreground-subtle hover:text-foreground-subtle data-[composer-compact=true]:w-7 data-[composer-compact=true]:px-0"
+              >
+                <LightbulbIcon className="size-4 group-hover/plan:hidden group-focus-visible/plan:hidden" />
+                <XIcon className="hidden size-4 group-hover/plan:block group-focus-visible/plan:block" />
+                <span className="inline group-data-[composer-compact=true]/plan:hidden">
+                  {intl.formatMessage({ id: "mode.plan" })}
+                </span>
+              </Button>
+            </ControlHintTooltip>
+          )}
         </span>
       )}
     </div>

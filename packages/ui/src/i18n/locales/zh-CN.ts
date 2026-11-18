@@ -2,6 +2,16 @@ import { codexSubscriptionMessagesZh as codexSubscriptionMessages } from "@/code
 import { requestSecurityMessagesZhCN } from "@/request-security-edition/messages.js";
 /** 中文翻译 */
 const zhCN: Record<string, string> = {
+  "workspaceAssistant.worker": "任务来信",
+  "workspaceAssistant.reply": "助手回复任务",
+  "workspaceAssistant.newOptions": "模型和思考强度用于助手与新任务，权限用于新任务。",
+  "workspaceAssistant.targetOptions": "追问会沿用原任务的模型和权限。",
+  "workspaceAssistant.batchReport": "整体结论",
+  "workspaceAssistant.report": "任务回报",
+  "workspaceAssistant.scopeError": "无法读取项目设置。",
+  "workspaceAssistant.scopeLoading": "正在等待项目设置就绪…",
+  "workspaceAssistant.selectModel": "请选择可用的模型和思考强度后发送。",
+  "workspaceAssistant.tooLong": "每条消息最多 32,000 个字符。",
   "workspaceAssistant.earlier": "查看更早消息",
   "workspaceAssistant.details": "错误详情",
   "workspaceAssistant.error.model-unavailable": "请在工作区配置可用的模型。",
@@ -30,6 +40,7 @@ const zhCN: Record<string, string> = {
   "workspaceAssistant.loading": "正在读取对话…",
   "workspaceAssistant.status.loading": "正在读取状态…",
   "workspaceAssistant.status.running": "运行中",
+  "workspaceAssistant.status.waiting_dependency": "等待其他任务",
   "workspaceAssistant.status.waiting": "需要处理",
   "workspaceAssistant.status.completed": "已完成",
   "workspaceAssistant.status.interrupted": "已中断",

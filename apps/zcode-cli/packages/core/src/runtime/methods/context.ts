@@ -1,3 +1,4 @@
+import { scopeAssistantReadPath } from "../../tool/path-policy.js";
 import { join } from "node:path";
 
 import { CONTEXT_SOURCE_INSTRUCTIONS_READ_FAILED } from "@zcode/contracts";
@@ -174,7 +175,10 @@ export function createContextBuilderFromSnapshot(
     agentProfiles: this.config.subagents?.profiles,
     embeddedSearchEnabled: resolveRuntimeEmbeddedSearchEnabled(this),
     skillMetadataBudget: this.config.skillMetadataBudget,
-    customSystemPrompt: this.config.systemPrompt,
+    customSystemPrompt:
+      this.config.workspaceAssistantReadScope && this.config.systemPrompt && memoryRoot
+        ? `${this.config.systemPrompt}\n\nEnabled project memory directory (read-only): ${JSON.stringify(memoryRoot)}. Use Glob to discover saved files here and Read to examine relevant entries. A missing directory means there are no saved entries.`
+        : this.config.systemPrompt,
     workflowActor: this.config.workflowActor,
     language: this.config.language,
     outputStyle: this.config.outputStyle,
@@ -202,7 +206,9 @@ export async function loadProjectMemoryRoot(
     });
     return undefined;
   }
-  await ensureMemoryDirectoryExists(this.fileSystemPort, memoryRoot, traceContext, this.logger);
+  if (!this.config.workspaceAssistantReadScope) {
+    await ensureMemoryDirectoryExists(this.fileSystemPort, memoryRoot, traceContext, this.logger);
+  }
   return memoryRoot;
 }
 
@@ -237,7 +243,17 @@ async function readProjectMemoryIndex(
   if (!fileSystemPort || !memoryRoot) return {};
   const indexPath = join(memoryRoot, MEMORY_INDEX_FILE_NAME);
   try {
-    const read = await fileSystemPort.readTextFile({ path: indexPath });
+    // 隐式索引注入与显式 Read 使用同一真实路径边界，不能跟随索引链接读取其他资料。
+    const source = runtime.config.workspaceAssistantReadScope
+      ? (
+          await scopeAssistantReadPath(
+            { cliStorageRoot: runtime.config.memory?.cliStorageRoot, memoryRoot },
+            undefined,
+            indexPath,
+          )
+        ).path
+      : indexPath;
+    const read = await fileSystemPort.readTextFile({ path: source });
     const formattedContent = formatProjectMemoryIndexContent(read.content);
     if (!formattedContent) return {};
     return {

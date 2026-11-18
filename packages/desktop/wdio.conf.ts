@@ -4462,7 +4462,7 @@ async function seedUpstreamE2EModelConfig(specs: string[] = []) {
   const exposeSubagentReasoningMetadata =
     // 模型配置隔离和 Edit/Fork 继承直接检查请求参数；空映射会吞掉所选档位。
     specs.some((spec) =>
-      /conversation-session-(model-config|model-switch-tool-edit-fork|model-switch-compact|model-switch-auto-compact|goal-session-model|new-session-inherits-model|draft-model-switch-first-send|model-provider-session-isolation|upstream-workspace-smoke|model-switch-edit-fork|model-switch-queue|same-model-provider-identity)\.test\.ts$/.test(
+      /conversation-session-(model-config|model-switch-tool-edit-fork|model-switch-compact|model-switch-auto-compact|goal-session-model|new-session-inherits-model|draft-model-switch-first-send|model-provider-session-isolation|workspace-assistant-composer|upstream-workspace-smoke|model-switch-edit-fork|model-switch-queue|same-model-provider-identity)\.test\.ts$/.test(
         spec,
       ),
     ) ||

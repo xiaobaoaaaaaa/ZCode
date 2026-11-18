@@ -17,7 +17,11 @@ import {
   type GrepOutput,
   type TraceContext,
 } from "@zcode/contracts";
-import { resolveToolWorkingDirectory, resolveWorkspacePath } from "../path-policy.js";
+import {
+  resolveToolWorkingDirectory,
+  resolveWorkspacePath,
+  scopeAssistantReadPath,
+} from "../path-policy.js";
 import type { ToolEntry, ToolHandler } from "../types.js";
 
 const MAX_GREP_MODEL_BYTES = 20_000;
@@ -47,7 +51,7 @@ export const grepHandler: ToolHandler = async (input, context) => {
     );
   }
 
-  const searchPath = parsed.path
+  const requestedPath = parsed.path
     ? resolveWorkspacePath({
         inputPath: parsed.path,
         operation: "read",
@@ -59,6 +63,13 @@ export const grepHandler: ToolHandler = async (input, context) => {
         workingDirectory: context.workingDirectory,
         workspaceRoot: context.workspaceRoot,
       });
+  const { path: searchPath, excludedDirectory } = context.workspaceAssistantReadScope
+    ? await scopeAssistantReadPath(
+        context.workspaceAssistantReadScope,
+        context.workspaceRoot,
+        requestedPath,
+      )
+    : { path: requestedPath, excludedDirectory: undefined };
 
   const contextLines = parsed.context ?? parsed["-C"];
   let result: FileSystemSearchTextResult;
@@ -66,6 +77,7 @@ export const grepHandler: ToolHandler = async (input, context) => {
     result = await fileSystemPort.searchText(
       {
         path: searchPath,
+        ...(excludedDirectory ? { excludedDirectory } : {}),
         pattern: parsed.pattern,
         glob: parsed.glob,
         outputMode: parsed.output_mode,

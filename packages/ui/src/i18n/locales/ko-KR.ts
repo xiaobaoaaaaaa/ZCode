@@ -1,5 +1,16 @@
 /** Korean translations（缺失 key 由 IntlProvider 回退到 en-US） */
 const koKR: Record<string, string> = {
+  "workspaceAssistant.worker": "작업에서 온 메시지",
+  "workspaceAssistant.reply": "작업에 보낸 답장",
+  "workspaceAssistant.newOptions":
+    "모델과 추론 수준은 도우미와 새 작업에, 권한은 새 작업에 적용됩니다.",
+  "workspaceAssistant.targetOptions": "후속 요청에는 원래 작업의 모델과 권한이 적용됩니다.",
+  "workspaceAssistant.batchReport": "종합 결과",
+  "workspaceAssistant.report": "작업 보고",
+  "workspaceAssistant.scopeError": "프로젝트 설정을 읽을 수 없습니다.",
+  "workspaceAssistant.scopeLoading": "프로젝트 설정을 기다리는 중…",
+  "workspaceAssistant.selectModel": "사용 가능한 모델과 추론 수준을 선택하세요.",
+  "workspaceAssistant.tooLong": "메시지는 32,000자까지 입력할 수 있습니다.",
   "workspaceAssistant.earlier": "이전 메시지 보기",
   "workspaceAssistant.details": "오류 상세 정보",
   "workspaceAssistant.error.model-unavailable": "작업 공간에 사용 가능한 모델을 설정하세요.",
@@ -28,6 +39,7 @@ const koKR: Record<string, string> = {
   "workspaceAssistant.loading": "대화 불러오는 중…",
   "workspaceAssistant.status.loading": "상태 확인 중…",
   "workspaceAssistant.status.running": "진행 중",
+  "workspaceAssistant.status.waiting_dependency": "다른 작업 대기 중",
   "workspaceAssistant.status.waiting": "확인 필요",
   "workspaceAssistant.status.completed": "완료",
   "workspaceAssistant.status.interrupted": "중단됨",

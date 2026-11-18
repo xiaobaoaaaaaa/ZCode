@@ -1,0 +1,481 @@
+{
+  "version": 1,
+  "spec": "./test/e2e/conversation-session/session-control/conversation-session-workspace-assistant-mailbox.test.ts",
+  "caseName": "conversation-session-workspace-assistant-mailbox",
+  "fixtures": [
+    {
+      "id": "wa5-final-worker",
+      "description": "用户看到的最终清单来自已经消费两次回投的原执行者。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "用户看到的最终清单来自已经消费两次回投的原执行者。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": [
+          "E2E_WA5_CONSUMER",
+          "toolu_wa5_report",
+          "Workspace assistant received the message",
+          "E2E_WA5_PROGRESS"
+        ],
+        "bodyExcludes": [
+          "Workspace assistant router",
+          "Workspace assistant mailbox",
+          "Workspace assistant reporter",
+          "Workspace assistant dependency",
+          "Generate a concise title"
+        ]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": "E2E_WA5_FINAL_CONSUMER_RESULT"
+      }
+    },
+    {
+      "id": "wa5-targeted-handoff",
+      "description": "依据来源任务的真实结果回答接收方的特定问题。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "依据来源任务的真实结果回答接收方的特定问题。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": [
+          "Workspace assistant dependency",
+          "E2E_WA5_NEED_SOURCE",
+          "E2E_WA5_SOURCE_FINDING",
+          "E2E_WA5_SOURCE_SUMMARY",
+          "E2E_WA5_CONSUMER",
+          "E2E_WA5_SOURCE"
+        ],
+        "bodyExcludes": []
+      },
+      "response": {
+        "statusCode": 200,
+        "text": "E2E_WA5_DEPENDENCY_ANSWER backed by E2E_WA5_SOURCE_FINDING."
+      }
+    },
+    {
+      "id": "wa5-title",
+      "description": "标题旁路返回稳定标签，避免远端依赖。",
+      "metadata": {
+        "kind": "common",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "标题旁路返回稳定标签，避免远端依赖。"
+      },
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["Generate a concise title", "E2E_WA5_"]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": {
+          "id": "wa5-title",
+          "text": "{\"title\": \"Workspace task\"}"
+        }
+      }
+    },
+    {
+      "id": "wa5-source-route",
+      "description": "固定模型回复，验证 Host 和 CLI 的交接、去重及结果归属。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "固定模型回复，验证 Host 和 CLI 的交接、去重及结果归属。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["Workspace assistant router", "E2E_WA5_SOURCE"],
+        "bodyExcludes": [
+          "Workspace assistant reporter",
+          "Workspace assistant mailbox",
+          "Generate a concise title"
+        ]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": "{\"kind\": \"new\", \"title\": \"Release note research\"}"
+      }
+    },
+    {
+      "id": "wa5-source-gate",
+      "description": "工作任务走真实 Host 与 CLI，使用可重复的回复验证结果归属。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "controlled-stream",
+        "source": "synthetic",
+        "syntheticReason": "工作任务走真实 Host 与 CLI，使用可重复的回复验证结果归属。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["E2E_WA5_SOURCE"],
+        "bodyExcludes": [
+          "Workspace assistant router",
+          "Workspace assistant reporter",
+          "Workspace assistant mailbox",
+          "Generate a concise title",
+          "Workspace assistant dependency"
+        ]
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "content-type": "text/event-stream; charset=utf-8"
+        },
+        "chunks": [
+          {
+            "offsetMs": 0,
+            "text": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"wa5-source-gate\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"deepseek-v4-flash\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":80,\"output_tokens\":0}}}\n\n"
+          },
+          {
+            "offsetMs": 0,
+            "text": "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n"
+          },
+          {
+            "offsetMs": 0,
+            "text": "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"E2E_WA5_RESEARCH_RUNNING \"}}\n\n"
+          },
+          {
+            "offsetMs": 0,
+            "text": "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"E2E_WA5_SOURCE_FINDING\"}}\n\n"
+          },
+          {
+            "offsetMs": 0,
+            "text": "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n"
+          },
+          {
+            "offsetMs": 0,
+            "text": "event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"input_tokens\":80,\"output_tokens\":16}}\n\n"
+          },
+          {
+            "offsetMs": 0,
+            "text": "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"
+          }
+        ],
+        "releaseAfterChunks": 3
+      }
+    },
+    {
+      "id": "wa5-consumer-route",
+      "description": "固定模型回复，验证 Host 和 CLI 的交接、去重及结果归属。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "固定模型回复，验证 Host 和 CLI 的交接、去重及结果归属。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["Workspace assistant router", "E2E_WA5_CONSUMER"],
+        "bodyExcludes": [
+          "Workspace assistant reporter",
+          "Workspace assistant mailbox",
+          "Generate a concise title"
+        ]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": "{\"kind\": \"new\", \"title\": \"Review checklist\"}"
+      }
+    },
+    {
+      "id": "wa5-send-wait",
+      "description": "固定模型回复，验证 Host 和 CLI 的交接、去重及结果归属。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "固定模型回复，验证 Host 和 CLI 的交接、去重及结果归属。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["E2E_WA5_CONSUMER"],
+        "bodyExcludes": [
+          "Workspace assistant router",
+          "Workspace assistant reporter",
+          "Workspace assistant mailbox",
+          "Generate a concise title",
+          "toolu_wa5_wait",
+          "Workspace assistant dependency"
+        ]
+      },
+      "response": {
+        "statusCode": 200,
+        "toolUse": {
+          "name": "SendMessage",
+          "id": "toolu_wa5_wait",
+          "input": {
+            "to": "workspace-assistant",
+            "message": "E2E_WA5_NEED_SOURCE",
+            "assistantIntent": "question"
+          }
+        }
+      }
+    },
+    {
+      "id": "wa5-register-dependency",
+      "description": "固定模型回复，验证 Host 和 CLI 的交接、去重及结果归属。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "固定模型回复，验证 Host 和 CLI 的交接、去重及结果归属。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["Workspace assistant mailbox", "E2E_WA5_NEED_SOURCE"],
+        "bodyExcludes": []
+      },
+      "response": {
+        "statusCode": 200,
+        "text": "{\"kind\": \"wait\", \"taskId\": \"{{workspaceAssistantTask:Release note research}}\"}"
+      }
+    },
+    {
+      "id": "wa5-wait-ack",
+      "description": "固定模型回复，验证 Host 和 CLI 的交接、去重及结果归属。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "固定模型回复，验证 Host 和 CLI 的交接、去重及结果归属。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": [
+          "toolu_wa5_wait",
+          "Workspace assistant received the message",
+          "E2E_WA5_CONSUMER"
+        ],
+        "bodyExcludes": [
+          "Workspace assistant router",
+          "Workspace assistant reporter",
+          "Workspace assistant mailbox",
+          "Generate a concise title",
+          "Workspace assistant dependency"
+        ]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": "WA5_WAIT_ACK"
+      }
+    },
+    {
+      "id": "wa5-source-summary",
+      "description": "根据真实普通任务的输出和原始委托在助手对话中生成总结。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "根据真实普通任务的输出和原始委托在助手对话中生成总结。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["Workspace assistant reporter", "E2E_WA5_SOURCE_FINDING"],
+        "bodyExcludes": []
+      },
+      "response": {
+        "statusCode": 200,
+        "text": "E2E_WA5_SOURCE_SUMMARY"
+      }
+    },
+    {
+      "id": "wa5-send-direct",
+      "description": "固定模型回复，验证 Host 和 CLI 的交接、去重及结果归属。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "固定模型回复，验证 Host 和 CLI 的交接、去重及结果归属。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": [
+          "E2E_WA5_CONSUMER",
+          "E2E_WA5_DEPENDENCY_ANSWER",
+          "[Workspace assistant reply]"
+        ],
+        "bodyExcludes": [
+          "Workspace assistant router",
+          "Workspace assistant reporter",
+          "Workspace assistant mailbox",
+          "Generate a concise title",
+          "toolu_wa5_direct",
+          "Workspace assistant dependency"
+        ]
+      },
+      "response": {
+        "statusCode": 200,
+        "toolUse": {
+          "name": "SendMessage",
+          "id": "toolu_wa5_direct",
+          "input": {
+            "to": "workspace-assistant",
+            "message": "E2E_WA5_DIRECT_QUERY",
+            "assistantIntent": "question"
+          }
+        }
+      }
+    },
+    {
+      "id": "wa5-direct-reply",
+      "description": "固定模型回复，验证 Host 和 CLI 的交接、去重及结果归属。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "固定模型回复，验证 Host 和 CLI 的交接、去重及结果归属。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["Workspace assistant mailbox", "E2E_WA5_DIRECT_QUERY"],
+        "bodyExcludes": []
+      },
+      "response": {
+        "statusCode": 200,
+        "text": "{\"kind\": \"reply\", \"text\": \"E2E_WA5_DIRECT_ANSWER\"}"
+      }
+    },
+    {
+      "id": "wa5-direct-ack",
+      "description": "固定模型回复，验证 Host 和 CLI 的交接、去重及结果归属。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "固定模型回复，验证 Host 和 CLI 的交接、去重及结果归属。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": [
+          "toolu_wa5_direct",
+          "Workspace assistant received the message",
+          "E2E_WA5_CONSUMER"
+        ],
+        "bodyExcludes": [
+          "Workspace assistant router",
+          "Workspace assistant reporter",
+          "Workspace assistant mailbox",
+          "Generate a concise title",
+          "Workspace assistant dependency"
+        ]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": "E2E_WA5_DIRECT_ACK"
+      }
+    },
+    {
+      "id": "wa5-consumed",
+      "description": "固定模型回复，验证 Host 和 CLI 的交接、去重及结果归属。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "固定模型回复，验证 Host 和 CLI 的交接、去重及结果归属。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": [
+          "[Workspace assistant reply]",
+          "E2E_WA5_DIRECT_ANSWER",
+          "E2E_WA5_DEPENDENCY_ANSWER",
+          "E2E_WA5_CONSUMER"
+        ],
+        "bodyExcludes": [
+          "Workspace assistant router",
+          "Workspace assistant reporter",
+          "Workspace assistant mailbox",
+          "Generate a concise title",
+          "Workspace assistant dependency"
+        ]
+      },
+      "response": {
+        "statusCode": 200,
+        "toolUse": {
+          "name": "SendMessage",
+          "id": "toolu_wa5_report",
+          "input": {
+            "to": "workspace-assistant",
+            "message": "E2E_WA5_PROGRESS The checklist contains the received evidence.",
+            "assistantIntent": "update"
+          }
+        }
+      }
+    },
+    {
+      "id": "wa5-final-summary",
+      "description": "根据真实普通任务的输出和原始委托在助手对话中生成总结。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "根据真实普通任务的输出和原始委托在助手对话中生成总结。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["Workspace assistant reporter", "E2E_WA5_FINAL_CONSUMER_RESULT"],
+        "bodyExcludes": []
+      },
+      "response": {
+        "statusCode": 200,
+        "text": "WA5_FINAL_SUMMARY"
+      }
+    },
+    {
+      "id": "wa5-other-summary",
+      "description": "根据真实普通任务的输出和原始委托在助手对话中生成总结。",
+      "metadata": {
+        "kind": "common",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "根据真实普通任务的输出和原始委托在助手对话中生成总结。"
+      },
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["Workspace assistant reporter", "E2E_WA5_"],
+        "bodyExcludes": []
+      },
+      "response": {
+        "statusCode": 200,
+        "text": "E2E_WA5_INTERIM_SUMMARY"
+      }
+    }
+  ]
+}

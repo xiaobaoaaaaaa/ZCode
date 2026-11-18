@@ -72,6 +72,7 @@ describe("production protocol session control materialization", () => {
         role: "user",
         time: { created: 1 },
         agent: "build",
+        anchor: { sourceCommandId: "delegation-1" },
         metadata: { source: "fixture" },
       });
       await store.savePart({
@@ -157,6 +158,7 @@ describe("production protocol session control materialization", () => {
       ]);
       expect(readArtifact).toHaveBeenCalledExactlyOnceWith(mediaMetadata.artifactUri);
       expect(parsed.messages[0]?.info).toMatchObject({
+        sourceCommandId: "delegation-1",
         sessionId,
         metadata: { source: "fixture" },
       });

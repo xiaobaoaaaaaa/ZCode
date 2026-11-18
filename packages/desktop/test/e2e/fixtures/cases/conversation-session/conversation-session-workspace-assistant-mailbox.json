@@ -1,0 +1,124 @@
+{
+  "version": 1,
+  "spec": "./test/e2e/conversation-session/session-control/conversation-session-workspace-assistant-mailbox.test.ts",
+  "caseName": "conversation-session-workspace-assistant-mailbox",
+  "providerFixtures": [
+    "./test/e2e/fixtures/upstream/common.json",
+    "./test/e2e/fixtures/upstream/conversation-session/conversation-session-workspace-assistant-mailbox.json"
+  ],
+  "fileFixtures": [],
+  "requests": [
+    {
+      "id": "wa5-final-worker",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "用户看到的最终清单来自已经消费两次回投的原执行者。"
+    },
+    {
+      "id": "wa5-targeted-handoff",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "依据来源任务的真实结果回答接收方的特定问题。"
+    },
+    {
+      "id": "wa5-title",
+      "kind": "common",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "标题旁路返回稳定标签，避免远端依赖。"
+    },
+    {
+      "id": "wa5-source-route",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "固定模型回复，验证 Host 和 CLI 的交接、去重及结果归属。"
+    },
+    {
+      "id": "wa5-source-gate",
+      "kind": "main",
+      "timingPolicy": "controlled-stream",
+      "source": "synthetic",
+      "syntheticReason": "工作任务走真实 Host 与 CLI，使用可重复的回复验证结果归属。"
+    },
+    {
+      "id": "wa5-consumer-route",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "固定模型回复，验证 Host 和 CLI 的交接、去重及结果归属。"
+    },
+    {
+      "id": "wa5-send-wait",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "固定模型回复，验证 Host 和 CLI 的交接、去重及结果归属。"
+    },
+    {
+      "id": "wa5-register-dependency",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "固定模型回复，验证 Host 和 CLI 的交接、去重及结果归属。"
+    },
+    {
+      "id": "wa5-wait-ack",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "固定模型回复，验证 Host 和 CLI 的交接、去重及结果归属。"
+    },
+    {
+      "id": "wa5-source-summary",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "根据真实普通任务的输出和原始委托在助手对话中生成总结。"
+    },
+    {
+      "id": "wa5-send-direct",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "固定模型回复，验证 Host 和 CLI 的交接、去重及结果归属。"
+    },
+    {
+      "id": "wa5-direct-reply",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "固定模型回复，验证 Host 和 CLI 的交接、去重及结果归属。"
+    },
+    {
+      "id": "wa5-direct-ack",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "固定模型回复，验证 Host 和 CLI 的交接、去重及结果归属。"
+    },
+    {
+      "id": "wa5-consumed",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "固定模型回复，验证 Host 和 CLI 的交接、去重及结果归属。"
+    },
+    {
+      "id": "wa5-final-summary",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "根据真实普通任务的输出和原始委托在助手对话中生成总结。"
+    },
+    {
+      "id": "wa5-other-summary",
+      "kind": "common",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "根据真实普通任务的输出和原始委托在助手对话中生成总结。"
+    }
+  ]
+}

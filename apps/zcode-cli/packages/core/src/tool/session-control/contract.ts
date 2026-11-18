@@ -27,4 +27,15 @@ export function sessionControlForRuntime(
 export type SessionControlBinding =
   | { kind: "cli"; control: CliSessionControl; context(): CliTrustedContext }
   // 模型工具只构造会话类调用方（有根会话）；客户端类调用方只由 App Host 构造。
-  | { kind: "app"; control: AppSessionControl; context(): AppSessionTrustedContext };
+  | {
+      kind: "app";
+      sendAssistantMessage?(
+        callId: string,
+        turnId: string,
+        text: string,
+        assistantIntent?: "question" | "update",
+        signal?: AbortSignal,
+      ): Promise<void>;
+      control: AppSessionControl;
+      context(): AppSessionTrustedContext;
+    };

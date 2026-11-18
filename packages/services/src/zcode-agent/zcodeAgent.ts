@@ -101,6 +101,7 @@ import type {
   ZCodeBrowserAmbientContext,
   ZCodeWorkspacePresentation,
   ZCodeWorkspaceGenerateTextResult,
+  ZCodeWorkspaceGenerateTextProgress,
   ZCodeWorkspaceGenerateTextParams,
   ZCodeWorkspaceHookTrustGrantResult,
   ZCodeAutomationBotDeliveryTarget,
@@ -391,6 +392,8 @@ export interface ZCodeAgentSetModeParams extends ZCodeAgentSessionTarget {
 }
 
 export interface ZCodeAgentGenerateWorkspaceTextParams extends ZCodeAgentWorkspaceTarget {
+  /** Host 内部使用，回调与发起请求的具体 CLI client/operationId 绑定。 */
+  onProgress?: (value: Omit<ZCodeWorkspaceGenerateTextProgress, "operationId">) => void;
   selection: ZCodeWorkspaceGenerateTextParams["selection"];
   prompt?: string;
   messages?: ZCodeWorkspaceGenerateTextParams["messages"];

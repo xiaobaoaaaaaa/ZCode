@@ -67,6 +67,25 @@ const workspaceAssistantSql = `
       );
     `;
 
+const workspaceAssistantMailSql = `CREATE TABLE workspace_assistant_mail (
+  workspace_key TEXT NOT NULL, event_id TEXT NOT NULL, task_id TEXT NOT NULL,
+  after_input INTEGER NOT NULL, kind TEXT NOT NULL, body TEXT NOT NULL,
+  response TEXT, waiting_for TEXT, delivered INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY(workspace_key,event_id)
+);`;
+
+const workspaceAssistantBatchSql = `ALTER TABLE workspace_assistant_inputs ADD COLUMN preferences TEXT;
+ALTER TABLE workspace_assistant_mail ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE workspace_assistant_mail ADD COLUMN retry_at INTEGER NOT NULL DEFAULT 0;
+CREATE INDEX idx_workspace_assistant_pending ON workspace_assistant_mail(workspace_key,kind,task_id) WHERE delivered=0;
+CREATE TABLE workspace_assistant_batch_items (
+  workspace_key TEXT NOT NULL, input_id TEXT NOT NULL, ordinal INTEGER NOT NULL,
+  task_id TEXT NOT NULL, accepted INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY(workspace_key,input_id,ordinal), UNIQUE(workspace_key,task_id)
+);
+CREATE INDEX idx_workspace_assistant_assigned ON workspace_assistant_inputs(workspace_key,assigned_id) WHERE assigned_id IS NOT NULL;
+`;
+
 const definitions = [
   {
     id: "0001_adopt_task_schema",
@@ -150,6 +169,22 @@ const definitions = [
     touchedTables: ["workspace_assistant_inputs"],
     checksumInput: [workspaceAssistantSql],
     apply: (db: DatabaseSync) => db.exec(workspaceAssistantSql),
+  },
+  {
+    id: "0009_workspace_assistant_mail",
+    touchedTables: ["workspace_assistant_mail"],
+    checksumInput: [workspaceAssistantMailSql],
+    apply: (db: DatabaseSync) => db.exec(workspaceAssistantMailSql),
+  },
+  {
+    id: "0010_workspace_assistant_batch",
+    touchedTables: [
+      "workspace_assistant_inputs",
+      "workspace_assistant_mail",
+      "workspace_assistant_batch_items",
+    ],
+    checksumInput: [workspaceAssistantBatchSql],
+    apply: (db: DatabaseSync) => db.exec(workspaceAssistantBatchSql),
   },
 ] as const;
 

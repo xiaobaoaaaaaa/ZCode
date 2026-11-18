@@ -10,6 +10,13 @@ export interface AppSessionControlBindingOptions {
 }
 export interface AppSessionControlBinding {
   kind: "app";
+  sendAssistantMessage?(
+    callId: string,
+    turnId: string,
+    text: string,
+    assistantIntent?: "question" | "update",
+    signal?: AbortSignal,
+  ): Promise<void>;
   control: AppSessionControl;
   /** 模型工具是会话类调用方：上下文总带根会话。 */
   context(): AppSessionTrustedContext;

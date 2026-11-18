@@ -6089,6 +6089,121 @@ describe("ZCodeProtocolAgentServer", () => {
     expect(generateWorkspaceText.mock.calls[0]?.[0]).not.toHaveProperty("modelSelection");
   });
 
+  it("runs successive workspace assistant prompts in one native plan session and refreshes its memory permissions", async () => {
+    const submitPrompt = vi.fn(
+      async () =>
+        ({
+          response: "answer",
+          events: [{ type: SessionEventType.TurnComplete, payload: { resultType: "success" } }],
+        }) as never,
+    );
+    const create = vi.fn((options: Parameters<typeof createFakeApp>[0]) =>
+      createFakeApp(options, { submitPrompt }),
+    );
+    const server = new ZCodeProtocolAgentServer({
+      createZCodeApp: create,
+      cwd: workspace.workspacePath,
+    });
+    let memoryEnabled = true;
+    attachSessionRuntimePreferencesResponder(server, () => ({
+      nativeSearchEnhancementsEnabled: true,
+      memoryEnabled,
+    }));
+    const params = {
+      workspace,
+      selection: { providerId: "glm", modelId: "glm-4.6" },
+      prompt: "read the saved decision",
+      querySource: "workspace_assistant_router",
+    };
+    try {
+      await requestResult(server, {
+        id: 1,
+        method: zcodeProtocolMethods.workspaceGenerateText,
+        params,
+      });
+      await requestResult(server, {
+        id: 2,
+        method: zcodeProtocolMethods.workspaceGenerateText,
+        params: { ...params, prompt: "explain your evidence" },
+      });
+      expect(submitPrompt).toHaveBeenCalledTimes(2);
+      expect(create).toHaveBeenCalledTimes(1);
+      expect(create.mock.lastCall?.[0]?.runtimeConfig).toMatchObject({
+        workingDirectory: workspace.workspacePath,
+        mode: "plan",
+        planEnabled: true,
+        toolAllowlist: ["Read", "Glob", "Grep"],
+      });
+      memoryEnabled = false;
+      await requestResult(server, {
+        id: 3,
+        method: zcodeProtocolMethods.workspaceGenerateText,
+        params,
+      });
+      expect(create.mock.lastCall?.[0]?.runtimeConfig?.memory?.enabled).toBe(false);
+      await requestResult(server, {
+        id: 4,
+        method: zcodeProtocolMethods.workspaceGenerateText,
+        params: { ...params, querySource: "workspace_assistant_reporter" },
+      });
+      expect(create.mock.lastCall?.[0]?.runtimeConfig?.toolAllowlist).toEqual([]);
+    } finally {
+      await server.shutdown();
+    }
+  });
+
+  it("protects the assistant cwd during an active native turn and releases it after completion", async () => {
+    const entered = Promise.withResolvers<void>();
+    const finish = Promise.withResolvers<void>();
+    const server = new ZCodeProtocolAgentServer({
+      cwd: workspace.workspacePath,
+      createZCodeApp: (options) =>
+        createFakeApp(options, {
+          submitPrompt: async () => {
+            entered.resolve();
+            await finish.promise;
+            return {
+              response: "answer",
+              events: [{ type: SessionEventType.TurnComplete, payload: { resultType: "success" } }],
+            } as never;
+          },
+        }),
+    });
+    attachSessionRuntimePreferencesResponder(server, () => ({
+      nativeSearchEnhancementsEnabled: false,
+      memoryEnabled: false,
+    }));
+    const params = {
+      workspace,
+      selection: { providerId: "glm", modelId: "glm-4.6" },
+      prompt: "read",
+      querySource: "workspace_assistant_router",
+    };
+    const run = requestResult(server, {
+      id: 1,
+      method: zcodeProtocolMethods.workspaceGenerateText,
+      params,
+    });
+    const release = (id: number) =>
+      requestResult(server, {
+        id,
+        method: zcodeProtocolMethods.sessionReleaseUnderDirectory,
+        params: { directory: workspace.workspacePath },
+      });
+    try {
+      await entered.promise;
+      const busy = (await release(2)) as { busy: string[] };
+      expect(busy.busy).toHaveLength(1);
+      finish.resolve();
+      await run;
+      expect(await release(3)).toEqual({ released: busy.busy, busy: [] });
+      expect(await release(4)).toEqual({ released: [], busy: [] });
+    } finally {
+      finish.resolve();
+      await server.shutdown();
+    }
+  });
+
   it("tests provider connectivity through the selected formal Model", async () => {
     const calls: string[] = [];
     const refreshProviderRegistry = vi.fn(async () => {

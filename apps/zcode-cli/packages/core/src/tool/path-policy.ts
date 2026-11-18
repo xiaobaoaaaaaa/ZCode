@@ -2,8 +2,9 @@
 // Tool Path Policy
 // ============================================================
 
-import { isAbsolute, normalize, resolve } from "node:path";
-import { CoreErrorType, createCoreError } from "@zcode/contracts";
+import { realpath } from "node:fs/promises";
+import { isAbsolute, normalize, relative, resolve, sep } from "node:path";
+import { CoreErrorType, createCoreError, createFileSystemError } from "@zcode/contracts";
 
 interface ToolWorkspacePathOptions {
   inputPath: string;
@@ -73,4 +74,71 @@ function normalizeAbsoluteDirectory(value: string, label: string): string {
     );
   }
   return normalized;
+}
+
+/** 仅用于助手前台的可信执行配置，普通会话继续使用现有路径和权限规则。 */
+export interface AssistantReadScope {
+  cliStorageRoot?: string;
+  memoryRoot?: string;
+}
+
+function containsPath(root: string, target: string): boolean {
+  const child = relative(root, target);
+  return child !== ".." && !child.startsWith(".." + sep) && !isAbsolute(child);
+}
+
+export async function scopeAssistantReadPath(
+  scope: AssistantReadScope,
+  workspaceRoot: string | undefined,
+  requestedPath: string,
+): Promise<{ path: string; excludedDirectory?: string }> {
+  const deny = () =>
+    createCoreError(
+      CoreErrorType.PermissionDenied,
+      "This path is outside the workspace or its enabled project memory.",
+      { recoverable: true },
+    );
+  const [workspace, target, storage] = await Promise.all([
+    workspaceRoot ? realpath(workspaceRoot) : undefined,
+    realpath(requestedPath).catch((cause: NodeJS.ErrnoException) => {
+      if (cause.code === "ENOENT" || cause.code === "ENOTDIR") {
+        throw createFileSystemError({
+          code: "not_found",
+          path: requestedPath,
+          message: "The requested file or directory does not exist.",
+        });
+      }
+      throw deny();
+    }),
+    scope.cliStorageRoot ? realpath(scope.cliStorageRoot).catch(() => undefined) : undefined,
+  ]);
+  // 记忆根目录的路径属于当前 profile 与工作区。根自身的 symlink 也不能改变归属。
+  const library = storage && resolve(storage, "memories", "projects");
+  const physicalLibrary = library && (await realpath(library).catch(() => undefined));
+  const expectedMemory =
+    storage && scope.cliStorageRoot && scope.memoryRoot
+      ? resolve(storage, relative(scope.cliStorageRoot, scope.memoryRoot))
+      : undefined;
+  if (
+    expectedMemory &&
+    library &&
+    containsPath(library, expectedMemory) &&
+    containsPath(expectedMemory, target)
+  ) {
+    return { path: target };
+  }
+  if (
+    !workspace ||
+    !containsPath(workspace, target) ||
+    (scope.cliStorageRoot &&
+      containsPath(resolve(scope.cliStorageRoot, "memories", "projects"), requestedPath)) ||
+    (physicalLibrary && containsPath(physicalLibrary, target))
+  )
+    throw deny();
+  return {
+    path: target,
+    ...(physicalLibrary && containsPath(target, physicalLibrary)
+      ? { excludedDirectory: physicalLibrary }
+      : {}),
+  };
 }

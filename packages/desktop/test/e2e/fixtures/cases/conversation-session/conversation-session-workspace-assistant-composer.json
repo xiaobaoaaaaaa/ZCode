@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "caseName": "conversation-session-workspace-assistant-composer",
+  "spec": "./test/e2e/conversation-session/session-control/conversation-session-workspace-assistant-composer.test.ts",
+  "providerFixtures": [
+    "./test/e2e/fixtures/upstream/common.json",
+    "./test/e2e/fixtures/upstream/conversation-session/conversation-session-workspace-assistant-composer.json"
+  ],
+  "fileFixtures": [],
+  "requests": [
+    {
+      "id": "wa6-ordinary-mode",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "普通会话先接纳一次 build 权限请求，验证助手仍默认使用 guarded。"
+    },
+    {
+      "id": "wa6-selected-router",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "返回真实协议形状的思考块和路由决定，检查新模型选择、思考展示与委托。"
+    },
+    {
+      "id": "wa6-created-task",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "仅匹配使用选中模型的普通任务。"
+    },
+    {
+      "id": "wa6-summary",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "工作区助手总结真实工作项结果。"
+    },
+    {
+      "id": "wa6-title",
+      "kind": "common",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "标题旁路返回稳定标签。"
+    },
+    {
+      "id": "wa6-existing-task",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "消息内继续直达原任务，保留原模型及权限。"
+    },
+    {
+      "id": "wa6-existing-summary",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "定向跟进产生新的委托回报。"
+    }
+  ]
+}

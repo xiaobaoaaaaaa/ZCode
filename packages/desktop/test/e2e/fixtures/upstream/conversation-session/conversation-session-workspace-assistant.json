@@ -4,6 +4,47 @@
   "spec": "./test/e2e/conversation-session/session-control/conversation-session-workspace-assistant.test.ts",
   "fixtures": [
     {
+      "id": "wa-reporter-diff",
+      "description": "根据真实普通任务的输出和原始委托在助手对话中生成总结。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "根据真实普通任务的输出和原始委托在助手对话中生成总结。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["Workspace assistant reporter", "WA_B_RESULT", "E2E_WA_DIFF_WRAP"],
+        "bodyExcludes": []
+      },
+      "response": {
+        "statusCode": 200,
+        "text": "WA_B_SUMMARY"
+      }
+    },
+    {
+      "id": "wa-reporter",
+      "description": "根据真实普通任务的输出和原始委托在助手对话中生成总结。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "根据真实普通任务的输出和原始委托在助手对话中生成总结。"
+      },
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["Workspace assistant reporter", "E2E_WA_"],
+        "bodyExcludes": []
+      },
+      "response": {
+        "statusCode": 200,
+        "text": "WA_TASK_SUMMARY"
+      }
+    },
+    {
       "id": "wa-title",
       "description": "标题旁路返回稳定标签，避免远端依赖。",
       "metadata": {

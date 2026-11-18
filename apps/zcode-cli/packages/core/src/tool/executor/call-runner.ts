@@ -569,6 +569,7 @@ async function executeToolCallImpl(
         clientMode: deps.clientMode,
         deliveryKind: deps.deliveryKind,
         memoryRoot: deps.getMemoryRoot?.(),
+        workspaceAssistantReadScope: deps.workspaceAssistantReadScope,
         runtimeScope: deps.runtimeScope,
         providerVisibleToolNames: deps.registry
           .list()

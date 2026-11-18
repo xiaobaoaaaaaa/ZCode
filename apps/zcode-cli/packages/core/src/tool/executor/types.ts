@@ -1,3 +1,4 @@
+import type { AssistantReadScope } from "../path-policy.js";
 import type { ToolSearchExecutionContext } from "@zcode/contracts";
 import type { SessionControlBinding } from "../session-control/contract.js";
 import type {
@@ -145,6 +146,7 @@ export interface ToolExecutorOptions {
   setWorkingDirectory?: (cwd: string) => Promise<void> | void;
   getWorkspaceRoot?: () => string;
   getMemoryRoot?: () => string | undefined;
+  workspaceAssistantReadScope?: AssistantReadScope;
   traceContext?: TraceContext;
   mode?: CollaborationMode;
   getMode?: () => CollaborationMode;
@@ -276,6 +278,7 @@ export interface ToolExecutorDeps {
   clientMode?: "desktop-continuous" | "web-remote-replayable";
   deliveryKind?: "desktop-continuous" | "web-remote-replayable";
   getMemoryRoot?: () => string | undefined;
+  workspaceAssistantReadScope?: AssistantReadScope;
   runtimeScope: ToolRuntimeScope;
   traceContext?: TraceContext;
   getMode: () => CollaborationMode;

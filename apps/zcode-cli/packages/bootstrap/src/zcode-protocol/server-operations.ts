@@ -130,7 +130,7 @@ import {
   type ZCodeProtocolSessionRecord,
   type ZCodeProtocolToolInputTransmissionState,
 } from "./server-types.js";
-import { createWorkspaceZCodeApp } from "./workspace-model-runtime.js";
+import { createWorkspaceZCodeApp, runWorkspaceAssistantTurn } from "./workspace-model-runtime.js";
 import { buildAppUsageSnapshot, resolveTzOffsetMs } from "./usage-stats-builder.js";
 import { createProtocolInteractionBroker } from "./interaction-broker.js";
 import { createProtocolAutomationPort } from "./automation-port.js";
@@ -3203,9 +3203,17 @@ export async function releaseSessionsUnderDirectory(
   const busy = sessionIds.filter(
     (sessionId) => readSessionBusyState(context, sessionId) === "busy",
   );
+  const assistants = [...(context.workspaceAssistantSessions ?? [])].filter(([, slot]) =>
+    isPathWithin(params.directory, slot.workspacePath),
+  );
+  busy.push(...assistants.filter(([, slot]) => slot.busy).map(([, slot]) => slot.sessionId));
   if (busy.length > 0) return { released: [], busy };
+  for (const [key, slot] of assistants) {
+    context.workspaceAssistantSessions?.delete(key);
+    await slot.session?.app.close?.();
+  }
   for (const sessionId of sessionIds) await deactivateSessionRecord(context, sessionId);
-  return { released: sessionIds, busy: [] };
+  return { released: [...sessionIds, ...assistants.map(([, slot]) => slot.sessionId)], busy: [] };
 }
 
 function isPathWithin(parent: string, candidate: string): boolean {
@@ -3226,6 +3234,26 @@ export async function generateWorkspaceText(
   abortSignal?: AbortSignal,
 ) {
   const params = parseParams(zcodeWorkspaceGenerateTextParamsSchema, rawParams);
+  const assistant = params.querySource.startsWith("workspace_assistant_");
+  const inspect =
+    params.querySource === "workspace_assistant_router" ||
+    params.querySource === "workspace_assistant_mailbox";
+  if (assistant) {
+    const memoryEnabled =
+      inspect &&
+      (await requestSessionRuntimePreferences(
+        context,
+        createSessionId(),
+        "user-execution",
+        undefined,
+        undefined,
+        params.workspace,
+      ).then(
+        (result) => result.memoryEnabled === true,
+        () => false,
+      ));
+    return runWorkspaceAssistantTurn(context, params, inspect, memoryEnabled, abortSignal);
+  }
   const active = Array.from(context.sessions.values()).find(
     (record) => record.workspace.workspaceKey === params.workspace.workspaceKey,
   );

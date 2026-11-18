@@ -1,0 +1,213 @@
+{
+  "version": 1,
+  "caseName": "conversation-session-workspace-assistant-composer",
+  "spec": "./test/e2e/conversation-session/session-control/conversation-session-workspace-assistant-composer.test.ts",
+  "fixtures": [
+    {
+      "id": "wa6-ordinary-mode",
+      "description": "普通会话先接纳一次 build 权限请求，验证助手仍默认使用 guarded。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "普通会话先接纳一次 build 权限请求，验证助手仍默认使用 guarded。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["E2E_WA6_ORDINARY_BUILD"],
+        "bodyExcludes": [
+          "Workspace assistant router",
+          "Workspace assistant reporter",
+          "Generate a concise title"
+        ]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": "WA6_RECENT_MODE"
+      }
+    },
+    {
+      "id": "wa6-selected-router",
+      "description": "返回真实协议形状的思考块和路由决定，检查新模型选择、思考展示与委托。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "返回真实协议形状的思考块和路由决定，检查新模型选择、思考展示与委托。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["Workspace assistant router", "E2E_WA6_SETTINGS", "deepseek-v4-pro"],
+        "bodyExcludes": []
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "content-type": "text/event-stream; charset=utf-8"
+        },
+        "chunks": [
+          {
+            "offsetMs": 0,
+            "text": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"wa6-model\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"deepseek-v4-pro\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":35,\"output_tokens\":0}}}\n\n"
+          },
+          {
+            "offsetMs": 0,
+            "text": "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"\"}}\n\n"
+          },
+          {
+            "offsetMs": 0,
+            "text": "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"WA6_MODEL_REASONING\"}}\n\n"
+          },
+          {
+            "offsetMs": 0,
+            "text": "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"signature_delta\",\"signature\":\"wa6-fixture-signature\"}}\n\n"
+          },
+          {
+            "offsetMs": 0,
+            "text": "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n"
+          },
+          {
+            "offsetMs": 0,
+            "text": "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n"
+          },
+          {
+            "offsetMs": 0,
+            "text": "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"{\\\"kind\\\": \\\"new\\\", \\\"title\\\": \\\"Settings verification\\\"}\"}}\n\n"
+          },
+          {
+            "offsetMs": 0,
+            "text": "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":1}\n\n"
+          },
+          {
+            "offsetMs": 0,
+            "text": "event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":18}}\n\n"
+          },
+          {
+            "offsetMs": 0,
+            "text": "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "wa6-existing-summary",
+      "description": "定向跟进产生新的委托回报。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "定向跟进产生新的委托回报。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["Workspace assistant reporter", "E2E_WA6_EXISTING", "WA6_EXISTING_KEPT"],
+        "bodyExcludes": []
+      },
+      "response": {
+        "statusCode": 200,
+        "text": "WA6_EXISTING_SUMMARY"
+      }
+    },
+    {
+      "id": "wa6-existing-task",
+      "description": "消息内继续直达原任务，保留原模型及权限。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "消息内继续直达原任务，保留原模型及权限。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["E2E_WA6_EXISTING", "deepseek-v4-pro"],
+        "bodyExcludes": [
+          "Workspace assistant router",
+          "Workspace assistant reporter",
+          "Generate a concise title"
+        ]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": "WA6_EXISTING_KEPT"
+      }
+    },
+    {
+      "id": "wa6-created-task",
+      "description": "仅匹配使用选中模型的普通任务。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "仅匹配使用选中模型的普通任务。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["E2E_WA6_SETTINGS", "deepseek-v4-pro"],
+        "bodyExcludes": [
+          "Workspace assistant router",
+          "Workspace assistant reporter",
+          "Generate a concise title"
+        ]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": "WA6_WORKER_CONFIGURED"
+      }
+    },
+    {
+      "id": "wa6-summary",
+      "description": "工作区助手总结真实工作项结果。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "工作区助手总结真实工作项结果。"
+      },
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": [
+          "Workspace assistant reporter",
+          "WA6_WORKER_CONFIGURED",
+          "E2E_WA6_SETTINGS"
+        ],
+        "bodyExcludes": []
+      },
+      "response": {
+        "statusCode": 200,
+        "text": "WA6_SETTINGS_SUMMARY"
+      },
+      "maxMatches": 1
+    },
+    {
+      "id": "wa6-title",
+      "description": "标题旁路返回稳定标签。",
+      "metadata": {
+        "kind": "common",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "标题旁路返回稳定标签。"
+      },
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["Generate a concise title", "E2E_WA6_"],
+        "bodyExcludes": []
+      },
+      "response": {
+        "statusCode": 200,
+        "text": "{\"title\": \"WA6 settings\"}"
+      }
+    }
+  ]
+}

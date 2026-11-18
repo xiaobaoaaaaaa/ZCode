@@ -52,6 +52,7 @@ describe("Workspace assistant task coordination", () => {
       const diff = await itemByTitle("Diff investigation");
       expect(diff.taskId).not.toBe(queue.taskId);
       await waitForText(diff.selector, "WA_B_RESULT");
+      await waitForText(id("message"), "WA_B_SUMMARY");
 
       await submit(`${marker.ambiguous} Please handle the earlier problem.`);
       await waitForText(id("message"), "WA_CHOOSE_A_TASK");
@@ -61,7 +62,11 @@ describe("Workspace assistant task coordination", () => {
       const clarifiedDeliveries = () =>
         countUpstreamRequests({
           lastUserMessageIncludes: [marker.ambiguous],
-          excludes: ["Workspace assistant router"],
+          excludes: [
+            "Workspace assistant router",
+            "Workspace assistant reporter",
+            "Workspace assistant mailbox",
+          ],
         });
       expect(await clarifiedDeliveries()).toBe(0);
       await $(`${id("choice")}[data-task-id="${diff.taskId}"]`).click();
@@ -103,13 +108,21 @@ describe("Workspace assistant task coordination", () => {
     expect(
       await countUpstreamRequests({
         includes: [marker.queue, marker.followup],
-        excludes: ["Workspace assistant router"],
+        excludes: [
+          "Workspace assistant router",
+          "Workspace assistant reporter",
+          "Workspace assistant mailbox",
+        ],
       }),
     ).toBe(1);
     expect(
       await countUpstreamRequests({
         includes: [marker.diff, marker.followup],
-        excludes: ["Workspace assistant router"],
+        excludes: [
+          "Workspace assistant router",
+          "Workspace assistant reporter",
+          "Workspace assistant mailbox",
+        ],
       }),
     ).toBe(0);
 
@@ -129,7 +142,11 @@ describe("Workspace assistant task coordination", () => {
 
     const firstInputs = () =>
       countUpstreamRequests({
-        excludes: ["Workspace assistant router"],
+        excludes: [
+          "Workspace assistant router",
+          "Workspace assistant reporter",
+          "Workspace assistant mailbox",
+        ],
         lastUserMessageIncludes: [marker.queue],
         lastUserMessageExcludes: [marker.followup],
       });

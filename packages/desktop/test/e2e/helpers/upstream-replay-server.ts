@@ -570,8 +570,8 @@ function extractReplayVariables(requestText: string, requestJson: unknown): Repl
   const requestContent = `${requestText}\n${JSON.stringify(requestJson ?? {})}`;
   const browserTabIds = readLatestBrowserTabIds(requestJson);
   return {
-    workspaceAssistantPrompt: requestContent.includes("Workspace assistant router")
-      ? readLatestUserMessageText(requestJson)
+    workspaceAssistantPrompt: /Workspace assistant (?:router|mailbox)/u.test(requestContent)
+      ? readWorkspaceAssistantPrompt(requestJson)
       : undefined,
     appControlTargetRef: readAppControlTargetRef(requestContent, requestJson),
     appControlResults: readAppControlResults(requestJson),
@@ -579,7 +579,7 @@ function extractReplayVariables(requestText: string, requestJson: unknown): Repl
     ...browserTabIds,
     latestAgentId: readLatestAgentId(requestContent),
     latestBashTaskId: readLatestBashTaskId(requestContent),
-    memoryRoot: readMemoryRoot(requestContent),
+    memoryRoot: readMemoryRoot(requestContent, requestJson),
     latestAutomationId: readLatestAutomationId(requestJson),
     // Workflow run ID 由真实工具生成；只取最新留白通知，不能把随机 ID 写死在夹具中。
     latestWorkflowRunId: [
@@ -740,13 +740,24 @@ function readLatestBashTaskId(value: string): string | undefined {
   return matches.at(-1)?.[1];
 }
 
-function readMemoryRoot(value: string): string | undefined {
+function readMemoryRoot(value: string, requestJson: unknown): string | undefined {
   // Memory root 由 Runtime 按 workspace 计算，fixture 不能硬编码本机绝对路径。
   // 只从已经进入 provider request 的既有 Memory prompt 提取路径并回填 tool input。
   const matches = [
     ...value.matchAll(/persistent(?:,\s*)? file-based memory(?: system)? at `([^`]+?)[/\\]`/giu),
   ];
-  return matches.at(-1)?.[1];
+  if (matches.length) return matches.at(-1)?.[1];
+  // 自定义 system prompt 的原生会话在 user context 中保留实际送给模型的 MEMORY.md 来源。
+  const messages = (requestJson as { messages?: { content?: unknown }[] } | null)?.messages;
+  if (!Array.isArray(messages)) return;
+  for (const message of messages) {
+    const text = readMessageContentText(message.content);
+    const root =
+      /^Contents of (.+)[/\\]MEMORY\.md \(user's auto-memory, persists across conversations\):/mu.exec(
+        text,
+      )?.[1];
+    if (root) return root;
+  }
 }
 
 function readLatestAutomationId(value: unknown): string | undefined {
@@ -1388,7 +1399,7 @@ function findFixtureIndex(
   });
 }
 
-function readLatestUserMessageText(requestJson: unknown): string {
+function latestUserContent(requestJson: unknown): unknown {
   if (!requestJson || typeof requestJson !== "object") {
     return "";
   }
@@ -1404,9 +1415,26 @@ function readLatestUserMessageText(requestJson: unknown): string {
     if ((message as { role?: unknown }).role !== "user") {
       continue;
     }
-    return readMessageContentText((message as { content?: unknown }).content);
+    return (message as { content?: unknown }).content;
   }
   return "";
+}
+
+function readLatestUserMessageText(requestJson: unknown): string {
+  return readMessageContentText(latestUserContent(requestJson));
+}
+
+function readWorkspaceAssistantPrompt(requestJson: unknown): string | undefined {
+  const content = latestUserContent(requestJson);
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return;
+  // 原生回合在用户输入前附加独立的 system-reminder 块，只从当前用户的结构化输入抽取候选。
+  return content.findLast(
+    (part) =>
+      part?.type === "text" &&
+      typeof part.text === "string" &&
+      part.text.trimStart().startsWith("{"),
+  )?.text;
 }
 
 function readMessageContentText(content: unknown): string {

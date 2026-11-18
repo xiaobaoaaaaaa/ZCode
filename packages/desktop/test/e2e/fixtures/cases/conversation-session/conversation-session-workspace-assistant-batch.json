@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "caseName": "conversation-session-workspace-assistant-batch",
+  "spec": "./test/e2e/conversation-session/session-control/conversation-session-workspace-assistant-batch.test.ts",
+  "providerFixtures": [
+    "./test/e2e/fixtures/upstream/common.json",
+    "./test/e2e/fixtures/upstream/conversation-session/conversation-session-workspace-assistant-batch.json"
+  ],
+  "fileFixtures": [],
+  "requests": [
+    {
+      "id": "wa9-synthesize",
+      "kind": "main",
+      "source": "synthetic",
+      "timingPolicy": "fast-text",
+      "syntheticReason": "两份真实执行结果均抵达后，按原始委托生成单一完整答复。"
+    },
+    {
+      "id": "wa9-batch-route",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "真实的一条提交决定要创建两个独立工作事项。"
+    },
+    {
+      "id": "wa9-worker-format",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "每个执行者返回只属于该子委托的结果。"
+    },
+    {
+      "id": "wa9-report-format",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "只有真实子委托和相应执行结果同时可见才生成该回报。"
+    },
+    {
+      "id": "wa9-worker-locale",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "每个执行者返回只属于该子委托的结果。"
+    },
+    {
+      "id": "wa9-report-locale",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "只有真实子委托和相应执行结果同时可见才生成该回报。"
+    },
+    {
+      "id": "wa9-title",
+      "kind": "common",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "测试标题侧请求，避免影响委托结果断言。"
+    }
+  ]
+}

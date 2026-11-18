@@ -1,18 +1,26 @@
-import { useRef, useState } from "react";
+import { activeClarification } from "./activeClarification.js";
+import { useMemo, useRef, useState } from "react";
 import {
-  ArrowUp,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
   ListTodo,
-  LoaderCircle,
   MessageSquarePlus,
   X,
 } from "lucide-react";
 import { Conversation, ConversationContent } from "@/components/ai-elements/conversation.js";
 import { MessageResponse } from "@/components/ai-elements/message.js";
 import { Button } from "@/components/ui/button.js";
-import { Textarea } from "@/components/ui/textarea.js";
+import { ChatPromptEditor } from "@/prompt-editor/ChatPromptEditor.js";
+import type { LexicalChatInputHandle } from "@/LexicalChatInput.js";
+import { ConversationUserInputBubble } from "@/v4/ConversationUserInputBubble.js";
+import {
+  Reasoning,
+  ReasoningContent,
+  ReasoningTrigger,
+} from "@/components/ai-elements/reasoning.js";
+import { useAssistantSubmissionControls } from "./useAssistantSubmissionControls.js";
+import { AssistantLiveReplies } from "./AssistantLiveReplies.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { getPathLeaf } from "@/lib/path.js";
 import { useOptionalProjectDirectory } from "@/project-sidebar/index.js";
@@ -29,7 +37,15 @@ export function WorkspaceAssistantPage({
 }: WorkspaceAssistantPageProps) {
   const { intl } = useZCodeIntl();
   const t = (key: string) => intl.formatMessage({ id: `workspaceAssistant.${key}` });
-  const tree = useOptionalProjectDirectory()?.tree;
+  const directory = useOptionalProjectDirectory();
+  const tree = directory?.tree;
+  // 项目树尚未水合时不能按“未分类”读取近期完全访问权限，避免将别处的模式带入此项目。
+  const scopeFailed = Boolean(
+    directory?.hostReadErrors.has("local") ||
+    (directory?.error && !directory.onlineHostIds.has("local")),
+  );
+  const scopeReady =
+    !(activeTaskId || draftProjectId) || Boolean(directory && !directory.loading && !scopeFailed);
   const workspaceKey = workspaceIdentity?.trim() || workspacePath;
   const selectedProjectId = activeTaskId
     ? tree?.tasks.find(
@@ -61,20 +77,59 @@ export function WorkspaceAssistantPage({
     pageCount,
     visibleItems,
   } = useAssistantConversation(visible, workspacePath, workspaceIdentity, projectId);
-  const editor = useRef<HTMLTextAreaElement>(null);
-  const titles = new Map(state?.items.map((item) => [item.taskId, item.title]));
+  const editor = useRef<LexicalChatInputHandle>(null);
+  const configuration = useAssistantSubmissionControls(
+    workspacePath,
+    workspaceIdentity,
+    projectId,
+    Boolean(pending) || !visible || !scopeReady,
+  );
+  const followUp = (taskId: string) => {
+    setTarget(taskId);
+    editor.current?.focus();
+  };
+  const titles = useMemo(
+    () => new Map(state?.items.map((item) => [item.taskId, item.title])),
+    [state?.items],
+  );
   const statuses = new Map(progress.map((result) => [result.taskId, result]));
   const messages = state?.messages ?? [];
+  const storedIds = useMemo(
+    () => new Set(state?.messages.map((message) => message.id)),
+    [state?.messages],
+  );
+  const clarification = activeClarification(messages);
   const [visibleCount, setVisibleCount] = useState(60);
   const firstVisible = Math.max(0, messages.length - visibleCount);
   const pendingVisible = pending && !messages.some((message) => message.id === pending.id);
   const targetDeleted = Boolean(target && deletedIds.has(target));
-  const handleSubmit = () => {
-    const prompt = text.trim();
-    if (!prompt || !state || pending || targetDeleted) return;
-    void send({ id: crypto.randomUUID(), text: prompt, targetTaskId: target });
+  const handleSubmit = (value: string) => {
+    const prompt = value.trim();
+    if (
+      !prompt ||
+      prompt.length > 32000 ||
+      !state ||
+      pending ||
+      targetDeleted ||
+      (!target && (!scopeReady || !configuration.modelReady))
+    )
+      return false;
+    void send(
+      {
+        id: crypto.randomUUID(),
+        text: prompt,
+        targetTaskId: target,
+        ...(configuration.modelReady && configuration.modelSelection
+          ? { modelSelection: configuration.modelSelection }
+          : {}),
+        permissionMode: configuration.permissionMode,
+      },
+      target ? undefined : configuration.prepareAcceptedPreference(),
+    );
     setText("");
     setTarget(undefined);
+    editor.current?.clear();
+    return true;
   };
   const errorDetail = (code?: string) =>
     code &&
@@ -101,7 +156,7 @@ export function WorkspaceAssistantPage({
         </span>
       </header>
       <div className="flex min-h-0 flex-1 flex-col @2xl:flex-row">
-        <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <section className="@container/conversation flex min-h-0 min-w-0 flex-1 flex-col">
           <Conversation>
             <ConversationContent className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
               {!messages.length && !pending && (
@@ -118,46 +173,75 @@ export function WorkspaceAssistantPage({
                   {t("earlier")}
                 </Button>
               )}
-              {messages.slice(firstVisible).map((message, offset) => {
-                const index = offset + firstVisible;
-                const source = messages[index - 1];
+              {messages.slice(firstVisible).map((message) => {
                 const taskDeleted = Boolean(message.taskId && deletedIds.has(message.taskId));
-                const showChoices =
-                  index === messages.length - 1 &&
-                  source?.role === "user" &&
-                  message.choiceRequestId &&
-                  message.choices?.length;
+                const showChoices = clarification?.reply.id === message.id;
+                const userMessage = message.role === "user" && !message.kind;
                 return (
                   <div
                     key={message.id}
                     data-testid="workspace-assistant-message"
                     data-role={message.role}
+                    data-kind={message.kind}
                     data-task-id={message.taskId}
                     className={
-                      message.role === "user"
-                        ? "max-w-[90%] self-end rounded-xl bg-surface px-3 py-2"
-                        : "min-w-0"
+                      userMessage ? "flex max-w-full flex-col items-end self-end" : "min-w-0"
                     }
                   >
-                    {message.role === "user" ? (
-                      <p className="whitespace-pre-wrap text-ui-base [overflow-wrap:anywhere]">
-                        {message.text}
-                      </p>
+                    {message.kind && (
+                      <div className="mb-1 text-ui-caption font-medium text-foreground-subtle">
+                        {t(
+                          message.kind === "report" && !message.taskId
+                            ? "batchReport"
+                            : message.kind,
+                        )}
+                        {message.taskId &&
+                          titles.has(message.taskId) &&
+                          ` · ${titles.get(message.taskId)}`}
+                      </div>
+                    )}
+                    {message.reasoning && (
+                      <Reasoning defaultOpen={false}>
+                        <ReasoningTrigger
+                          getThinkingMessage={() =>
+                            intl.formatMessage({ id: "chat.reasoning.thought" })
+                          }
+                        />
+                        <ReasoningContent>{message.reasoning}</ReasoningContent>
+                      </Reasoning>
+                    )}
+                    {userMessage ? (
+                      <ConversationUserInputBubble text={message.text} rowId={message.id} />
                     ) : (
                       <MessageResponse>{message.text}</MessageResponse>
                     )}
                     {message.taskId && titles.has(message.taskId) && (
-                      <Button
-                        variant="link"
-                        size="sm"
-                        disabled={taskDeleted}
-                        onClick={() => onOpenTask(message.taskId!)}
-                      >
-                        {message.role === "assistant" && message.text === titles.get(message.taskId)
-                          ? t("open")
-                          : titles.get(message.taskId)}
-                        {taskDeleted ? t("status.deleted") : <ExternalLink />}
-                      </Button>
+                      <div className="mt-1 flex flex-wrap items-center gap-1">
+                        <Button
+                          variant="link"
+                          size="sm"
+                          disabled={taskDeleted}
+                          onClick={() => onOpenTask(message.taskId!)}
+                        >
+                          {message.role === "assistant" &&
+                          message.text === titles.get(message.taskId)
+                            ? t("open")
+                            : titles.get(message.taskId)}
+                          {taskDeleted ? t("status.deleted") : <ExternalLink />}
+                        </Button>
+                        {!taskDeleted && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={!!pending}
+                            data-testid="workspace-assistant-message-continue"
+                            onClick={() => followUp(message.taskId!)}
+                          >
+                            <MessageSquarePlus />
+                            {t("continue")}
+                          </Button>
+                        )}
+                      </div>
                     )}
                     {showChoices ? (
                       <div className="mt-2 flex flex-wrap gap-2">
@@ -174,7 +258,7 @@ export function WorkspaceAssistantPage({
                               onClick={() =>
                                 void send({
                                   id: message.choiceRequestId!,
-                                  text: source.text,
+                                  text: clarification.source.text,
                                   targetTaskId: id,
                                 })
                               }
@@ -184,7 +268,7 @@ export function WorkspaceAssistantPage({
                           ))}
                       </div>
                     ) : null}
-                    {message.retryable && message.role === "user" && (
+                    {message.retryable && message.role === "user" && message.id !== pending?.id && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -204,19 +288,19 @@ export function WorkspaceAssistantPage({
                 );
               })}
               {pendingVisible && (
-                <p className="max-w-[90%] self-end whitespace-pre-wrap rounded-xl bg-surface px-3 py-2 text-ui-base [overflow-wrap:anywhere]">
-                  {pending.text}
-                </p>
+                <div className="self-end">
+                  <ConversationUserInputBubble text={pending.text} rowId={pending.id} />
+                </div>
               )}
-              {pending && (
-                <p
-                  role="status"
-                  className="flex items-center gap-2 text-ui-caption text-foreground-subtle"
-                >
-                  <LoaderCircle className="size-4 animate-spin" />
-                  {t("sending")}
-                </p>
-              )}
+              <AssistantLiveReplies
+                visible={visible}
+                workspacePath={workspacePath}
+                workspaceIdentity={workspaceIdentity}
+                pendingId={pending?.id}
+                messages={storedIds}
+                titles={titles}
+                refresh={refresh}
+              />
             </ConversationContent>
           </Conversation>
           <div className="mx-auto w-full max-w-3xl px-4 pb-4">
@@ -244,59 +328,60 @@ export function WorkspaceAssistantPage({
                   )}
               </div>
             )}
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                handleSubmit();
-              }}
-              className="rounded-xl border border-border bg-input p-2 focus-within:border-border-hover"
-            >
-              {target && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  title={t("clearTarget")}
-                  onClick={() => setTarget(undefined)}
-                >
-                  {titles.get(target)} {targetDeleted && t("status.deleted")} <X />
-                </Button>
-              )}
-              <div className="flex items-end gap-2">
-                <Textarea
-                  ref={editor}
-                  maxLength={32000}
-                  value={text}
-                  rows={2}
-                  placeholder={t("prompt")}
-                  aria-label={t("prompt")}
-                  data-testid="workspace-assistant-input"
-                  className="min-h-11 max-h-40 border-0 bg-transparent focus-visible:ring-0"
-                  onChange={(event) => setText(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (
-                      event.key === "Enter" &&
-                      !event.shiftKey &&
-                      !event.nativeEvent.isComposing &&
-                      event.keyCode !== 229
-                    ) {
-                      event.preventDefault();
-                      handleSubmit();
-                    }
-                  }}
-                />
-                <Button
-                  type="submit"
-                  size="icon"
-                  disabled={!state || !!pending || targetDeleted || !text.trim()}
-                  aria-label={t("send")}
-                  title={t("send")}
-                  data-testid="workspace-assistant-send"
-                >
-                  <ArrowUp />
-                </Button>
-              </div>
-            </form>
+            {text.length > 32000 && (
+              <p role="alert" className="text-ui-caption text-warning">
+                {t("tooLong")}
+              </p>
+            )}
+            {!target && (!scopeReady || !configuration.modelReady) && (
+              <p className="mb-1 text-ui-caption text-foreground-subtle">
+                {t(scopeReady ? "selectModel" : scopeFailed ? "scopeError" : "scopeLoading")}
+                {!scopeReady && scopeFailed && (
+                  <Button variant="link" onClick={() => void directory?.refresh()}>
+                    {t("retry")}
+                  </Button>
+                )}
+              </p>
+            )}
+            <p className="mb-1 text-ui-caption text-foreground-subtle">
+              {t(target ? "targetOptions" : "newOptions")}
+            </p>
+            <ChatPromptEditor
+              workspacePath={workspacePath}
+              workspaceIdentity={workspaceIdentity}
+              taskId={null}
+              initialValue={text}
+              placeholder={t("prompt")}
+              submitLabel={t("send")}
+              submitDisabled={
+                !text.trim() ||
+                !state ||
+                !!pending ||
+                targetDeleted ||
+                text.length > 32000 ||
+                (!target && (!scopeReady || !configuration.modelReady))
+              }
+              inputTestId="workspace-assistant-input"
+              submitTestId="workspace-assistant-send"
+              inputApiRef={editor}
+              enableMentionPanel={false}
+              onChange={setText}
+              onSubmit={handleSubmit}
+              leadingActions={configuration.controls}
+              topContent={
+                target ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    title={t("clearTarget")}
+                    onClick={() => setTarget(undefined)}
+                  >
+                    {titles.get(target)} {targetDeleted && t("status.deleted")} <X />
+                  </Button>
+                ) : undefined
+              }
+            />
           </div>
         </section>
         {state?.items.length ? (
@@ -347,10 +432,7 @@ export function WorkspaceAssistantPage({
                         variant="ghost"
                         disabled={deleted || !!pending}
                         data-testid="workspace-assistant-continue-task"
-                        onClick={() => {
-                          setTarget(item.taskId);
-                          editor.current?.focus();
-                        }}
+                        onClick={() => followUp(item.taskId)}
                       >
                         <MessageSquarePlus />
                         {t("continue")}

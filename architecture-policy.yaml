@@ -2022,7 +2022,7 @@ modules:
     roots:
       - packages/services/src/workspace-assistant
     managed: true
-    requires: [services, shared]
+    requires: [services, shared, rpc]
     publicEntrypoints:
       - packages/services/src/workspace-assistant/index.ts
       - packages/services/src/workspace-assistant/contract.ts
@@ -2036,6 +2036,8 @@ modules:
       - packages/ui/src/store/workspaceAssistantDraft.ts
     managed: true
     requires:
+      - conversation-user-input-presentation
+      - shared
       - project-sidebar
       - ui
     publicEntrypoints:

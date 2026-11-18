@@ -1,3 +1,4 @@
+import { activeClarification } from "./activeClarification.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useServices } from "@/hooks/useServices.js";
 
@@ -64,6 +65,11 @@ export function useAssistantConversation(
   const workspaceKey = workspaceIdentity?.trim() || workspacePath;
   const draft = useWorkspaceAssistantDraft((s) => s.drafts[workspaceKey] ?? emptyAssistantDraft);
   const updateDraft = useWorkspaceAssistantDraft.getState().update;
+  // 保持 Lexical 的文本监听跨刷新稳定，避免在 IME compositionend 后的提交帧中间卸载监听。
+  const setText = useCallback(
+    (text: string) => updateDraft(workspaceKey, { text }),
+    [updateDraft, workspaceKey],
+  );
 
   const [readFailed, setReadFailed] = useState<string>();
   const latestRead = useRef<symbol | null>(null);
@@ -102,7 +108,7 @@ export function useAssistantConversation(
       const taskIds = [
         ...new Set([
           ...itemsOnPage(next.items, page).map((item) => item.taskId),
-          ...(next.messages.at(-1)?.choices ?? []),
+          ...(activeClarification(next.messages)?.reply.choices ?? []),
           ...(target ? [target] : []),
         ]),
       ];
@@ -154,12 +160,13 @@ export function useAssistantConversation(
     };
   }, [refresh, sending, visible]);
 
-  const send = async (input: AssistantInput) => {
+  const send = async (input: AssistantInput, onAccepted?: () => void) => {
     if (!service || useWorkspaceAssistantDraft.getState().drafts[workspaceKey]?.pending) return;
     latestRead.current = null;
     updateDraft(workspaceKey, { pending: input, failedInput: undefined, errorCode: undefined });
     try {
       const next = await service.send({ ...scope, projectId }, input);
+      onAccepted?.();
       if (mounted.current) {
         latestRead.current = null;
         latestState.current = next;
@@ -179,7 +186,7 @@ export function useAssistantConversation(
     readFailed,
     send,
     refresh,
-    setText: (text: string) => updateDraft(workspaceKey, { text }),
+    setText,
     setTarget: (target?: string) => updateDraft(workspaceKey, { target }),
     visibleItems: itemsOnPage(state?.items ?? [], page),
     page,

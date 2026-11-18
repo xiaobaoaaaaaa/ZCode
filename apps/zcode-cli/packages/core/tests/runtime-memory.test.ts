@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { describe, expect, it, vi } from "vitest";
+import { createInMemoryHookRunner } from "../src/hooks/index.js";
 import { createSessionId, type SessionTaskType } from "@zcode/contracts";
 import { join } from "node:path";
 import { resolveProjectMemoryRoot } from "../src/memory/project-root.js";
@@ -12,6 +15,92 @@ const WORKSPACE_PATH = "/workspace/project";
 let runtimeSequence = 0;
 
 describe("AgentRuntime project Memory context", () => {
+  it("runs an assistant read without invoking the ordinary session's tool hooks", async () => {
+    const workspacePath = await mkdtemp(join(tmpdir(), "zcode-assistant-hook-"));
+    try {
+      const target = join(workspacePath, "fact.txt");
+      await writeFile(target, "native read");
+      const callback = vi.fn(async () => ({}));
+      const hookRunner = createInMemoryHookRunner({
+        hooks: [{ event: "PreToolUse", matcher: "Read", callback }],
+      });
+      const result = await executeMemoryTurn({
+        workspacePath,
+        workspaceAssistantReadScope: true,
+        hookRunner,
+        files: { [target]: "native read" },
+        memory: { enabled: false },
+        modelReply: (_, callIndex) =>
+          callIndex === 1
+            ? {
+                text: "",
+                finishReason: "tool-calls",
+                toolCalls: [{ id: "read", name: "Read", input: { file_path: target } }],
+                usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+              }
+            : completedModelReply(),
+      });
+      expect(result.fileSystemPort.readRequests.map((r) => r.path)).toContain(target);
+      expect(callback).not.toHaveBeenCalled();
+    } finally {
+      await rm(workspacePath, { recursive: true, force: true });
+    }
+  });
+
+  it("describes only enabled project memory to the custom assistant prompt without creating a missing index", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "zcode-memory-hint-"));
+    try {
+      const workspacePath = join(dir, "workspace");
+      await mkdir(workspacePath);
+      const options = {
+        workspacePath,
+        cliStorageRoot: dir,
+        workspaceAssistantReadScope: true,
+        systemPrompt: "Assistant Plan",
+      };
+      const expected = resolveProjectMemoryRoot({ workspacePath, cliStorageRoot: dir });
+      const enabled = await executeMemoryTurn(options);
+      expect(enabled.providerText).toContain(JSON.stringify(expected));
+      expect(enabled.fileSystemPort.createdDirectories.size).toBe(0);
+      const disabled = await executeMemoryTurn({ ...options, memory: { enabled: false } });
+      expect(disabled.providerText).not.toContain(expected);
+      expect(disabled.fileSystemPort.createdDirectories.size).toBe(0);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("never follows a linked assistant memory index or initializes the memory directory", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "zcode-index-scope-"));
+    try {
+      const workspacePath = join(dir, "workspace");
+      const cliStorageRoot = join(dir, "storage");
+      const root = resolveProjectMemoryRoot({ workspacePath, cliStorageRoot });
+      await mkdir(workspacePath);
+      await mkdir(root, { recursive: true });
+      const other = join(workspacePath, "other.md");
+      const index = join(root, "MEMORY.md");
+      await writeFile(other, "UNRELATED_FIXTURE");
+      // 用真实文件链接验证隐式索引；Windows 创建文件链接需要系统权限，改用测试目录链接。
+      if (process.platform === "win32") {
+        await symlink(workspacePath, index, "junction");
+      } else {
+        await symlink(other, index);
+      }
+      const result = await executeMemoryTurn({
+        workspacePath,
+        cliStorageRoot,
+        workspaceAssistantReadScope: true,
+        files: { [index]: "UNRELATED_FIXTURE", [other]: "UNRELATED_FIXTURE" },
+      });
+      expect(result.providerText).not.toContain("UNRELATED_FIXTURE");
+      expect(result.fileSystemPort.createdDirectories.size).toBe(0);
+      expect(result.fileSystemPort.readRequests).toEqual([]);
+    } finally {
+      await rm(dir, { force: true, recursive: true });
+    }
+  });
+
   it.each<SessionTaskType>(["interactive", "fork", "selection_side_chat", "workflow_parent"])(
     "injects the frozen Main Memory section for %s even with an empty root",
     async (taskType) => {
@@ -227,6 +316,11 @@ describe("AgentRuntime project Memory context", () => {
 
 async function executeMemoryTurn(
   options: {
+    workspacePath?: string;
+    cliStorageRoot?: string;
+    workspaceAssistantReadScope?: boolean;
+    systemPrompt?: string;
+    hookRunner?: ReturnType<typeof createInMemoryHookRunner>;
     files?: Record<string, string>;
     fileSystemPort?: MemoryFileSystem;
     memory?: { enabled?: boolean; use?: boolean };
@@ -242,18 +336,21 @@ async function executeMemoryTurn(
     createSessionId(`runtime-memory-${runtimeSequence++}`),
     {
       memory: {
-        cliStorageRoot: CLI_STORAGE_ROOT,
+        cliStorageRoot: options.cliStorageRoot ?? CLI_STORAGE_ROOT,
         enabled: true,
         use: true,
         workspaceIdentity: options.workspaceIdentity,
         ...options.memory,
       },
       taskType: options.taskType,
-      workingDirectory: WORKSPACE_PATH,
+      workingDirectory: options.workspacePath ?? WORKSPACE_PATH,
+      workspaceAssistantReadScope: options.workspaceAssistantReadScope,
+      systemPrompt: options.systemPrompt,
     },
     {
       eventStore: createTestSessionEventStore(),
       fileSystemPort,
+      hookRunner: options.hookRunner,
       modelFactory: createTestModelFactory({
         async generateText(request) {
           providerTexts.push(request.messages.map((message) => String(message.content)).join("\n"));

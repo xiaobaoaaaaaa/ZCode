@@ -171,12 +171,15 @@ export function resolveAppRuntimeConfig(input: {
       servers: autoConnectMcpServers,
       trustedOfficialCuaServerNames: [...trustedOfficialCuaServerNames],
     },
-    hooks: mergeRuntimeHooks(
-      options.runtimeConfig?.hooks
-        ? withHookConfigSource(options.runtimeConfig.hooks, { kind: "internal" })
-        : configResult.config.hooks,
-      input.pluginHooks,
-    ),
+    // 助手仅通过原生只读工具调查。插件或项目 Hook 不能在只读调用前后启动脚本。
+    hooks: options.runtimeConfig?.workspaceAssistantReadScope
+      ? { ...configResult.config.hooks, enabled: false, events: {} }
+      : mergeRuntimeHooks(
+          options.runtimeConfig?.hooks
+            ? withHookConfigSource(options.runtimeConfig.hooks, { kind: "internal" })
+            : configResult.config.hooks,
+          input.pluginHooks,
+        ),
     subagents: {
       ...readSubagentStallNotifyOverride(options.env ?? process.env),
       ...options.runtimeConfig?.subagents,

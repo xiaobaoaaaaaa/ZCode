@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "caseName": "conversation-session-workspace-assistant-read",
+  "spec": "./test/e2e/conversation-session/session-control/conversation-session-workspace-assistant-read.test.ts",
+  "providerFixtures": [
+    "./test/e2e/fixtures/upstream/common.json",
+    "./test/e2e/fixtures/upstream/conversation-session/conversation-session-workspace-assistant-read.json"
+  ],
+  "fileFixtures": [
+    {
+      "path": ".zcode-e2e/release-check.txt",
+      "source": "created-by-spec",
+      "description": "隔离工作区的发布资料。"
+    },
+    {
+      "path": "<cli-storage-root>/memories/projects/<workspace-key>/memory/release-gate.md",
+      "source": "created-by-spec",
+      "description": "同一工作区的已保存项目记忆。"
+    },
+    {
+      "path": "<cli-storage-root>/memories/projects/<workspace-key>/memory/MEMORY.md",
+      "source": "created-by-spec",
+      "description": "真实项目记忆索引仅链接资料，不含问题答案。"
+    }
+  ],
+  "requests": [
+    {
+      "id": "wa7-find-file",
+      "kind": "main",
+      "timingPolicy": "fast-tool-use",
+      "source": "synthetic",
+      "syntheticReason": "真实助手先在当前工作区发现匹配的发布资料。"
+    },
+    {
+      "id": "wa7-file-read",
+      "kind": "main",
+      "timingPolicy": "fast-tool-use",
+      "source": "synthetic",
+      "syntheticReason": "模型请求使用工作区助手的真实只读工具。"
+    },
+    {
+      "id": "wa7-file-answer",
+      "kind": "main",
+      "timingPolicy": "controlled-stream",
+      "source": "synthetic",
+      "syntheticReason": "先停在 Read 已执行、最终答复尚未生成的状态，检查可见的真实工具活动。"
+    },
+    {
+      "id": "wa7-memory-read",
+      "kind": "main",
+      "timingPolicy": "fast-tool-use",
+      "source": "synthetic",
+      "syntheticReason": "模型请求使用工作区助手的真实只读工具。"
+    },
+    {
+      "id": "wa7-memory-answer",
+      "kind": "main",
+      "timingPolicy": "fast-text",
+      "source": "synthetic",
+      "syntheticReason": "工具结果包含指定正文后，助手在同一对话里直接回答。"
+    }
+  ]
+}

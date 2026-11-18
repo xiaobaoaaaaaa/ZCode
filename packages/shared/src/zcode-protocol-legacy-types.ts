@@ -224,6 +224,7 @@ export const zcodeMessageSemanticsSchema = z
   .strict();
 export const zcodeUserMessageInfoSchema = z
   .object({
+    sourceCommandId: nonEmptyString.optional(),
     messageId: nonEmptyString,
     sessionId: nonEmptyString,
     role: z.literal("user"),

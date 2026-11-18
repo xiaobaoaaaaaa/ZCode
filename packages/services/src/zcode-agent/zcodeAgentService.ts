@@ -5,7 +5,7 @@ import {
   v4SessionDeletionResultSchema,
 } from "@zcode/shared/zcode-protocol-v4";
 import { sessionLifecycleSnapshotSchema, type SessionLifecycleSnapshot } from "@zcode/shared";
-import { credentialCipherRequestSchema } from "@zcode/shared";
+import { workspaceAssistantMailSchema, credentialCipherRequestSchema } from "@zcode/shared";
 import {
   executeCredentialCipherRequest,
   type CredentialCipher,
@@ -187,6 +187,7 @@ import {
   zcodeUserInputRequestParamsSchema,
   zcodeWorkspacePresentationSchema,
   zcodeWorkspaceCancelGenerateTextResultSchema,
+  zcodeWorkspaceGenerateTextProgressSchema,
   zcodeWorkspaceGenerateTextResultSchema,
   zcodeWorkspaceHookTrustGrantResultSchema,
   zcodeWorkspaceUpdateInteractionPreferencesResultSchema,
@@ -1224,6 +1225,10 @@ interface CreateZCodeAgentServiceBaseOptions extends Omit<
    */
   browserControlExecutor?: BrowserAmbientContextExecutor;
   /** App 工具只在受信 Host 装配；handler 不接受模型自报权限。 */
+  receiveAssistantMail?: (
+    workspace: ZCodeAgentWorkspaceTarget,
+    mail: import("@zcode/shared").WorkspaceAssistantMail,
+  ) => Promise<void>;
   resolveAppControlService?: () => AppControlService | undefined;
   appControlSourceServerId?: string;
   channelReplyExecutor?: (request: ChannelReplyHostRequest) => Promise<ChannelReplyResult>;
@@ -2996,6 +3001,41 @@ export function createZCodeAgentService(
           return;
         }
         const workspace = routed ?? initialWorkspace;
+        if (request.method === zcodeProtocolMethods.workspaceAssistantMail) {
+          const mail = workspaceAssistantMailSchema.safeParse(request.params);
+          const sendError = (reason: string) => {
+            logger.warn(request.trace?.traceId, "工作区助手来信未接纳", { reason });
+            return client
+              .respondError(request.id, {
+                code: -32602,
+                message: "Workspace assistant could not accept this message",
+              })
+              .catch(() => {});
+          };
+          if (!mail.success || !routed || !options?.receiveAssistantMail) {
+            void sendError(!mail.success ? "invalid-input" : "unavailable");
+            return;
+          }
+          const key = resolveWorkspaceKey(routed);
+          if (
+            clientSessions.get(client)?.get(mail.data.sessionId) !== key ||
+            activeClientsByWorkspaceKey.get(key)?.client !== client
+          ) {
+            void sendError("stale-owner");
+            return;
+          }
+          void options
+            .receiveAssistantMail(routed, mail.data)
+            .then(() => client.respond(request.id, { accepted: true }))
+            .catch((error: unknown) =>
+              sendError(
+                error instanceof Error && /^workspace-assistant\.[a-z-]+$/.test(error.message)
+                  ? error.message
+                  : "receive-failed",
+              ),
+            );
+          return;
+        }
         if (request.method === zcodeProtocolMethods.subagentsReadRuntimeConfig) {
           void (async () => {
             const parsed = zcodeSubagentsReadRuntimeConfigParamsSchema.safeParse(request.params);
@@ -6063,7 +6103,28 @@ export function createZCodeAgentService(
         workspace: params,
         refreshRegistry: true,
       });
-      const operationId = params.signal ? randomUUID() : undefined;
+      const progress = typeof params.onProgress === "function" ? params.onProgress : undefined;
+      const assistant = params.querySource.startsWith("workspace_assistant_");
+      const activity = assistant && !params.requestTimeoutMs ? new Emitter<void>() : undefined;
+      const operationId = params.signal || progress || assistant ? randomUUID() : undefined;
+      const subscription =
+        progress || activity
+          ? client.onNotification((notification) => {
+              if (notification.method !== zcodeProtocolNotifications.workspaceGenerateTextProgress)
+                return;
+              const parsed = zcodeWorkspaceGenerateTextProgressSchema.safeParse(
+                notification.params,
+              );
+              if (parsed.success && parsed.data.operationId === operationId) {
+                activity?.fire();
+                progress?.({
+                  text: parsed.data.text,
+                  reasoning: parsed.data.reasoning,
+                  toolActivity: parsed.data.toolActivity,
+                });
+              }
+            })
+          : undefined;
       const cancel = () => {
         if (!operationId) return;
         void client
@@ -6096,6 +6157,7 @@ export function createZCodeAgentService(
             querySource: params.querySource,
             ...(params.maxOutputTokens ? { maxOutputTokens: params.maxOutputTokens } : {}),
             ...(operationId ? { operationId } : {}),
+            ...(progress || activity ? { streamProgress: true } : {}),
           },
           zcodeWorkspaceGenerateTextResultSchema,
           // 不传 timeoutMs 时协议 client 默认 3 分钟超时会对 thinking 模型的长请求
@@ -6103,10 +6165,20 @@ export function createZCodeAgentService(
           // 调用方显式传入 requestTimeoutMs（自身 deadline + 取消缓冲）时以其为准。
           {
             signal: params.signal,
-            ...(params.requestTimeoutMs ? { timeoutMs: params.requestTimeoutMs } : {}),
+            ...(params.requestTimeoutMs
+              ? { timeoutMs: params.requestTimeoutMs }
+              : activity
+                ? { timeoutMs: 10 * 60_000, timeoutActivity: activity.event }
+                : {}),
+            ...(assistant ? { invalidateConnectionOnTimeout: false } : {}),
           },
         );
+      } catch (error) {
+        if (assistant && error instanceof ZCodeProtocolRequestTimeoutError) cancel();
+        throw error;
       } finally {
+        activity?.dispose();
+        subscription?.dispose();
         params.signal?.removeEventListener("abort", cancel);
       }
     },

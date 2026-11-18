@@ -20,6 +20,9 @@ export function mapMessageWithParts(message: MessageWithParts): ZCodeMessageWith
             messageId: String(message.info.id),
             model: message.info.modelSelection,
             metadata: message.info.metadata,
+            ...(message.info.anchor?.sourceCommandId
+              ? { sourceCommandId: message.info.anchor.sourceCommandId }
+              : {}),
             role: "user",
             semantics: message.info.semantics,
             sessionId: String(message.info.sessionID),

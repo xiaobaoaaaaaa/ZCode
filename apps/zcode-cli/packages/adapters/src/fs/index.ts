@@ -420,12 +420,17 @@ export class NodeFileSystemAdapter implements FileSystemPort {
       const matcher = createGlobMatcher(pattern);
       const matches: Array<{ path: string; mtimeMs: number }> = [];
 
-      await walkFiles(path, options?.signal, async (filePath, info) => {
-        const relativePath = toPosixRelative(path, filePath);
-        if (matcher(relativePath, basename(filePath))) {
-          matches.push({ path: filePath, mtimeMs: Number(info.mtimeMs) });
-        }
-      });
+      await walkFiles(
+        path,
+        options?.signal,
+        async (filePath, info) => {
+          const relativePath = toPosixRelative(path, filePath);
+          if (matcher(relativePath, basename(filePath))) {
+            matches.push({ path: filePath, mtimeMs: Number(info.mtimeMs) });
+          }
+        },
+        request.excludedDirectory,
+      );
 
       matches.sort((left, right) => {
         const timeComparison = right.mtimeMs - left.mtimeMs;
@@ -968,6 +973,14 @@ function createRipgrepSearchPlan(
   if (request.type) {
     addRipgrepTypeArgs(args, request.type);
   }
+  if (request.excludedDirectory) {
+    // --glob 只解释为搜索根下的字面目录，且排除在用户提供的包含模式之后。
+    const escaped = toPosixRelative(outputRoot, request.excludedDirectory).replace(
+      /[\\*?{}\[\]]/g,
+      "\\$&",
+    );
+    args.push("--glob", `!/${escaped}`, "--glob", `!/${escaped}/**`);
+  }
 
   args.push("-e", request.pattern.trim(), "--", target);
 
@@ -1426,7 +1439,7 @@ async function collectTextSearchCandidates(
     });
   }
 
-  await walkFiles(root, signal, addIfCandidate);
+  await walkFiles(root, signal, addIfCandidate, request.excludedDirectory);
   candidates.sort((left, right) => left.path.localeCompare(right.path));
   return candidates;
 }
@@ -1709,6 +1722,7 @@ async function walkFiles(
   current: string,
   signal: AbortSignal | undefined,
   visitor: (path: string, info: Awaited<ReturnType<typeof stat>>) => Promise<void> | void,
+  excludedDirectory?: string,
 ): Promise<void> {
   throwIfAborted(signal);
   const entries = await readdir(current, { withFileTypes: true });
@@ -1718,8 +1732,8 @@ async function walkFiles(
     const childPath = join(current, entry.name);
 
     if (entry.isDirectory()) {
-      if (VCS_DIRECTORIES_TO_EXCLUDE.has(entry.name)) continue;
-      await walkFiles(childPath, signal, visitor);
+      if (VCS_DIRECTORIES_TO_EXCLUDE.has(entry.name) || childPath === excludedDirectory) continue;
+      await walkFiles(childPath, signal, visitor, excludedDirectory);
       continue;
     }
 

@@ -1,0 +1,180 @@
+{
+  "version": 1,
+  "caseName": "conversation-session-workspace-assistant-read",
+  "spec": "./test/e2e/conversation-session/session-control/conversation-session-workspace-assistant-read.test.ts",
+  "fixtures": [
+    {
+      "id": "wa7-find-file",
+      "description": "真实助手先在当前工作区发现匹配的发布资料。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-tool-use",
+        "source": "synthetic",
+        "syntheticReason": "真实助手先在当前工作区发现匹配的发布资料。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["Workspace assistant router", "E2E_WA7_FILE"],
+        "bodyExcludes": ["toolu_wa7_glob"]
+      },
+      "response": {
+        "statusCode": 200,
+        "toolUse": {
+          "id": "toolu_wa7_glob",
+          "name": "Glob",
+          "input": {
+            "pattern": "release-check*.txt",
+            "path": "{{e2eRuntimeRoot}}"
+          }
+        }
+      }
+    },
+    {
+      "id": "wa7-file-read",
+      "description": "模型请求使用工作区助手的真实只读工具。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-tool-use",
+        "source": "synthetic",
+        "syntheticReason": "模型请求使用工作区助手的真实只读工具。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": [
+          "Workspace assistant router",
+          "E2E_WA7_FILE",
+          "toolu_wa7_glob",
+          "release-check.txt"
+        ],
+        "bodyExcludes": ["toolu_wa7_file"]
+      },
+      "response": {
+        "statusCode": 200,
+        "toolUse": {
+          "id": "toolu_wa7_file",
+          "name": "Read",
+          "input": {
+            "file_path": "{{e2eRuntimeRoot}}/release-check.txt"
+          }
+        }
+      }
+    },
+    {
+      "id": "wa7-file-answer",
+      "description": "先停在 Read 已执行、最终答复尚未生成的状态，检查可见的真实工具活动。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "controlled-stream",
+        "source": "synthetic",
+        "syntheticReason": "先停在 Read 已执行、最终答复尚未生成的状态，检查可见的真实工具活动。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": [
+          "Workspace assistant router",
+          "E2E_WA7_FILE",
+          "toolu_wa7_file",
+          "canary-7842"
+        ],
+        "bodyExcludes": []
+      },
+      "response": {
+        "statusCode": 200,
+        "headers": {
+          "content-type": "text/event-stream; charset=utf-8"
+        },
+        "chunks": [
+          {
+            "offsetMs": 0,
+            "text": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"wa7-file-answer\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"deepseek-v4-flash\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":35,\"output_tokens\":0}}}\n\n"
+          },
+          {
+            "offsetMs": 0,
+            "text": "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n"
+          },
+          {
+            "offsetMs": 0,
+            "text": "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"{\\\"kind\\\": \\\"answer\\\", \\\"text\\\": \\\"Recorded value: canary-7842\\\"}\"}}\n\n"
+          },
+          {
+            "offsetMs": 0,
+            "text": "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n"
+          },
+          {
+            "offsetMs": 0,
+            "text": "event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":18}}\n\n"
+          },
+          {
+            "offsetMs": 0,
+            "text": "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"
+          }
+        ],
+        "releaseAfterChunks": 1
+      }
+    },
+    {
+      "id": "wa7-memory-read",
+      "description": "模型请求使用工作区助手的真实只读工具。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-tool-use",
+        "source": "synthetic",
+        "syntheticReason": "模型请求使用工作区助手的真实只读工具。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": [
+          "Workspace assistant router",
+          "E2E_WA7_MEMORY",
+          "toolu_wa7_file",
+          "canary-7842"
+        ],
+        "bodyExcludes": ["toolu_wa7_memory"]
+      },
+      "response": {
+        "statusCode": 200,
+        "toolUse": {
+          "id": "toolu_wa7_memory",
+          "name": "Read",
+          "input": {
+            "file_path": "{{memoryRoot}}/release-gate.md"
+          }
+        }
+      }
+    },
+    {
+      "id": "wa7-memory-answer",
+      "description": "工具结果包含指定正文后，助手在同一对话里直接回答。",
+      "metadata": {
+        "kind": "main",
+        "timingPolicy": "fast-text",
+        "source": "synthetic",
+        "syntheticReason": "工具结果包含指定正文后，助手在同一对话里直接回答。"
+      },
+      "maxMatches": 1,
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": [
+          "Workspace assistant router",
+          "E2E_WA7_MEMORY",
+          "toolu_wa7_memory",
+          "release-board-3926"
+        ],
+        "bodyExcludes": []
+      },
+      "response": {
+        "statusCode": 200,
+        "text": "{\"kind\": \"answer\", \"text\": \"Recorded value: release-board-3926\"}"
+      }
+    }
+  ]
+}
