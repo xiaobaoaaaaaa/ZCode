@@ -4,18 +4,24 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { collectRelease, expectedFiles, stageTarget, targets } from "../personal-release.mjs";
+import {
+  collectRelease,
+  expectedFiles,
+  readAboutVersion,
+  stageTarget,
+  targets,
+} from "../personal-release.mjs";
 
 const version = "3.16.2-personal.1";
 const commit = "a".repeat(40);
 
-async function fixture(t) {
+async function fixture(t, fixtureVersion = version) {
   const root = await mkdtemp(join(tmpdir(), "zcode-release-test-"));
   t.after(() => rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
   for (const [target, config] of Object.entries(targets)) {
     const source = join(root, "source", target);
     await mkdir(source, { recursive: true });
-    for (const name of expectedFiles(version, target)) {
+    for (const name of expectedFiles(fixtureVersion, target)) {
       const bytes = Buffer.alloc(1024);
       const header = name.endsWith(".exe")
         ? "4d5a"
@@ -38,7 +44,7 @@ async function fixture(t) {
       JSON.stringify({
         ok: true,
         welcomeReady: true,
-        version,
+        version: fixtureVersion,
         platform: config.platform,
         arch: config.arch,
         homeIsolated: true,
@@ -49,7 +55,7 @@ async function fixture(t) {
       }),
     );
     await stageTarget(source, join(root, "input", `packages-${target}`), {
-      version,
+      version: fixtureVersion,
       commit,
       target,
       smokeFile,
@@ -77,6 +83,28 @@ test("complete native matrix produces 13 packages and checksums", async (t) => {
   const sums = await readFile(join(root, "ready", "SHA256SUMS"), "utf8");
   assert.equal(sums.trim().split("\n").length, 14);
   assert.match(sums, /release-manifest\.json/u);
+});
+
+test("assistant releases keep the entire version in each native artifact and startup record", async (t) => {
+  const version = "3.18.2-personal.4.assistant.2";
+  const root = await fixture(t, version);
+  const result = await collectRelease(join(root, "input"), join(root, "ready"), {
+    version,
+    commit,
+  });
+  assert.equal(result.version, version);
+  assert.ok(result.assets.every((asset) => asset.name.startsWith(`ZCode-Personal-${version}-`)));
+  assert.ok(result.builds.every((build) => build.smoke.version === version));
+});
+
+test("Windows About reports the complete version token for both Personal series", () => {
+  for (const version of ["3.18.2-personal.4", "3.18.2-personal.4.assistant.2"]) {
+    assert.equal(readAboutVersion(`ZCode Personal\n版本 ${version}`), version);
+  }
+  assert.throws(
+    () => readAboutVersion("ZCode Personal\nVersion 3.18.2-personal.4.assistant.2.extra"),
+    /version/u,
+  );
 });
 
 test("tampered staged update checksum is rejected", async (t) => {
@@ -127,7 +155,18 @@ test("modified package and mismatched source commit are rejected", async (t) => 
 });
 
 test("unsupported versions and targets fail closed", () => {
-  assert.throws(() => expectedFiles("../../escape", "linux-x64"), /version/u);
+  for (const invalid of [
+    "../../escape",
+    "3.18.2",
+    "03.18.2-personal.4.assistant.2",
+    "3.18.2-personal.04.assistant.2",
+    "3.18.2-personal.4.assistant",
+    "3.18.2-personal.4.assistant.0",
+    "3.18.2-personal.4.assistant.02",
+    "3.18.2-personal.4.assistant.2.extra",
+    "3.18.2-personal.4.alpha.2",
+  ])
+    assert.throws(() => expectedFiles(invalid, "linux-x64"), /version/u);
   assert.throws(() => expectedFiles(version, "linux-ia32"), /target/u);
 });
 

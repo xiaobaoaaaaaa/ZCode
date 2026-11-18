@@ -33,8 +33,23 @@ export const targets = Object.freeze({
   },
 });
 
+export function assertPersonalReleaseVersion(version) {
+  assert.match(
+    version,
+    /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)-personal\.[1-9]\d*(?:\.assistant\.[1-9]\d*)?$/u,
+    "invalid personal version",
+  );
+}
+
+export function readAboutVersion(heading) {
+  // About 标题以本地化标签和完整版本结尾。只匹配 personal.N 会截断助手专项后缀。
+  const version = heading.trim().split(/\s+/u).at(-1);
+  assertPersonalReleaseVersion(version);
+  return version;
+}
+
 export function expectedFiles(version, target) {
-  assert.match(version, /^\d+\.\d+\.\d+-personal\.[1-9]\d*$/u, "invalid personal version");
+  assertPersonalReleaseVersion(version);
   assert.ok(Object.hasOwn(targets, target), `unsupported target: ${target}`);
   const config = targets[target];
   // Electron Builder 按包格式转换架构名称，必须收集真实产物名，不能统一假定为 runner 的 arch。

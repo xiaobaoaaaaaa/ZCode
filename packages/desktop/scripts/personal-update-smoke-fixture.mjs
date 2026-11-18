@@ -19,7 +19,7 @@ const root = process.env.ZCODE_PERSONAL_SMOKE_ROOT;
 const origin = process.env.ZCODE_PERSONAL_SMOKE_ORIGIN;
 app.setPath("userData", root);
 Object.defineProperty(app, "isPackaged", { value: true });
-app.getVersion = () => "3.17.1-personal.3";
+app.getVersion = () => scenario.channelCheck?.installed ?? "3.17.1-personal.3";
 const { autoUpdater } = pkg;
 autoUpdater.currentVersion = new semver.SemVer(app.getVersion());
 autoUpdater.forceDevUpdateConfig = true;
@@ -67,7 +67,7 @@ async function run() {
   process.env.ZCODE_UPDATE_FEED_URL = "http://127.0.0.1:1/override";
   process.argv.push("--zcode-update-feed-url=http://127.0.0.1:1/argv");
   let settings = {
-    receivePreviewUpdates: scenario.name === "preview",
+    receivePreviewUpdates: scenario.channelCheck?.preview ?? scenario.name === "preview",
     autoDownloadAndInstallUpdates: scenario.mode === "mac",
   };
   const finalCheck = new Promise((resolveCheck) => {
@@ -91,7 +91,10 @@ async function run() {
   });
   await finalCheck;
   await nextTurn();
-  if (["no-update", "older", "official-only"].includes(scenario.name)) {
+  if (
+    scenario.channelCheck?.expected === null ||
+    ["no-update", "older", "official-only"].includes(scenario.name)
+  ) {
     assert.equal(getAutoUpdaterState().kind, "idle");
     assert.equal(errors.length, 0);
   } else if (
@@ -103,16 +106,25 @@ async function run() {
     assert.ok(errors.length > 0);
   } else {
     assert.equal(getAutoUpdaterState().kind, "update-available");
-    assert.equal(
-      getAutoUpdaterState().version,
-      scenario.name === "preview" ? "3.17.1-personal.6" : "3.17.1-personal.4",
-    );
+    const expectedVersion =
+      scenario.channelCheck?.expected ??
+      (scenario.name === "preview" ? "3.17.1-personal.6" : "3.17.1-personal.4");
+    assert.equal(getAutoUpdaterState().version, expectedVersion);
     if (scenario.mode === "mac") {
       assert.equal(getAutoUpdaterState().manualDownload, true);
       assert.deepEqual(opened, []);
       await handlers.get("zcode:download-update")();
-      assert.deepEqual(opened, [origin + "/releases/tag/v3.17.1-personal.4"]);
+      assert.deepEqual(opened, [origin + "/releases/tag/v" + expectedVersion]);
       assert.equal(getAutoUpdaterState().kind, "update-available");
+    } else if (scenario.channelCheck) {
+      assert.equal(
+        getAutoUpdaterState().channel,
+        scenario.channelCheck.preview ? "preview" : "stable",
+      );
+      const complete = waitForState((state) => state.kind === "update-downloaded");
+      downloadAvailableUpdate();
+      const ready = await complete;
+      assert.equal(ready.version, expectedVersion);
     } else if (scenario.name === "preview") {
       assert.equal(getAutoUpdaterState().channel, "preview");
     } else {

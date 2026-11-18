@@ -167,7 +167,12 @@ export function matchesWebRemoteControlRoutePath(pathname: string, routePath: st
 
 /** 官方页面按上游版本部署；二维码与 bootstrap 必须使用同一页面版本。 */
 export function resolveWebRemoteControlPageVersion(appVersion: string): string {
-  return appVersion.trim().replace(/^(\d+\.\d+\.\d+)-personal\.\d+(?:\+[0-9A-Za-z.-]+)?$/, "$1");
+  return appVersion
+    .trim()
+    .replace(
+      /^(\d+\.\d+\.\d+)-personal\.\d+(?:\.assistant\.[1-9]\d*)?(?:\+[0-9A-Za-z.-]+)?$/,
+      "$1",
+    );
 }
 
 export function buildWebRemoteControlExternalQrUrl({

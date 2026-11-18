@@ -277,10 +277,16 @@ export class ManifestUpdateProvider extends Provider<UpdateInfo> {
 
 const PERSONAL_REPOSITORY = "https://github.com/xiaobaoaaaaaa/ZCode";
 const PERSONAL_RELEASE_API = "https://api.github.com/repos/xiaobaoaaaaaa/ZCode/releases";
-const PERSONAL_VERSION = /^\d+\.\d+\.\d+-personal\.[1-9]\d*$/u;
+const PERSONAL_VERSION = /^\d+\.\d+\.\d+-personal\.[1-9]\d*(\.assistant\.[1-9]\d*)?$/u;
+function personalReleaseSeries(version: string): "regular" | "assistant" | undefined {
+  const match = PERSONAL_VERSION.exec(version);
+  if (!match || !semver.valid(version)) return undefined;
+  return match[1] ? "assistant" : "regular";
+}
+
 
 export function getPersonalReleasePageUrl(version: string): string {
-  if (!PERSONAL_VERSION.test(version) || !semver.valid(version)) {
+  if (!personalReleaseSeries(version)) {
     throw new Error("Invalid Personal release version");
   }
   return `${PERSONAL_REPOSITORY}/releases/tag/v${version}`;
@@ -319,6 +325,8 @@ export class PersonalGitHubUpdateProvider extends ManifestUpdateProvider {
       throw new Error("Invalid Personal release response");
     }
     const releases: unknown[] = Array.isArray(parsed) ? parsed : [parsed];
+    const currentVersion = this.updater.currentVersion.version;
+    const series = channel === "preview" ? personalReleaseSeries(currentVersion) : "regular";
     const candidates = releases
       .flatMap((release) => {
         if (
@@ -330,15 +338,18 @@ export class PersonalGitHubUpdateProvider extends ManifestUpdateProvider {
         )
           return [];
         const version = release.tag_name.replace(/^v/u, "");
-        return release.tag_name === `v${version}` &&
-          PERSONAL_VERSION.test(version) &&
-          semver.valid(version)
-          ? [{ release, version }]
-          : [];
+        // 专项首次经手动安装进入。preview 随安装版本选系列，stable 只接受常规 Latest。
+        if (
+          release.tag_name !== `v${version}` ||
+          !series ||
+          personalReleaseSeries(version) !== series ||
+          (series === "assistant" && !release.prerelease)
+        )
+          return [];
+        return [{ release, version }];
       })
       .sort((a, b) => semver.rcompare(a.version, b.version));
     const selected = candidates[0];
-    const currentVersion = this.updater.currentVersion.version;
     // 老 Release 没有更新用 SHA-512；同版/降版无需读取清单，也绝不回退官方源。
     if (!selected || !semver.gt(selected.version, currentVersion)) {
       return {

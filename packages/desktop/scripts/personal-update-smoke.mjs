@@ -28,6 +28,49 @@ function release(value, extra = {}) {
     ...extra,
   };
 }
+const assistantVersion = "3.18.2-personal.4.assistant.2";
+const nextAssistantVersion = "3.18.2-personal.4.assistant.3";
+const newerRegularVersion = "3.18.2-personal.5";
+const mixedReleases = [
+  release(newerRegularVersion),
+  release(nextAssistantVersion, { prerelease: true }),
+  release("3.18.2-personal.4.assistant.5", { draft: true, prerelease: true }),
+  release("3.18.2-personal.4.assistant.4"),
+  release("3.18.2-personal.4.assistant.9.extra", { prerelease: true }),
+];
+const channelCases = {
+  "assistant-preview": {
+    installed: assistantVersion,
+    preview: true,
+    candidates: mixedReleases,
+    expected: nextAssistantVersion,
+  },
+  "regular-preview": {
+    installed: "3.18.2-personal.4",
+    preview: true,
+    candidates: mixedReleases.filter((r) => r.tag_name !== "v" + newerRegularVersion),
+    expected: null,
+  },
+  "assistant-stable": {
+    installed: assistantVersion,
+    preview: false,
+    candidates: release(newerRegularVersion),
+    expected: newerRegularVersion,
+  },
+  "assistant-stable-older": {
+    installed: assistantVersion,
+    preview: false,
+    candidates: release("3.18.2-personal.3"),
+    expected: null,
+  },
+  "special-mislabeled-latest": {
+    installed: "3.18.2-personal.3",
+    preview: false,
+    candidates: release(assistantVersion),
+    expected: null,
+  },
+};
+
 const server = createServer((req, res) => {
   requests.push(req.url);
   if (req.url === "/advance") {
@@ -44,14 +87,15 @@ const server = createServer((req, res) => {
     res.setHeader("Content-Type", "application/json");
     res.end(
       JSON.stringify(
-        req.url.includes("?")
-          ? [
-              release("99.0.0-personal.1", { draft: true }),
-              release("99.0.0"),
-              release("3.17.1-personal.4"),
-              release("3.17.1-personal.6", { prerelease: true }),
-            ]
-          : release(scenario.name === "official-only" ? "99.0.0" : version),
+        channelCases[scenario.name]?.candidates ??
+          (req.url.includes("?")
+            ? [
+                release("99.0.0-personal.1", { draft: true }),
+                release("99.0.0"),
+                release("3.17.1-personal.4"),
+                release("3.17.1-personal.6", { prerelease: true }),
+              ]
+            : release(scenario.name === "official-only" ? "99.0.0" : version)),
       ),
     );
   } else if (req.url.endsWith("/release-manifest.json")) {
@@ -160,6 +204,7 @@ try {
             "older",
             "official-only",
             "preview",
+            ...Object.keys(channelCases),
             "wrong-version",
             "wrong-name",
             "bad-hash",
@@ -168,9 +213,25 @@ try {
             "corrupt-download",
             "cancel",
           ]
-        : ["update"];
+        : mode === "mac"
+          ? ["update", "assistant-preview"]
+          : ["update"];
     for (const name of names) {
-      scenario = { mode, name, extension };
+      const channelCase = channelCases[name];
+      scenario = {
+        mode,
+        name,
+        extension,
+        ...(channelCase
+          ? {
+              channelCheck: {
+                installed: channelCase.installed,
+                preview: channelCase.preview,
+                expected: channelCase.expected,
+              },
+            }
+          : {}),
+      };
       requests = [];
       version =
         name === "no-update"
@@ -216,6 +277,19 @@ try {
         const result = JSON.parse(await readFile(resolve(root, "result.json"), "utf8"));
         if (["no-update", "older", "official-only"].includes(name))
           assert.equal(requests.length, 1);
+        if (channelCase) {
+          assert.equal(
+            requests[0],
+            channelCase.preview ? "/api/releases?per_page=100" : "/api/releases/latest",
+          );
+          if (channelCase.expected === null) assert.equal(requests.length, 1);
+          else
+            assert.ok(
+              requests.includes(
+                `/releases/download/v${channelCase.expected}/release-manifest.json`,
+              ),
+            );
+        }
         if (mode === "mac")
           assert.ok(!requests.some((url) => url.endsWith(".zip") || url.endsWith(".dmg")));
         await writeFile(resolve(root, "requests.json"), JSON.stringify(requests, null, 2));

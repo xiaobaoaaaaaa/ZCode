@@ -4,7 +4,7 @@ import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { chromium, _electron as electron } from "playwright-core";
-import { targets } from "./personal-release.mjs";
+import { readAboutVersion, targets } from "./personal-release.mjs";
 
 const target = process.argv[2];
 const config = targets[target];
@@ -111,8 +111,7 @@ try {
     const aboutReady = page.context().waitForEvent("page", { timeout: 30_000 });
     await page.evaluate(() => window.zcode.executeDesktopCommand("showAbout"));
     const about = await aboutReady;
-    await about.waitForFunction((wanted) => document.body.innerText.includes(wanted), version);
-    const text = await about.locator("body").innerText();
+    const heading = await about.locator("#about-title").innerText({ timeout: 30_000 });
     const exe = await readFile(executablePath);
     assert.equal(
       exe.readUInt16LE(exe.readUInt32LE(0x3c) + 4),
@@ -121,12 +120,12 @@ try {
     );
     assert.equal(await page.evaluate(() => navigator.platform), "Win32");
     runtime = {
-      version: text.match(/\d+\.\d+\.\d+-personal\.\d+/u)?.[0],
+      version: readAboutVersion(heading),
       platform: "win32",
       arch: "x64",
       versionVerification: "about-dialog",
       architectureVerification: "PE-x64",
-      applicationName: text.includes("ZCode Personal") ? "ZCode Personal" : "unknown",
+      applicationName: heading.includes("ZCode Personal") ? "ZCode Personal" : "unknown",
       homeIsolated: (await readdir(join(home, ".zcode-personal", "v2"))).length > 0,
       userDataIsolated: (await readdir(join(home, "electron"))).length > 0,
     };

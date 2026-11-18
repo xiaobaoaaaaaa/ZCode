@@ -3,10 +3,12 @@ import { createHash } from "node:crypto";
 import { readFile, writeFile, mkdir, copyFile, appendFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { assertPersonalReleaseVersion } from "./personal-release.mjs";
+
 const applicationId = "io.github.xiaobaoaaaaaa.zcode";
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 function validate(m) {
-  assert.match(m.version, /^\d+\.\d+\.\d+-personal\.[1-9]\d*$/);
+  assertPersonalReleaseVersion(m.version);
   assert.match(m.commit, /^[a-f0-9]{40}$/);
   assert.match(m.certificateSha256, /^[a-f0-9]{64}$/);
   assert.ok(Number.isSafeInteger(m.versionCode) && m.versionCode > 0);

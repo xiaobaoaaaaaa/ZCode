@@ -15,7 +15,7 @@ const compiled = await build({
 const { buildWebRemoteControlExternalQrUrl, parseWebRemoteControlExternalQrParams } = await import(
   `data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString("base64")}`
 );
-const pages = new Set(["3.17.1", "3.16.2", "3.17.1-beta.1"]);
+const pages = new Set(["3.18.2", "3.17.1", "3.16.2", "3.17.1-beta.1"]);
 const gateway = createServer((request, response) => {
   const url = new URL(request.url, "http://fixture.invalid");
   const exists = pages.has(url.searchParams.get("app_version"));
@@ -26,6 +26,8 @@ gateway.listen(0, "127.0.0.1");
 await once(gateway, "listening");
 try {
   for (const [appVersion, pageVersion] of [
+    ["3.18.2-personal.4.assistant.2", "3.18.2"],
+    ["3.18.2-personal.4.assistant.2+build.7", "3.18.2"],
     ["3.17.1-personal.3", "3.17.1"],
     ["3.16.2-personal.5", "3.16.2"],
     ["3.17.1-personal.3+build.7", "3.17.1"],
@@ -57,6 +59,7 @@ try {
     assert.match(await response.text(), /Remote control/);
   }
   for (const version of [
+    "3.18.2-personal.4.assistant.preview",
     "3.17.1-personal.beta",
     "3.17.1-rc.1",
     "custom",
@@ -72,7 +75,7 @@ try {
     assert.equal(url.pathname, "/custom-remote");
     assert.equal(url.searchParams.get("app_version"), version);
   }
-  console.log("Personal remote page smoke: 9 version routes passed");
+  console.log("Personal remote page smoke: 12 version routes passed");
 } finally {
   gateway.closeAllConnections();
   await new Promise((resolve, reject) =>

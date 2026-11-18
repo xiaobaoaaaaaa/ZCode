@@ -1,6 +1,6 @@
 # 个人版桌面发布
 
-个人版从上一已发布版本的 tag 创建 `release/<version>` 分支，版本格式为
+个人版从上一已发布版本的 tag 创建 `release/<version>` 分支，常规版本格式为
 `<上游版本>-personal.<序号>`。`main` 继续作为官方基线，不承载发布流程。
 
 ## 构建与发布所有者
@@ -13,7 +13,7 @@ GitHub Actions 的 `personal-release.yml` 负责原生构建、打包、启动�
 gh release edit v<version> --draft=false --prerelease=false --latest
 ```
 
-版本继续使用个人版序列；是否正式发布由 GitHub Release 标记决定，不能仅根据标签名推断。
+常规版本沿用个人版序列。助手专项使用本页约定的预览后缀，并设置 GitHub Pre-release 标记。
 
 | 目标        | Runner           | 资产                        |
 | ----------- | ---------------- | --------------------------- |
@@ -186,3 +186,9 @@ versionCode 递增至 5。本次授权含提交与推送发布分支（触发构
 ## 3.18.2-personal.4
 
 工作区助手研究预览从 v3.18.2-personal.3 开发。公开为 Pre-release，稳定版 Latest 保持在 personal.3。Android versionCode 为 9。功能与验证范围见[预览说明](3.18.2-personal.4.md)。
+
+## 工作区助手专项预览
+
+从第二次研究预览开始，标签和安装包版本使用 `<上游版本>-personal.<基线序号>.assistant.<预览序号>`。首个采用该命名的版本是 `3.18.2-personal.4.assistant.2`，接续已有的 `v3.18.2-personal.4`。Android 使用同一 versionName，versionCode 从 9 升至 10。Personal 应用身份与数据目录沿用上一版，远控页面仍按上游版本解析。
+
+专项版本公开为 GitHub Pre-release。进入该系列时从发布页手动下载安装。已安装专项版本时，预览通道查找较新的助手专项版本；稳定通道由 GitHub Latest 提供正式版本，遵循原有的只升级规则。常规 Personal 安装的更新检查按常规系列选择候选。发布者校验五个桌面构建、签名 APK、源码提交和全部远端资产摘要后公开草稿，Latest 保持在原稳定版。

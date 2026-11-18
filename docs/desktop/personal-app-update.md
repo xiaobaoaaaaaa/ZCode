@@ -4,7 +4,7 @@
 
 - Personal Release 构建开启 `ZCODE_AUTO_UPDATE=1`。既有已发布版本没有更新入口，需手动安装首个包含本功能的版本一次。
 - Personal 只读取 `xiaobaoaaaaaa/ZCode` 的 GitHub Releases；官方 production 保留官方 manifest，Preview 身份仍禁用更新。启动参数、环境变量、后端地址不能改变 Personal 更新源。
-- stable 使用 GitHub Latest（公开且非预发布）；接收 preview 时从最近 100 个公开 Release 中选择版本最高的 Personal 版本（含预发布）。草稿、官方版本、其他版本格式均排除；不降级。
+- stable 检查 GitHub Latest，候选必须是公开的常规 Personal 正式版。preview 查询最近 100 个公开 Release，常规安装从常规 Personal 系列中选取最高版本（含预发布）；带 `.assistant.<序号>` 的工作区助手专项安装仅选取同一专项系列的已公开预发布。专项用户选择 stable 时，只有较新的常规正式版可以覆盖升级。各通道均不降级。已有常规版与首个 personal.4 助手预览需从专项发布页手动安装一次，标签命名见[发布规格](../releases/personal-release.md#工作区助手专项预览)。
 - `3.17.1-personal.3 → 3.17.1-personal.4` 必须识别为升级；比较完整 SemVer，不丢弃 Personal 序号。GitHub 的 prerelease 标记决定发布通道，版本中的 `personal` 不代表测试版。
 - Windows/Linux 复用检查、下载进度、取消、跳过、自动下载、退出准备和重启安装流程。Linux 严格保持已安装包格式；下载验证 SHA-512。
 - Personal Windows 当前无 Authenticode 签名，只在固定 GitHub 源 + 清单 SHA-512 校验下接受自身安装包；官方 Windows 继续执行已有 Authenticode 校验（含缓存安装复查）。不改变系统安全设置。
