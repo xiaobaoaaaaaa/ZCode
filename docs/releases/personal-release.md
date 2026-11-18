@@ -182,3 +182,7 @@ versionCode 递增至 5。本次授权含提交与推送发布分支（触发构
 ## 3.18.2-personal.3
 
 本版从 personal.2 汇集已验证的辅助对话历史隔离、加载反馈和长历史性能修复，Android versionCode 为 8。范围与验收见[发布说明](3.18.2-personal.3.md)。
+
+## 3.18.2-personal.4
+
+工作区助手研究预览从 v3.18.2-personal.3 开发。公开为 Pre-release，稳定版 Latest 保持在 personal.3。Android versionCode 为 9。功能与验证范围见[预览说明](3.18.2-personal.4.md)。
