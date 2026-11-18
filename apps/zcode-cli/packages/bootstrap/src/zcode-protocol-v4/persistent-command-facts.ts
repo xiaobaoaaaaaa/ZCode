@@ -1,5 +1,4 @@
 import type {
-  MessageWithParts,
   SessionId,
   SessionInputRecord,
   SessionStorePort,
@@ -31,13 +30,27 @@ function discardedSourceCommandId(record: SessionInputRecord): string | undefine
   return undefined;
 }
 
+async function readMessageCommandIds(store: SessionStorePort, sessionID: SessionId) {
+  if (store.readMessageCommandIds) return store.readMessageCommandIds(sessionID);
+  // 无标识投影的存储仍按原始 transcript 与 timeline 事实恢复命令幂等。
+  const transcript: string[] = [];
+  const timeline: string[] = [];
+  for (const { info, parts } of await store.messages({ sessionID })) {
+    if (info.anchor?.sourceCommandId) transcript.push(info.anchor.sourceCommandId);
+    for (const part of parts) {
+      if (part.type === "timeline" && part.sourceCommandId) timeline.push(part.sourceCommandId);
+    }
+  }
+  return { transcript, timeline };
+}
+
 export async function loadPersistentCommandFacts(
   store: SessionStorePort,
   sessionId: SessionId,
   options: { discardAdmittedOnLoad?: boolean } = {},
 ): Promise<Partial<Record<PersistentCommandFactSource, CommandAck[]>>> {
-  const [messages, entries, discardedInputs] = await Promise.all([
-    store.messages({ sessionID: sessionId }),
+  const [ids, entries, discardedInputs] = await Promise.all([
+    readMessageCommandIds(store, sessionId),
     store.sessionEntries?.({ sessionID: sessionId, type: V4_COMMAND_FACT_SESSION_ENTRY }) ?? [],
     options.discardAdmittedOnLoad
       ? (store.listSessionInputs?.({ sessionID: sessionId }) ?? [])
@@ -55,22 +68,10 @@ export async function loadPersistentCommandFacts(
     discarded: new Map(),
   };
 
-  for (const message of messages as MessageWithParts[]) {
-    for (const part of message.parts) {
-      if (part.type !== "timeline" || !part.sourceCommandId) continue;
-      facts.timeline.set(part.sourceCommandId, {
-        commandId: part.sourceCommandId,
-        status: "accepted",
-        revisionAtDecision: 0,
-      });
+  for (const source of ["transcript", "timeline"] as const) {
+    for (const commandId of ids[source]) {
+      facts[source].set(commandId, { commandId, status: "accepted", revisionAtDecision: 0 });
     }
-    const sourceCommandId = message.info.anchor?.sourceCommandId;
-    if (!sourceCommandId || facts.transcript.has(sourceCommandId)) continue;
-    facts.transcript.set(sourceCommandId, {
-      commandId: sourceCommandId,
-      status: "accepted",
-      revisionAtDecision: 0,
-    });
   }
 
   for (const entry of entries) {

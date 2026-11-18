@@ -1863,6 +1863,39 @@ describe("transcript→event 合成", () => {
   });
 
   it("selection side chat 的继承历史只进 provider context，冷恢复时间线从新问题开始", () => {
+    const compact = (id: string, parentId: string, created: number) => {
+      const message = assistantMessageWithParts(
+        id,
+        parentId,
+        [
+          {
+            id: `${id}-part` as never,
+            sessionID: "s1" as never,
+            messageID: id as never,
+            type: "timeline",
+            timelineType: "context_compaction",
+            display: "separator",
+            status: CompactTimelineStatus.Completed,
+            trigger: CompactTrigger.Manual,
+            operationId: id,
+          },
+        ],
+        created,
+      );
+      message.info.semantics = {
+        origin: "system",
+        kind: "timeline_event",
+        uiVisibility: "visible",
+        transcriptVisibility: "visible",
+        providerVisibility: "hidden",
+      };
+      return message;
+    };
+    const guide = (id: string, text: string, created: number) => {
+      const message = userMessage(id, text, created);
+      message.info.metadata = { turnSteerDelivery: "guide" };
+      return message;
+    };
     const inheritedUser = userMessage("u_selection_parent", "父任务问题", 1000);
     const inheritedAssistant = assistantMessage(
       "a_selection_parent",
@@ -1876,15 +1909,15 @@ describe("transcript→event 合成", () => {
         ...message.info,
         visibility: "model-only",
         semantics: {
-          kind: "system_reminder",
-          origin: "migration",
+          kind: message.info.semantics?.kind ?? "system_reminder",
+          origin: message.info.semantics?.origin ?? "migration",
           providerVisibility: "visible",
           transcriptVisibility: "hidden",
           uiVisibility: "hidden",
         },
       },
     });
-    const boundary = syntheticUserMessage("u_selection_boundary", "side chat boundary", 1002, {
+    const boundary = syntheticUserMessage("u_selection_boundary", "side chat boundary", 1050, {
       source: "selection_side_chat",
       visibility: "model-only",
       semantics: {
@@ -1903,14 +1936,28 @@ describe("transcript→event 合成", () => {
       "这是副屏回答",
       2001,
     );
-    const messages = [
-      hideInheritedMessage(inheritedUser),
-      hideInheritedMessage(inheritedAssistant),
-      boundary,
+    const parentHistory = [
+      inheritedUser,
+      inheritedAssistant,
+      compact("parent-compact", inheritedUser.info.id, 1002),
+      guide("parent-guide", "父任务引导", 1003),
+      syntheticUserMessage("parent-wake", "父任务后台唤醒", 1004, {
+        source: "background_task",
+        visibility: "model-only",
+      }),
+    ];
+    const emptyChild = [...parentHistory.map(hideInheritedMessage), boundary];
+    const childHistory = [
       sideUser,
+      compact("child-compact", sideUser.info.id, 2000),
+      guide("child-guide", "副屏引导", 2001),
       sideAssistant,
     ];
-
+    const messages = [...emptyChild, ...childHistory];
+    const empty = reduce(emptyChild);
+    expect(empty.projection.getSnapshot().rows).toMatchObject({ totalCount: 0, window: [] });
+    expect(empty.events.map((event) => event.type)).toEqual([SessionEventType.SessionCreated]);
+    expect(eventsCoverTranscript(empty.events, emptyChild)).toBe(true);
     const { events, projection } = reduce(messages);
     const snapshot = projection.getSnapshot();
     const visibleTexts = snapshot.rows.window
@@ -1918,9 +1965,15 @@ describe("transcript→event 合成", () => {
       .map((row) => row.text);
 
     expect(eventsCoverTranscript(events, messages)).toBe(true);
-    expect(visibleTexts).toEqual(["解释这个片段", "这是副屏回答"]);
-    expect(JSON.stringify(snapshot.rows.window)).not.toContain("父任务");
-    expect(snapshot.rows.totalCount).toBe(snapshot.rows.window.length);
+    expect(visibleTexts).toEqual(["解释这个片段", "副屏引导", "这是副屏回答"]);
+    expect(snapshot.rows.window.filter((row) => row.kind === "turnHeader")).toHaveLength(1);
+    expect(snapshot.rows.window).toContainEqual(
+      expect.objectContaining({
+        kind: "timelineMarker",
+        marker: expect.objectContaining({ type: "compact" }),
+      }),
+    );
+    expect(snapshot.rows).toEqual(reduce(childHistory).projection.getSnapshot().rows);
   });
 
   it("subagent_message idle carrier 的 live/cold identity 与 fork target 完全一致", () => {

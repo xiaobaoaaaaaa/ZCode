@@ -38,6 +38,7 @@ import {
   type ReactNode,
 } from "react";
 import { Hand } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner.js";
 import {
   BUILTIN_MODEL_PROVIDER_IDS,
   buildCustomSupplierKey,
@@ -385,8 +386,9 @@ import type {
 import {
   buildSelectionSideChatKey,
   clearSelectionSideChat,
-  createSelectionSideChat,
   isSelectionSideChatBlocked,
+  isSelectionSideChatOpening,
+  openSelectionSideChat,
   registerSelectionSideChatOpener,
   setSelectionSideChatBlocked,
   subscribeSelectionSideChatRuntime,
@@ -779,6 +781,7 @@ export function SessionPane({
     oauthService,
     modelSelectionService,
     usageStatsService,
+    zcodeAgentService,
     zcodeSessionService,
     zcodeTaskService,
   } = useServices();
@@ -1895,6 +1898,11 @@ export function SessionPane({
   const selectionSideChatKey = sessionId
     ? buildSelectionSideChatKey(workspaceKey, sessionId)
     : null;
+  const selectionSideChatOpening = useSyncExternalStore(
+    subscribeSelectionSideChatRuntime,
+    () => selectionSideChatKey !== null && isSelectionSideChatOpening(selectionSideChatKey),
+    () => false,
+  );
   const selectionSideActionBlocked = useSyncExternalStore(
     subscribeSelectionSideChatRuntime,
     () =>
@@ -2952,14 +2960,21 @@ export function SessionPane({
         let replacesChildSessionId: string | undefined;
         if (targetChildSessionId) {
           try {
-            await zcodeSessionService.readSession({
-              workspacePath,
-              ...(workspaceIdentity ? { workspaceIdentity } : {}),
-              sessionId: targetChildSessionId,
-              messageLimit: 1,
+            const child = targetChildSessionId;
+            await openSelectionSideChat(selectionSideChatKey, `existing:${child}`, async () => {
+              const target = {
+                workspacePath,
+                workspaceIdentity,
+                ...(remoteSessionId ? { remoteSessionId } : {}),
+                sessionId: child,
+              };
+              // lifecycle 已检查会话是否存在；旧 CLI 缺少该接口时才用会先读取完整历史的 session/read。
+              const lifecycle = await zcodeAgentService.getSessionLifecycle(target);
+              if (!lifecycle) await zcodeSessionService.readSession({ ...target, messageLimit: 1 });
+              return child;
             });
           } catch (error) {
-            if (!String(error).includes("sessionNotFound")) throw error;
+            if (!/sessionNotFound|Session not found:/i.test(String(error))) throw error;
             // 多开后 tab id 包含 child，旧单例实现依靠新 child 覆盖同一个父 tab
             // 来移除失效项已不成立。这里显式携带 replacesChildSessionId，让宿主原子删旧开新。
             replacesChildSessionId = targetChildSessionId;
@@ -2987,16 +3002,20 @@ export function SessionPane({
           return;
         }
 
-        const childSessionId = await createSelectionSideChat(selectionSideChatKey, async () => {
-          const ack = await dispatchCommand("createSelectionSideSession", {}, sessionId);
-          if (
-            (ack.status !== "accepted" && ack.status !== "duplicate") ||
-            ack.result?.type !== "createSelectionSideSession"
-          ) {
-            throw new Error(ack.reasonCode ?? "createSelectionSideSession 被拒绝");
-          }
-          return ack.result.sessionId;
-        });
+        const childSessionId = await openSelectionSideChat(
+          selectionSideChatKey,
+          "new",
+          async () => {
+            const ack = await dispatchCommand("createSelectionSideSession", {}, sessionId);
+            if (
+              (ack.status !== "accepted" && ack.status !== "duplicate") ||
+              ack.result?.type !== "createSelectionSideSession"
+            ) {
+              throw new Error(ack.reasonCode ?? "createSelectionSideSession 被拒绝");
+            }
+            return ack.result.sessionId;
+          },
+        );
         onOpenSelectionSideChat({
           workspacePath,
           ...(workspaceIdentity ? { workspaceIdentity } : {}),
@@ -3013,6 +3032,7 @@ export function SessionPane({
           });
         }
       } catch (error) {
+        toast(intl.formatMessage({ id: "sidePane.selectionChatOpenFailed" }));
         logger.warn("[v4-pane] 创建框选副屏会话失败", {
           error: error instanceof Error ? error.message : String(error),
           parentSessionId: sessionId,
@@ -3023,6 +3043,7 @@ export function SessionPane({
     [
       activeSelectionSideChatSessionId,
       dispatchCommand,
+      intl,
       onOpenSelectionSideChat,
       remoteSessionId,
       selectionSideChatKey,
@@ -3030,6 +3051,7 @@ export function SessionPane({
       workspaceIdentity,
       workspaceKey,
       workspacePath,
+      zcodeAgentService,
       zcodeSessionService,
     ],
   );
@@ -3048,24 +3070,27 @@ export function SessionPane({
       const modelSelection = chosen && chosen !== inherited ? chosen : undefined;
       // 参数命令每次都是新 child；同一条文本在 ACK 未回时重试仍复用 pending，
       // 不同文本则不能与 bare `/side` 或另一条 prompt 合并。
-      const pendingKey = `${selectionSideChatKey}\u0000prompt\u0000${text}`;
-      const childSessionId = await createSelectionSideChat(pendingKey, async () => {
-        const ack = await dispatchCommand(
-          "createSelectionSideSession",
-          { firstInput: { text, ...(modelSelection ? { modelSelection } : {}) } },
-          sessionId,
-          undefined,
-          undefined,
-          telemetrySeed,
-        );
-        if (
-          (ack.status !== "accepted" && ack.status !== "duplicate") ||
-          ack.result?.type !== "createSelectionSideSession"
-        ) {
-          throw new Error(ack.reasonCode ?? "createSelectionSideSession 被拒绝");
-        }
-        return ack.result.sessionId;
-      });
+      const childSessionId = await openSelectionSideChat(
+        selectionSideChatKey,
+        `prompt:${text}`,
+        async () => {
+          const ack = await dispatchCommand(
+            "createSelectionSideSession",
+            { firstInput: { text, ...(modelSelection ? { modelSelection } : {}) } },
+            sessionId,
+            undefined,
+            undefined,
+            telemetrySeed,
+          );
+          if (
+            (ack.status !== "accepted" && ack.status !== "duplicate") ||
+            ack.result?.type !== "createSelectionSideSession"
+          ) {
+            throw new Error(ack.reasonCode ?? "createSelectionSideSession 被拒绝");
+          }
+          return ack.result.sessionId;
+        },
+      );
       onOpenSelectionSideChat({
         workspacePath,
         ...(workspaceIdentity ? { workspaceIdentity } : {}),
@@ -5605,6 +5630,14 @@ export function SessionPane({
     sessionId !== null &&
     (snapshot === null || (state.status === "connecting" && !snapshot.runtimeInitialization));
   const errored = sessionId !== null && state.status === "error";
+  const selectionSideChatConnecting =
+    selectionSideChat &&
+    remoteAvailable &&
+    !runtimeReady &&
+    (state.status === "connecting" || state.status === "live") &&
+    state.lifecycle?.state !== "faulted" &&
+    state.lifecycle?.state !== "stopping" &&
+    snapshot?.runtimeInitialization?.status !== "failed";
   // runtime 不在线（崩溃后重连中或重连失败）时，旧快照里的运行项已经没有执行者：胶囊计时停在
   // 断开前、停止入口隐藏；重连后的 CLI 投影给出真正的终态。
   const runtimeOffline = sessionId !== null && snapshot !== null && state.status !== "live";
@@ -6981,6 +7014,17 @@ export function SessionPane({
                   : undefined
               }
             />
+          ) : null}
+
+          {selectionSideChatOpening || selectionSideChatConnecting ? (
+            <div
+              role="status"
+              data-side-chat-loading={selectionSideChat ? "connecting" : "opening"}
+              className="mx-auto flex shrink-0 items-center gap-2 py-2 text-ui-sm text-muted-foreground"
+            >
+              <Spinner aria-hidden="true" />
+              {intl.formatMessage({ id: "sidePane.selectionChatOpening" })}
+            </div>
           ) : null}
 
           {readOnly && controlLastError ? (

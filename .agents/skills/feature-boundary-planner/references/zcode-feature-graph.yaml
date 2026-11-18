@@ -1184,6 +1184,15 @@ nodes:
         file: "packages/ui/src/v4/SessionPane.tsx"
       - symbol: "createSelectionSideConversation"
         file: "apps/zcode-cli/packages/core/src/runtime/methods/session-fork.ts"
+      - symbol: "selectSessionTimelineMessages"
+        file: "apps/zcode-cli/packages/bootstrap/src/active-transcript/index.ts"
+      - symbol: "openSelectionSideChat"
+        file: "packages/ui/src/lib/selectionSideChatRuntime.ts"
+      - symbol: "readMessageCommandIds"
+        file: "apps/zcode-cli/packages/adapters/src/storage/session-store/repositories/messages.ts"
+    invariants:
+      - "The persisted selection_side_chat creation reminder separates inherited provider context from the child's own timeline, including compaction, work durations, guides and wake turns."
+      - "Opening progress follows the parent-scoped request through the child subscription. The first model command reads durable command IDs without loading inherited message bodies."
 
   - id: "capability.provider-retry-live-tail"
     kind: "capability"

@@ -17,6 +17,7 @@ import type { SubagentRunMetadata } from "@zcode/core";
 import { createSubagentObservation } from "../src/app/subagent-observation.js";
 import { listSessionSubagents } from "../src/zcode-protocol/server-operations.js";
 import {
+  collectSubagentChildSessionIds,
   loadPreviousRuntimeRunMetadata,
   paginateEndedSubagents,
   projectSessionSubagents,
@@ -40,10 +41,12 @@ function toolMessage(input: {
   id: string;
   output?: Record<string, unknown> | string;
   runInBackground?: boolean;
+  sessionId?: SessionInfo["id"];
   state?: "completed" | "error" | "running";
   tool?: string;
 }): MessageWithParts {
   const state = input.state ?? "completed";
+  const sessionId = input.sessionId ?? createSessionId("parent");
   const common = {
     input: {
       description: `Description ${input.id}`,
@@ -55,7 +58,7 @@ function toolMessage(input: {
   };
   const part: ToolPart = {
     id: `part-${input.id}` as ToolPart["id"],
-    sessionID: "parent" as ToolPart["sessionID"],
+    sessionID: sessionId,
     messageID: input.id as ToolPart["messageID"],
     type: "tool",
     callID: `call-${input.id}`,
@@ -78,7 +81,7 @@ function toolMessage(input: {
   return {
     info: {
       id: input.id as never,
-      sessionID: "parent" as never,
+      sessionID: sessionId,
       role: "assistant",
       time: { created: 10, completed: 20 },
       parentID: "user" as never,
@@ -131,6 +134,37 @@ function subagentEvent(
 }
 
 describe("subagent session query", () => {
+  it("辅助对话只列出创建后由自己启动的子代理", () => {
+    const side = session("side", "selection_side_chat");
+    const boundary: MessageWithParts = {
+      info: {
+        id: "boundary" as MessageWithParts["info"]["id"],
+        sessionID: side.id,
+        role: "user",
+        agent: "default",
+        time: { created: 10 },
+        source: "selection_side_chat",
+        synthetic: true,
+        visibility: "model-only",
+      },
+      parts: [],
+    };
+    const inherited = toolMessage({
+      sessionId: side.id,
+      id: "parent-launch",
+      childSessionId: "parent-agent",
+    });
+    inherited.info.visibility = "model-only";
+    const own = toolMessage({
+      sessionId: side.id,
+      id: "side-launch",
+      childSessionId: "side-agent",
+    });
+    expect(collectSubagentChildSessionIds(side, [inherited, boundary, own])).toEqual([
+      "side-agent",
+    ]);
+  });
+
   it("projects Agent and legacy Task refs but omits non-persisted children", () => {
     const result = projectSessionSubagents({
       revision: 3,

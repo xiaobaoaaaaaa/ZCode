@@ -503,6 +503,8 @@ describe("cold conversation three-source merge", () => {
       "u-rewind",
       "a-new",
     ]);
+    expect(loaded.persistedMessages).toEqual([oldUser, oldAssistant, rewindNotice, newAssistant]);
+    expect(messages).toHaveBeenCalledTimes(1);
     expect(loaded.target).toEqual(target);
     expect(getSession).toHaveBeenCalledWith("s1");
     expect(readTarget).toHaveBeenCalledWith({ sessionID: "s1" });
@@ -534,6 +536,22 @@ describe("cold conversation three-source merge", () => {
 
     // 分享导入已使用统一 metadata；冷恢复仍须保留标题，不能要求废弃的平铺字段。
     expect(loaded.sharedContextImport).toEqual({ title: "导入的分享标题" });
+
+    const boundary = userMessage("side-boundary", "side chat", 2_000, "boundary-turn");
+    boundary.info.synthetic = true;
+    boundary.info.source = "selection_side_chat";
+    boundary.info.visibility = "model-only";
+    const side = await loadPersistedConversationMaterialization({
+      memoryEvents: [],
+      sessionId: "s1",
+      store: {
+        getSession: async () => ({ title: "辅助对话" }),
+        messages: async () => [context, boundary],
+        readTarget: async () => null,
+      },
+    });
+    expect(side.sharedContextImport).toBeUndefined();
+    expect(side.messages).toEqual([context, boundary]);
   });
 
   it("keeps an explicitly persisted null target as durable authority", async () => {

@@ -1,1 +1,5 @@
-export { isTranscriptVisibleMessage, projectActiveSessionMessages } from "./index.js";
+export {
+  isTranscriptVisibleMessage,
+  projectActiveSessionMessages,
+  selectSessionTimelineMessages,
+} from "./index.js";

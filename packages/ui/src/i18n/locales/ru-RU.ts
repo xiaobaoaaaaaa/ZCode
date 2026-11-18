@@ -1778,6 +1778,8 @@ const ruRU: Record<string, string> = {
   "sidePane.openTab": "Новая вкладка",
   "sidePane.subagent": "Субагент",
   "sidePane.subagentDirectory": "Субагенты",
+  "sidePane.selectionChatOpening": "Открываем дополнительный чат…",
+  "sidePane.selectionChatOpenFailed": "Не удалось открыть дополнительный чат. Попробуйте ещё раз.",
   "sidePane.selectionChat": "Побочный диалог",
   "sidePane.sites": "Сайты",
   "sidePane.workflowRun": "Запуск рабочего процесса",

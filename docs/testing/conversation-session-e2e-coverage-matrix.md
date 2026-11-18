@@ -3602,7 +3602,7 @@ partial/planned 行已经验收。`conversation-session-ssh-remote-p0.test.ts`
 
 ## SSC. 框选文字副屏会话覆盖
 
-本组对应主 catalog `SSC01-SSC36` 与
+本组对应主 catalog `SSC01-SSC37` 与
 `docs/ui/conversation-selection-side-chat.md`。`planned` E2E 必须先放入
 `manual-review/pending`，完成人工确认和 case-local replay fixture 后才能晋升为 `covered`。
 
@@ -3626,7 +3626,7 @@ partial/planned 行已经验收。`conversation-session-ssh-remote-p0.test.ts`
 | SSC16 | planned         | UI action unit + command guard test                                                                                                                                  | goal/edit/retry/fork UI 缺失且协议统一拒绝；send/compact/tool 对照可用                                                                                    |
 | SSC17 | pending         | `conversation-session-selection-side-chat.test.ts` + row render unit                                                                                                 | completed/streaming assistant 真实 DOM 选区与动作时文本冻结                                                                                               |
 | SSC18 | planned         | launcher resolver + runtime registry unit；desktop E2E pending                                                                                                       | 空态和顶部 `+` 两处直接入口每次新建 child，不追加引用                                                                                                     |
-| SSC19 | planned         | core fork + transcript hydration/projection unit                                                                                                                     | 继承历史 provider-only；live/cold UI rows、count、search/page/navigation 均隐藏                                                                           |
+| SSC19 | covered         | `conversation-session-v4-compact.test.ts`、`conversation-session-side-chat-reminder.test.ts`，CLI 的 transcript、SQLite fork 与 provider request 回归 | Electron 回放 `desktop-e2e-20261118-015730-889`。主对话压缩后新辅助对话为 0 行，父压缩标记仍在。CLI 同时验证引导、耗时和辅助对话自己的工作轮 |
 | SSC20 | planned         | SessionPane registry + responsive component unit                                                                                                                     | running/blocked parent 可用；无 active task 与手机端隐藏                                                                                                  |
 | SSC21 | planned         | tooltip contract/unit + manual visual review                                                                                                                         | 紧凑尺寸与中文“辅助对话”术语                                                                                                                              |
 | SSC22 | pending         | `conversation-session-fork-side-pane-empty-state.test.ts` + Side Pane visibility unit                                                                                | fork child 展开侧栏显示启动页；切回 parent 恢复同一辅助对话 tab/child                                                                                     |
@@ -3644,6 +3644,10 @@ partial/planned 行已经验收。`conversation-session-ssh-remote-p0.test.ts`
 | SSC34 | pending         | `packages/desktop/test/e2e/conversation-session/branching/conversation-session-side-chat-escape.test.ts`                                                             | 主先辅后；辅助输入框 Esc、重复 Esc、切回主输入框；断言主流式正文继续增长                                                                                  |
 | SSC35 | pending         | `packages/desktop/test/e2e/conversation-session/branching/conversation-session-side-chat-escape.test.ts`                                                             | 辅先主后；主输入框 Esc、重复 Esc、切回辅助输入框；断言辅助流式正文继续增长                                                                                |
 | SSC36 | pending         | `packages/desktop/test/e2e/conversation-session/branching/conversation-session-side-chat-escape.test.ts` + UI unit                                                   | 打开面板时焦点在页面空白处不停止；收起后 Esc 默认停止主区；重开确认辅助仍输出；桌面/手机布局、隐藏 workspace 与弹窗门禁由组件回归覆盖                     |
+| SSC37 | covered | `conversation-session-v4-compact.test.ts`、`selection-side-chat-sqlite-fork.test.ts`、`session-store.test.ts` | Linux/X11 `desktop-e2e-20261118-072156-627` 验证主面板与辅助面板先后显示进度、空时间线与主辅模型隔离。SQLite 四组回放覆盖 8/240 轮及有无压缩记录，注册、首订阅、首次切模型的完整子历史读取次数由 2/2/1 降至 1/1/0。 |
+
+SSC19 修复前的 Electron 回放 `desktop-e2e-20261118-013213-955` 中，新辅助对话有 2 行。
+修复后 SSC19 与 SSC33 在同一次 Linux/X11 回放中 3/3 通过，两种模型请求格式都保留了父历史。
 
 SSC34/35 本地 Electron controlled-stream 回放：`desktop-e2e-20261016-025954-533`，2/2 通过。
 每个方向使用独立主辅会话；6 次 Esc 仅产生 4 条预期 stop，Renderer 与 CLI 的 session/execution ID 一致。

@@ -1801,6 +1801,8 @@ const jaJP: Record<string, string> = {
   "sidePane.openTab": "新しいタブ",
   "sidePane.subagent": "サブエージェント",
   "sidePane.subagentDirectory": "サブエージェント",
+  "sidePane.selectionChatOpening": "サイド会話を開いています…",
+  "sidePane.selectionChatOpenFailed": "サイド会話を開けませんでした。もう一度お試しください。",
   "sidePane.selectionChat": "サイド会話",
   "sidePane.sites": "サイト",
   "sidePane.workflowRun": "ワークフローの実行",

@@ -562,7 +562,7 @@ async function recordForkStartFailureBestEffort(
 }
 
 /**
- * Fork bundle commit 是命令 PONR；后续 catalog/model/resume/snapshot 仅恢复 runtime 可达性。
+ * Fork bundle commit 是命令 PONR；后续 catalog/model/resume 仅恢复 runtime 可达性。
  * 该阶段失败必须留下可重试事实与 warning，但不能把 durable accepted child 反转成 failed。
  */
 export async function registerCommittedForkBestEffort(
@@ -2201,7 +2201,7 @@ export function createConversationV4Gateway(
       // provider registry 已在 resume 前同步完成，应按恢复/退避后的当前模型精确取值。
       const contextWindow = resolveSessionModelContextWindow(context, record);
       const usageSeed = sessionUsageSeedFromRuntimeContextUsage(
-        await readSessionContextUsage(context, sessionId, source.messages),
+        await readSessionContextUsage(context, sessionId, source.persistedMessages),
         contextWindow,
       );
       const merged = mergeColdConversationEvents({
@@ -2238,7 +2238,7 @@ export function createConversationV4Gateway(
       const subagents = await listSessionSubagents(
         context,
         { sessionId, endedLimit: 1 },
-        persistedMessages,
+        source.persistedMessages,
       );
       return {
         events: merged.events,

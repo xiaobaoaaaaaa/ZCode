@@ -11,15 +11,25 @@ import {
 } from "@zcode/contracts";
 import { getConversationMessageProjectionPolicy } from "@zcode/shared";
 
+export function selectSessionTimelineMessages(
+  messages: readonly MessageWithParts[],
+): readonly MessageWithParts[] {
+  // 辅助对话复制的压缩、引导和后台唤醒保留父轮元数据，逐条恢复会据此重新开轮。
+  // 创建时已在继承历史之后原子写入提醒；按消息顺序取后缀，旧会话也无需改写历史。
+  const boundary = messages.findLastIndex(
+    ({ info }) =>
+      info.role === "user" && info.synthetic === true && info.source === "selection_side_chat",
+  );
+  return boundary < 0 ? messages : messages.slice(boundary + 1);
+}
+
 /**
  * 与产品对话界面同一判据：只保留真实用户输入、可见回复和时间线事件。
  * 运行时提醒、环境信息与中断标记作为隐藏 user 消息落库，读取方不能当作用户原话返回。
  */
 export function isTranscriptVisibleMessage(message: MessageWithParts): boolean {
   const policy = getConversationMessageProjectionPolicy(message);
-  return (
-    policy === "realUserInput" || policy === "visibleAssistant" || policy === "timelineOnly"
-  );
+  return policy === "realUserInput" || policy === "visibleAssistant" || policy === "timelineOnly";
 }
 
 export function projectActiveSessionMessages(

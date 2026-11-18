@@ -9,17 +9,20 @@ import {
   type TurnId,
 } from "@zcode/contracts";
 import type { ConversationSnapshot } from "@zcode/shared/zcode-protocol-v4";
+import { selectSessionTimelineMessages } from "../active-transcript/index.js";
 import {
   HOOK_LIFECYCLE_EVENT_TYPES,
   LIVE_ONLY_EVENT_TYPES,
   MEMORY_ONLY_EVENT_TYPES,
   TRANSCRIPT_DERIVED_EVENT_TYPES,
   goalVerificationEntriesFromSessionEntries,
-  synthesizeEventsFromMessages,
+  synthesizeTimelineEvents,
   type HydratedGoalVerificationEntry,
 } from "./transcript-hydration.js";
 
 export interface ConversationMaterializationSource {
+  /** 子代理与用量各有分支规则。复用同一次原始读取，避免把已裁剪分支再当作全历史。 */
+  persistedMessages: MessageWithParts[];
   goalVerificationEntries: HydratedGoalVerificationEntry[];
   memoryEvents: SessionEvent[];
   messages: MessageWithParts[];
@@ -69,6 +72,7 @@ export async function loadPersistedConversationMaterialization(input: {
     return {
       goalVerificationEntries: [],
       memoryEvents: [...input.memoryEvents],
+      persistedMessages: [],
       messages: [],
     };
   }
@@ -85,7 +89,7 @@ export async function loadPersistedConversationMaterialization(input: {
     rewindKeptMessageIds: session?.revert?.keptMessageIDs,
     rewindTargetMessageId: session?.revert?.targetMessageID,
   });
-  const sharedContextMessage = messages.find(
+  const sharedContextMessage = selectSessionTimelineMessages(messages).find(
     (message) =>
       message.info.role === "user" &&
       message.info.source === "shared_context" &&
@@ -118,6 +122,7 @@ export async function loadPersistedConversationMaterialization(input: {
   return {
     goalVerificationEntries: goalVerificationEntriesFromSessionEntries(entries),
     memoryEvents: [...input.memoryEvents],
+    persistedMessages: allMessages,
     messages,
     ...(sharedContextImport ? { sharedContextImport } : {}),
     target,
@@ -670,7 +675,8 @@ function resequence(events: readonly SessionEvent[]): SessionEvent[] {
 export function mergeColdConversationEvents(input: MergeInput): ColdEventMergeResult {
   const diagnostics = new Map<ColdEventMergeDiagnostic["code"], ColdEventMergeDiagnostic>();
   const hasPersistedTargetAuthority = Object.prototype.hasOwnProperty.call(input, "target");
-  const authorityTurns = memoryAuthorityTurnIds(input.memoryEvents, input.messages);
+  const timelineMessages = selectSessionTimelineMessages(input.messages);
+  const authorityTurns = memoryAuthorityTurnIds(input.memoryEvents, timelineMessages);
   const authorityTurnIds = authorityTurns.turnIds;
   for (const event of authorityTurns.ambiguousLegacyStarts) {
     // 旧 TurnStarted 既没有 messageId，transcript 也没有同 turn anchor 时，
@@ -678,14 +684,14 @@ export function mergeColdConversationEvents(input: MergeInput): ColdEventMergeRe
     // 宁可保留该内存 turn 并显式诊断，也不能把未持久 in-flight 误当重复删掉。
     recordDiagnostic(diagnostics, "cold_merge.ambiguous_legacy_turn_preserved", event);
   }
-  const durableMessages = input.messages.filter(
+  const durableMessages = timelineMessages.filter(
     (message) =>
       !message.info.anchor?.turnId || !authorityTurnIds.has(String(message.info.anchor.turnId)),
   );
   const durableGoalEntries = (input.goalVerificationEntries ?? []).filter(
     (entry) => !entry.payload.anchorTurnId || !authorityTurnIds.has(entry.payload.anchorTurnId),
   );
-  const transcriptEvents = synthesizeEventsFromMessages(durableMessages, {
+  const transcriptEvents = synthesizeTimelineEvents(durableMessages, {
     sessionId: input.sessionId,
     contextWindow: input.contextWindow,
     fileChangeSummariesByMessageId: input.fileChangeSummariesByMessageId,
@@ -714,7 +720,7 @@ export function mergeColdConversationEvents(input: MergeInput): ColdEventMergeRe
   const modelSetupIndexes = setupModelEventIndexes(
     input.memoryEvents,
     authorityTurnIds,
-    input.messages,
+    timelineMessages,
   );
   const supplements: SessionEvent[] = [];
   const prefixEventsByTurnId = new Map<string, SessionEvent[]>();
@@ -855,7 +861,11 @@ export function mergeColdConversationEvents(input: MergeInput): ColdEventMergeRe
         turnTailEvents: boundaryEventsByTurnId,
       }),
     ),
+    // 创建提醒已经落盘，即使辅助对话还没有自己的消息，首次订阅也能恢复权威空快照。
     usedDurableTranscript:
-      durableMessages.length > 0 || durableGoalEntries.length > 0 || hasPersistedTargetAuthority,
+      timelineMessages.length < input.messages.length ||
+      durableMessages.length > 0 ||
+      durableGoalEntries.length > 0 ||
+      hasPersistedTargetAuthority,
   };
 }

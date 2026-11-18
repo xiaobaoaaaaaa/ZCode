@@ -13,6 +13,7 @@ import {
 } from "@zcode/contracts";
 import { readSubagentRunMetadata, type SubagentRunMetadata } from "@zcode/core";
 import type { ZCodeSessionEndedSubagent, ZCodeSessionRunningSubagent } from "@zcode/shared";
+import { selectSessionTimelineMessages } from "../active-transcript/index.js";
 
 const SUBAGENT_TOOL_NAMES = new Set(["Agent", "Task", "subagent"]);
 const CANCELLATION_PATTERN = /abort|cancel|interrupt|stop/i;
@@ -243,7 +244,7 @@ function collectCandidates(
 ): SubagentCandidate[] {
   const candidates = new Map<string, SubagentCandidate>();
   const relations = subagentEventRelations(parentEvents);
-  for (const message of activeBranchMessages(session, messages)) {
+  for (const message of selectSessionTimelineMessages(activeBranchMessages(session, messages))) {
     for (const part of message.parts) {
       if (part.type !== "tool") continue;
       const candidate = candidateFromToolPart(part, relations.get(part.callID));

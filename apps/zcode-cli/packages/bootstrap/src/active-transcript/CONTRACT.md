@@ -8,4 +8,6 @@
 
 `isTranscriptVisibleMessage(message)` 复用产品投影策略，只保留真实用户输入、可见回复与时间线事件；运行时提醒、环境信息、中断标记等隐藏 user 消息不返回。
 
-调用方：ZCode 协议的 `session/messages`、`session/read` 与独立 CLI 的 `ReadSession`。协议读取保留原有完整消息形态，是否再按可见性过滤由调用方决定。
+`selectSessionTimelineMessages(messages)` 按落盘顺序取辅助对话创建提醒之后的消息，供时间线重建与按消息派生的展示信息使用。没有创建提醒时返回原序列。模型上下文读取完整的 active 分支。
+
+V4 对话恢复与子代理列表从 active 分支中选取本会话的时间线消息。`session/messages`、`session/read` 与独立 CLI 的 `ReadSession` 按各自接口的可见性规则读取 active 分支。

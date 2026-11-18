@@ -1930,6 +1930,8 @@ const zhCN: Record<string, string> = {
   "sidePane.openTab": "新标签页",
   "sidePane.subagent": "子智能体",
   "sidePane.subagentDirectory": "子智能体目录",
+  "sidePane.selectionChatOpening": "正在打开辅助对话…",
+  "sidePane.selectionChatOpenFailed": "无法打开辅助对话，请重试。",
   "sidePane.selectionChat": "辅助对话",
   "sidePane.sites": "部署",
   "sidePane.workflowRun": "工作流实例",

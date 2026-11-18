@@ -780,6 +780,10 @@ export class SqliteSessionStore
     return messageRepository.messageWithParts(this.db, input);
   }
 
+  async readMessageCommandIds(sessionID: SessionId) {
+    return messageRepository.readMessageCommandIds(this.db, sessionID);
+  }
+
   async messages(input: { sessionID: SessionId }): Promise<MessageWithParts[]> {
     return messageRepository.messages(this.db, input);
   }

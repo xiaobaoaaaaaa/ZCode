@@ -298,4 +298,8 @@ Compact boundary 需要记录附件摘要字段，供 debug、fork 和 rewind �
 core 同步复用现有分支、稳定边界和身份改写，adapter 用批量 `INSERT SELECT` 搬运原正文。
 不在 JS 中构造完整正文 bundle，不引入共享历史、schema migration 或删除语义变化。
 来源选择和复制使用同一事务视图；回调禁止异步或外部 IO，命令事实和 child 一起提交。
+V4 恢复工作轮和时间线时，只处理已落盘的 `selection_side_chat` 创建提醒之后的记录。
+父历史中的压缩、引导和唤醒仍可随模型上下文恢复。子会话自身的同类事件正常展示。
 具体字段保留、兼容文字与验收边界见[辅助对话规格](../../../../../docs/ui/conversation-selection-side-chat.md#sqlite-批量创建)。
+
+V4 注册在子运行时恢复后返回。旧 fork 接口在注册期间生成完整协议快照。首次切换模型沿用 CommandInbox 的去重与 CAS，SQLite 只向查重逻辑返回命令标识。长历史与模型切换的验收见 [SSC37](../../../../../docs/ui/conversation-selection-side-chat.md#打开进度与长对话ssc37)。

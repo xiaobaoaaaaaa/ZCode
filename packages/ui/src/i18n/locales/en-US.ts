@@ -2096,6 +2096,8 @@ const enUS: Record<string, string> = {
   "sidePane.openTab": "New tab",
   "sidePane.subagent": "Subagent",
   "sidePane.subagentDirectory": "Subagents",
+  "sidePane.selectionChatOpening": "Opening side conversation…",
+  "sidePane.selectionChatOpenFailed": "Could not open the side conversation. Please try again.",
   "sidePane.selectionChat": "Side conversation",
   "sidePane.sites": "Sites",
   "sidePane.workflowRun": "Workflow run",

@@ -2650,6 +2650,7 @@ export async function forkSession(context: ZCodeProtocolAgentServerContext, rawP
       thoughtLevel: parentThoughtLevel,
     },
     inheritLatestTarget: true,
+    includeLegacySnapshot: true,
   });
 }
 
@@ -2685,6 +2686,7 @@ async function registerForkedSessionRuntime(
       followupMode?: "queue" | "guide";
     };
     inheritLatestTarget: boolean;
+    includeLegacySnapshot?: boolean;
   },
 ) {
   const parentMode = options.runtimeConfig.mode;
@@ -2741,13 +2743,16 @@ async function registerForkedSessionRuntime(
   }
   await forkRecord.app.resume();
   context.assertServing?.();
+  // 只有旧 session/fork 回传快照。V4 使用独立的订阅投影；在此重复读取整段历史会拖慢创建回执。
   return {
     forkedSessionId: fork.forkedSessionId,
     parentSessionId: fork.parentSessionId,
     targetMessageId: fork.targetMessageId,
     targetCheckpointId: fork.targetCheckpointId,
     response: fork.response,
-    snapshot: await snapshot(context, forkRecord, forkedSession),
+    snapshot: options.includeLegacySnapshot
+      ? await snapshot(context, forkRecord, forkedSession)
+      : undefined,
   };
 }
 

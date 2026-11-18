@@ -88,6 +88,65 @@ afterEach(() => {
   resetStorageFsFaultInjectorForTests();
 });
 
+it("reads only this session's transcript and timeline command IDs for deduplication", async () => {
+  const store = await createSqliteSessionStore({ dbPath: ":memory:" });
+  try {
+    for (const name of ["child", "sibling"]) {
+      const sessionID = createSessionId(name);
+      await store.createSession({
+        id: sessionID,
+        projectID: createProjectId("commands"),
+        directory: "/workspace",
+        slug: name,
+        title: name,
+        version: "test",
+      });
+      for (const sourceCommandId of [undefined, "", `input-${name}`, `input-${name}`]) {
+        const messageID = createMessageId();
+        await store.saveMessage({
+          id: messageID,
+          sessionID,
+          role: "user",
+          agent: "build",
+          time: { created: 1 },
+          ...(sourceCommandId !== undefined ? { anchor: { sourceCommandId } } : {}),
+        });
+        await store.savePart({
+          id: createPartId(),
+          sessionID,
+          messageID,
+          type: "timeline",
+          timelineType: "session_fork",
+          display: "separator",
+          parentSessionId: sessionID,
+          targetMessageId: messageID,
+          sourceCommandId: `marker-${name}`,
+        });
+        // 老数据的额外字段及正文里出现的命令 ID 都不构成 timeline 查重事实。
+        const text = {
+          id: createPartId(),
+          sessionID,
+          messageID,
+          type: "text" as const,
+          text: "command in message body",
+          sourceCommandId: "not-a-timeline-command",
+        };
+        await store.savePart(text);
+      }
+      expect(await store.readMessageCommandIds(sessionID)).toEqual({
+        transcript: [`input-${name}`],
+        timeline: [`marker-${name}`],
+      });
+    }
+    expect(await store.readMessageCommandIds(createSessionId("missing"))).toEqual({
+      transcript: [],
+      timeline: [],
+    });
+  } finally {
+    store.close();
+  }
+});
+
 describe("assistant block order at the read boundary", () => {
   async function seed(
     parts: Array<{ id: string; type: string; blockIndex?: number }>,

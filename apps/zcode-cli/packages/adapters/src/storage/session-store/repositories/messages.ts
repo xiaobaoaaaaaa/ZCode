@@ -258,6 +258,28 @@ export function messages(db: DatabaseSync, input: { sessionID: SessionId }): Mes
   });
 }
 
+/** 与 messages() 共用 session 和消息归属；首次配置命令查重只需标识，正文留在 SQLite。 */
+export function readMessageCommandIds(db: DatabaseSync, sessionID: SessionId) {
+  const transcript = db
+    .prepare(`
+    select distinct json_extract(data, '$.anchor.sourceCommandId') as id from message
+    where session_id = ? and json_type(data, '$.anchor.sourceCommandId') = 'text'
+  `)
+    .all(sessionID);
+  const timeline = db
+    .prepare(`
+    select distinct json_extract(p.data, '$.sourceCommandId') as id from part p
+    join message m on m.id = p.message_id and m.session_id = p.session_id
+    where p.session_id = ? and json_extract(p.data, '$.type') = 'timeline'
+      and json_type(p.data, '$.sourceCommandId') = 'text'
+  `)
+    .all(sessionID);
+  return {
+    transcript: transcript.map((row) => row.id as string).filter(Boolean),
+    timeline: timeline.map((row) => row.id as string).filter(Boolean),
+  };
+}
+
 export async function messageWithParts(
   db: DatabaseSync,
   input: { sessionID: SessionId; messageID: MessageId },

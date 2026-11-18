@@ -120,6 +120,31 @@ Side Pane 启动页 / 顶部 + 菜单 / 主 composer `/side`、`/btw`
 | workspace 隔离                     | session workspace ref                | `workspaceIdentity?.trim() \|\| workspacePath` | tab key 与 command route       |
 | live 列表可见性                    | CLI sessions-index/task-index filter | task list cache                                | root query 排除 parented child |
 
+## 打开进度与长对话（SSC37）
+
+桌面从固定入口、划词或 `/side`、`/btw` 请求打开时，发起请求的主会话立即显示“正在打开辅助对话…”。带首条问题的命令在推荐确认后进入创建。复用已有 child 时同样覆盖存活校验的等待。拿到真实 child ID 才绑定 tab，辅助面板在第一份可交互投影前显示加载状态。失败时结束进度并反馈，可再次操作。来自其他父任务的请求不占用当前会话的进度。
+
+```mermaid
+sequenceDiagram
+    participant P as 主面板
+    participant C as CLI
+    participant S as SQLite
+    participant A as 辅助面板
+    P->>P: 显示打开进度
+    P->>C: 创建辅助对话
+    C->>S: 提交历史副本与创建提醒
+    C->>C: 注册并恢复子会话
+    C-->>P: 返回子会话 ID
+    P->>A: 打开对应标签页
+    A->>C: 显示加载提示并订阅子会话
+    C-->>A: 可交互的子会话投影
+    A->>C: 切换模型
+    C->>S: 首次命令查重读取标识
+    C-->>A: 返回子会话模型配置
+```
+
+旧 `session/fork` 在注册期间生成其协议要求的完整快照。V4 通过独立订阅获取时间线，首订阅复用同一份原始记录计算分支、用量与子代理。复用已有子会话时，支持生命周期接口的 CLI 通过会话元数据校验其是否存在。SQLite 给首次命令查重提供消息与时间线的命令标识，工具输出、图片与正文留在数据库。桌面持续订阅和远控恢复订阅都从同一子会话读取已确认的配置。
+
 ## Start 同模型推荐
 
 `/side <text>` / `/btw <text>` 创建并提交首条消息前，使用父 session snapshot 已生效的 provider/model/thought 判断同模型 Start 推荐；不读取父 Composer 尚未提交的模型草稿。缺少完整可验证的继承选择时，继续原有 Host 继承行为并跳过推荐。
@@ -237,6 +262,17 @@ Side Pane 启动页 / 顶部 + 菜单 / 主 composer `/side`、`/btw`
   load-older、conversation find 或 turn navigator。
 - copied history 之后写入 model-only boundary：继承历史只作参考，不继续父任务；仅处理副屏中新
   问题；修改工作区必须由用户在副屏明确请求。
+- SSC19：V4 从已持久化的 `selection_side_chat` 创建提醒之后重建辅助对话的时间线。首次打开和
+  重新订阅时，父任务的压缩提示、工作耗时、轮内引导与后台唤醒均不产生可见行。辅助对话自己
+  产生的同类记录按正常轮次展示。消息派生的子代理状态和分享导入提示也使用这一边界。
+  模型仍可使用继承的上下文。
+
+  ```text
+  CLI 创建 child → 写入父历史副本 → 写入创建提醒 → 追加 child 自己的消息
+                     └──── 模型读取完整上下文 ────────────┘
+                                      创建提醒之后 → V4 轮次、时间线与行数
+  ```
+
 - boundary 作为 persisted `selection_side_chat` reminder 注册，channel 为 `history_continuity`、
   lifecycle 为 `resume_history`。原子 fork bundle 中保存 raw text 和 source-aware part metadata；
   child 首次挂载和后续恢复均 hydrate 成 Runtime Attachment。该 source 明确跳过 MCS，始终由
@@ -336,7 +372,7 @@ relay / desktop main 仅鉴权、attachment 调度与 rpc-frame 透传
 | SSC16 | 副屏尝试 goal/edit/retry/fork                                       | UI 无入口，协议直接调用被统一 guard 拒绝                                                                        | accepted                                                                                          |
 | SSC17 | completed/streaming assistant 正文框选                              | 两个动作均出现；引用冻结为动作时文本，contentType=assistant                                                     | accepted                                                                                          |
 | SSC18 | 启动页或顶部 `+` 点击“辅助对话”                                     | 两处入口语义一致；每次创建并激活新的空 composer                                                                 | accepted                                                                                          |
-| SSC19 | child 继承父历史后首次打开或冷恢复                                  | provider 保留历史；所有 UI timeline/search/page/count 均为空                                                    | accepted                                                                                          |
+| SSC19 | child 继承父历史后首次打开或冷恢复 | provider 保留历史。空 child 的时间线、搜索、分页和计数均为空，后续只展示 child 自己的消息和工作轮 | accepted |
 | SSC20 | 父任务 running/blocked 时点击固定入口                               | 入口仍可用；无 active task 与手机端不出现                                                                       | accepted                                                                                          |
 | SSC21 | 框选浮层显示中英文动作                                              | 约 32px 高、12px 字号；中文统一“辅助对话”术语                                                                   | accepted                                                                                          |
 | SSC22 | 父任务有辅助对话后 fork 到 child                                    | child 展开侧栏显示启动页；切回父任务恢复同一 tab/child/草稿                                                     | accepted                                                                                          |

@@ -1434,14 +1434,8 @@ export function getV4DraftThoughtState(workspacePath: string): Promise<{
   );
 }
 
-/**
- * 通过 composer 工具条切换模型 + 思考深度（switchModelConfig 命令）。
- * M5：调试表单（provider/model/thought 文本框 + 应用）已被真实模型选择器替换——
- * helper 适配为驱动 ModelConfigSelect（含 provider 分组二级菜单）与思考深度选择器，
- * spec 的断言语义不变（config 投影更新为目标值）。
- */
-export async function switchV4Model(provider: string, model: string, thought: string) {
-  // 1) 模型：打开菜单 → （必要时展开 provider 分组子菜单）→ 点目标模型项。
+/** 双面板会重复使用相同的工具栏 test id，打开菜单和确认新配置都要针对同一面板。 */
+export async function selectV4ComposerModel(provider: string, model: string, paneSelector = "") {
   const modelItemTestId = testId(
     TID_CHAT_MODEL_SELECT_ITEM,
     encodeCustomModelValue(provider, model),
@@ -1451,7 +1445,7 @@ export async function switchV4Model(provider: string, model: string, thought: st
   ];
   // 模型菜单是受控 DropdownMenu（pointerdown 打开），element.click() 不触发；
   // 与旧 upstream helper 同口径用 WebDriver 真实点击。
-  const modelTrigger = $(sel(TID_CHAT_MODEL_SELECT_TRIGGER));
+  const modelTrigger = $(`${paneSelector} ${sel(TID_CHAT_MODEL_SELECT_TRIGGER)}`.trim());
   await modelTrigger.waitForClickable({ timeout: 30000 });
   await modelTrigger.click();
   await browser.waitUntil(
@@ -1512,11 +1506,17 @@ export async function switchV4Model(provider: string, model: string, thought: st
 
   // 模型 config 投影落定后再切思考深度：thought 命令的 provider/model 参数取自
   // 最新投影，模型切换未回流前切 thought 会被 UI 跳过（config-empty 防御）。
-  await browser.waitUntil(async () => (await getV4ModelConfig()).model === model, {
+  const config = $(`${paneSelector} ${sel(TID_V4_MODEL_CONFIG)}`.trim());
+  await browser.waitUntil(async () => (await config.getAttribute("data-model")) === model, {
     timeout: 30000,
     timeoutMsg: `模型切换后 config.model 投影没有更新为 ${model}`,
   });
+}
 
+/** 通过 composer 工具条切换模型和思考深度。 */
+export async function switchV4Model(provider: string, model: string, thought: string) {
+  await selectV4ComposerModel(provider, model);
+  const modelTrigger = $(sel(TID_CHAT_MODEL_SELECT_TRIGGER));
   if (thought && (await selectCombinedComposerThoughtLevel(thought))) return;
   if (!thought && (await modelTrigger.getAttribute("data-composer-combined-model")) === "true") {
     await browser.keys("Escape");

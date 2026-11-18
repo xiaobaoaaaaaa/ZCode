@@ -50,6 +50,7 @@ import {
   type ErrorAttribution,
   type WorkflowLaunchMeta,
 } from "@zcode/shared/zcode-protocol-v4";
+import { selectSessionTimelineMessages } from "../active-transcript/index.js";
 import { shouldHideInvalidToolCallFromProduct } from "../tool-call-product-visibility.js";
 import { ProductProjection } from "./product-projection.js";
 import { HYDRATION_TRACE_ID } from "./projection-state.js";
@@ -1754,6 +1755,13 @@ export function synthesizeEventsFromMessages(
   messages: readonly MessageWithParts[],
   options: SynthesizeOptions,
 ): SessionEvent[] {
+  return synthesizeTimelineEvents(selectSessionTimelineMessages(messages), options);
+}
+
+export function synthesizeTimelineEvents(
+  messages: readonly MessageWithParts[],
+  options: SynthesizeOptions,
+): SessionEvent[] {
   const sessionId = options.sessionId as SessionId;
   const traceId = HYDRATION_TRACE_ID as TraceId;
   let seq = 0;
@@ -2363,7 +2371,10 @@ export function eventsCoverTranscript(
     goalVerificationEntries?: readonly HydratedGoalVerificationEntry[];
   } = {},
 ): boolean {
-  const expected = transcriptFootprint(messages, options.goalVerificationEntries ?? []);
+  const expected = transcriptFootprint(
+    selectSessionTimelineMessages(messages),
+    options.goalVerificationEntries ?? [],
+  );
   if (
     expected.userTurnCount === 0 &&
     expected.assistantTexts.length === 0 &&

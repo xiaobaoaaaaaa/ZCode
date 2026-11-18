@@ -348,6 +348,10 @@ describe("session fork history", () => {
         entries: history.toRuntimeEntries(),
         useMidConversationSystem,
       });
+      expect(request.messages.slice(0, 2)).toMatchObject([
+        { role: "user", content: "解释这里" },
+        { role: "assistant", content: "父任务回答" },
+      ]);
       expect(request.messages.slice(-2)).toEqual([
         { role: "user", content: `<system-reminder>\n${boundaryText}\n</system-reminder>` },
         { role: "user", content: "child question" },

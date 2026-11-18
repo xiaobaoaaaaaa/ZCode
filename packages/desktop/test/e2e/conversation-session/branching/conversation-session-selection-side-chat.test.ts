@@ -1,5 +1,6 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { clickSelectionAction } from "#e2e/helpers/conversation-selection-comment";
 import { startDraftFromProject } from "#e2e/helpers/project-sidebar";
 import {
   TID_PROMPT_SUGGESTION_PANEL,
@@ -41,7 +42,11 @@ describe("框选文字副屏会话 manual review", () => {
 
     await setComposerText(testId(TID_V4_SESSION_PANE, "workspace-main"), MAIN_DRAFT);
     await selectMainTimelineText(PARENT_MARKER);
-    await clickSelectionAction("add-to-task");
+    // 当前 CLI 的划词菜单用“注释”添加引用；保存空注释仍然只附上选中的原文。
+    await clickSelectionAction("comment");
+    const saveSelection = $("[data-conversation-selection-comment-save]");
+    await saveSelection.waitForClickable();
+    await saveSelection.click();
     await expectComposerState(testId(TID_V4_SESSION_PANE, "workspace-main"), MAIN_DRAFT, 1);
 
     await selectMainTimelineText(PARENT_MARKER);
@@ -393,26 +398,6 @@ async function waitForSelectableMainTimelineText(text: string, timeout: number):
     {
       timeout,
       timeoutMsg: `主时间线没有出现可选文本: ${text}`,
-    },
-  );
-}
-
-async function clickSelectionAction(action: "add-to-task" | "ask-in-side-chat"): Promise<void> {
-  // 修复原因：浮层在 selectionchange/rAF 中可能短暂重挂载；"先检查后点击"两次往返之间
-  // 按钮会消失一瞬导致 flake。这里把检查与点击合成单个原子脚本并整体重试。
-  await browser.waitUntil(
-    async () =>
-      browser.execute((nextAction) => {
-        const button = document.querySelector<HTMLButtonElement>(
-          `[data-conversation-selection-action="${nextAction}"]`,
-        );
-        if (!button || button.disabled) return false;
-        button.click();
-        return true;
-      }, action),
-    {
-      timeout: 30000,
-      timeoutMsg: `划词动作不可用: ${action}`,
     },
   );
 }

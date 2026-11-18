@@ -1745,6 +1745,8 @@ const koKR: Record<string, string> = {
   "sidePane.openTab": "새 탭",
   "sidePane.subagent": "하위 에이전트",
   "sidePane.subagentDirectory": "하위 에이전트",
+  "sidePane.selectionChatOpening": "보조 대화를 여는 중…",
+  "sidePane.selectionChatOpenFailed": "보조 대화를 열 수 없습니다. 다시 시도해 주세요.",
   "sidePane.selectionChat": "사이드 대화",
   "sidePane.sites": "사이트",
   "sidePane.workflowRun": "워크플로 실행",
