@@ -11,6 +11,7 @@ import type {
   ExecutionPort,
   FileSystemPort,
   Logger,
+  MessageWithParts,
   ModelRequestAdmission,
   SessionId,
   SubmitVerdict as ContractsSubmitVerdict,
@@ -58,6 +59,8 @@ export interface Deferred<T> {
  */
 export type ActorRuntimeFactory = (input: {
   sessionId: SessionId;
+  /** 只在同一子会话重挂成功后交回 Core 实际加载的消息，供首个 ask 核对交付。 */
+  onTranscriptRestored: (messages: readonly MessageWithParts[]) => void;
   actor: ActorRef;
   persona: PersonaSpec;
   submitPort: WorkflowSubmitPort;
@@ -211,6 +214,7 @@ export interface AgentRuntimeWorkflowDriverDeps {
  */
 export interface SessionState {
   readonly ref: SessionRef;
+  restoredMessages?: readonly MessageWithParts[];
   /** 与 `ref.id` 同值，只是保留了品牌类型（转录存取面按 SessionId 取数）。 */
   readonly sessionId: SessionId;
   readonly runtime: AgentRuntime;

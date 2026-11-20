@@ -45,7 +45,7 @@
 //   - **会话静默登记**：dispose 时记下每个会话是否还有在写的 turn。修订一个在飞前驱时，amend
 //     要据它判断「此刻数出来的消息条数可不可信」，才谈得上接续那条未完的 ask。
 
-import type { SessionId, WorkflowEscalatePort } from "@zcode/contracts";
+import type { MessageWithParts, SessionId, WorkflowEscalatePort } from "@zcode/contracts";
 import type { TurnResult } from "@zcode/core";
 import {
   GENERIC_SUBMIT_PROFILE,
@@ -66,6 +66,8 @@ import {
   type WorkflowReportSink,
   type WorldReadOp,
 } from "@zcode/dynamic-workflow";
+import { continueRuntimeTurn } from "./input-facade.js";
+import { hasRestoredAskInput } from "./workflow-actor-transcript.js";
 import { executeArtifactPublish } from "./workflow-artifact-publish.js";
 import { qualityEpilogue } from "./workflow-ask-epilogue.js";
 import { ensureSubmitProfileFits } from "./workflow-driver-submit-profile.js";
@@ -294,8 +296,12 @@ class AgentRuntimeWorkflowDriver implements WorkflowDriver {
       this.deps.actorSubmitProfiles?.get(actor.siteId) ?? GENERIC_SUBMIT_PROFILE;
     // await：生产工厂在返回前把会话落库并建 task link（FK 要求 session 行先存在）。
     // 引擎的 ensureSession 会 await 本方法，所以第一次 ask 派发前持久化已完成。
+    let restoredMessages: readonly MessageWithParts[] | undefined;
     const runtime = await this.deps.runtimeFactory({
       sessionId,
+      onTranscriptRestored: (messages) => {
+        restoredMessages = messages;
+      },
       actor,
       persona,
       submitPort,
@@ -309,6 +315,7 @@ class AgentRuntimeWorkflowDriver implements WorkflowDriver {
     });
     state = {
       ref,
+      restoredMessages,
       sessionId,
       runtime,
       submitProfile,
@@ -377,6 +384,8 @@ class AgentRuntimeWorkflowDriver implements WorkflowDriver {
     state.cancelRedrive?.();
     state.cancelRedrive = undefined;
     this.instanceToSession.set(refToString(instance), state);
+    const restored = state.restoredMessages;
+    state.restoredMessages = undefined;
 
     // 质量尾注对 typed / untyped 一视同仁；schema 尾注只有 typed 有。两段都在 scheduler 算完
     // inputHash 之后追加，所以不进缓存身份。
@@ -394,7 +403,9 @@ class AgentRuntimeWorkflowDriver implements WorkflowDriver {
     // 尾注边界：GUI 据此把尾注折进披露。指令正文
     // 之后全是引擎文本，边界就是正文长度；模型收到的仍是全文，持久 text part 也是。
     // fire-and-forget：绝不在 startAsk 内 await turn 完成（Boundary B 契约）。
-    this.runTurn(state, instance, input, message.instructions.length);
+    const inputId = `${state.sessionId}/${refToString(instance)}`;
+    const delivered = restored !== undefined && hasRestoredAskInput(restored, message, inputId, input);
+    this.runTurn(state, instance, delivered ? undefined : input, message.instructions.length, inputId);
   }
 
   respondToSubmit(instance: InstanceRef, verdict: EngineSubmitVerdict): void {
@@ -527,20 +538,20 @@ class AgentRuntimeWorkflowDriver implements WorkflowDriver {
   private runTurn(
     state: SessionState,
     instance: InstanceRef,
-    input: string,
+    input: string | undefined,
     epilogueStart: number,
+    inputId?: string,
   ): void {
     const abortSignal = state.abortController?.signal;
     state.turnGeneration++;
-    state.turn = state.runtime
-      .executeTurn(input, undefined, {
-        ...(abortSignal ? { abortSignal } : {}),
-        epilogueStart,
-      })
-      .then(
-        (result) => this.onTurnResolved(state, instance, result),
-        (error) => this.onTurnRejected(state, instance, error),
-      );
+    const turn =
+      input === undefined
+        ? continueRuntimeTurn(state.runtime, { abortSignal })
+        : state.runtime.executeTurn(input, undefined, { abortSignal, epilogueStart, inputId });
+    state.turn = turn.then(
+      (result) => this.onTurnResolved(state, instance, result),
+      (error) => this.onTurnRejected(state, instance, error),
+    );
   }
 
   private onTurnResolved(state: SessionState, instance: InstanceRef, result: TurnResult): void {

@@ -254,8 +254,12 @@ describe("AgentRuntime turn cancellation", () => {
       await expect(runtime.executeTurn("original task")).rejects.toMatchObject({
         type: CoreErrorType.TurnCancelled,
       });
-      const userMessageCount = () => store.savedMessages.filter((m) => m.role === "user").length;
-      const before = userMessageCount();
+      // 每次请求都可能持久化一条预算提醒。其余 user 行连同隐藏输入一起按 ID 核对，防止伪造续跑消息。
+      const userMessageIds = () =>
+        store.savedMessages
+          .filter((m) => m.role === "user" && m.semantics?.source !== "total_tokens_reminder")
+          .map((m) => m.id);
+      const before = userMessageIds();
       const options = {
         controlTurn: "continue" as const,
         skipInputRecord: true,
@@ -271,7 +275,7 @@ describe("AgentRuntime turn cancellation", () => {
       };
       await runtime.executeTurn("", undefined, options);
       expect(userTexts(requests[1]!)).toEqual(["original task"]);
-      expect(userMessageCount()).toBe(before);
+      expect(userMessageIds()).toEqual(before);
       expect(runtime.getMode()).toBe("guarded");
       const boundary = store.savedMessages.find((m) => m.anchor?.controlTurn === "continue");
       expect(boundary).toMatchObject({
@@ -289,7 +293,7 @@ describe("AgentRuntime turn cancellation", () => {
         executionSubmission: { ...options.executionSubmission, sourceCommandId: "continue-2" },
       });
       expect(userTexts(requests[2]!)).toEqual(["original task"]);
-      expect(userMessageCount()).toBe(before);
+      expect(userMessageIds()).toEqual(before);
       expect(requests[2]!.filter((m) => m.role === "assistant")).toHaveLength(1);
     });
 

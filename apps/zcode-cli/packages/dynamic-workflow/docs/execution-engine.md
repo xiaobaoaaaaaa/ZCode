@@ -495,6 +495,17 @@ A resumed run is the same script run again with the journal answering for what a
 
 As the script re-executes, each instance meets its journal row. A `completed` or `failed` row is settled from the journal with `node-settled {cached: true}` and no driver call; the script sees the same value or the same rejection as before. A `running` row is re-executed live; because the subagent's transcript already holds the turns of the first attempt, that ask's stats are journaled without `worldToolCalls` ("How the engine consumes the cache"). Subagent sessions are re-attached by the journaled session id, so a subagent whose first ask is cached and whose second is live continues the same transcript. The hold rule keeps cached asks ahead of live ones on each subagent.
 
+On same-run resume, a live ask whose instruction was already delivered continues from the restored child session through the main conversation's input-free continuation. The child keeps its earlier messages and tool results. Core records the hidden assistant continuation boundary, releases the previous interruption in model context, and skips user-input persistence and prompt-submit hooks. Each additional stop and resume follows the same rule.
+
+```text
+ResumeWorkflowRun → engine replays journal → completed ask → cached result
+                                          → running ask → driver checks the restored child transcript
+                                                          ├─ original input present → Core continues
+                                                          └─ input absent → Core records the first prompt
+```
+
+The engine identifies the replayed ask by its site and ordinal. Its original user message carries a stable input ID scoped to the child session and that instance. Delivery requires a persisted text part. For older messages the driver checks the instruction after the previous exchange's recorded message boundary (zero for the first exchange). An unknown legacy boundary leaves the ask eligible for ordinary delivery. This preserves two distinct asks with identical text, including one still queued at stop. A pruned child session starts with its instruction. Desktop and phone consume the same child turn events and stored continuation boundary.
+
 ### Replaying the settle order
 
 A site's ordinal is the arrival counter of its call, so every journaled call a branch makes **after** an await is numbered in the order the fan-out finished, not the order the script issued it. That order is wall-clock, and no node row reproduces it: released in admission order, a replayed `Promise.all` runs its continuations array-first, and the first `report` after the join takes the ordinal the journal gave to whichever branch happened to finish first. The run then dies on its own defensive check — `InputHashMismatch` at `report#2@1` — blaming a script that is in fact pure.

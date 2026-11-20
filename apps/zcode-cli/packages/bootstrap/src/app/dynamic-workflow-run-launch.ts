@@ -15,6 +15,7 @@ import {
   CoreErrorType,
   ZCODE_DWF_CHILD_COMMAND,
   type CreateSessionTaskLinkInput,
+  type MessageWithParts,
   type SessionId,
 } from "@zcode/contracts";
 import type { AgentRuntime } from "@zcode/core";
@@ -300,6 +301,7 @@ export function launchDynamicWorkflowRun(
       : { onQuiescenceProbe: input.onQuiescenceProbe }),
     runtimeFactory: async ({
       sessionId,
+      onTranscriptRestored,
       actor,
       persona,
       escalatePort,
@@ -358,6 +360,7 @@ export function launchDynamicWorkflowRun(
       const attached = await attachActorSession({
         actor,
         deps,
+        onTranscriptRestored,
         runId,
         runtime,
         sessionId,
@@ -471,6 +474,7 @@ function isSeaRuntime(): boolean {
 async function attachActorSession(input: {
   actor: ActorRef;
   deps: DynamicWorkflowRunServiceDeps;
+  onTranscriptRestored: (messages: readonly MessageWithParts[]) => void;
   runId: string;
   runtime: AgentRuntime;
   sessionId: SessionId;
@@ -479,7 +483,9 @@ async function attachActorSession(input: {
   const journaledSessionId = deps.journal.getActor(runId, actor.siteId, actor.ordinal)?.sessionId;
   if (journaledSessionId === undefined) return "fresh";
   try {
-    await runtime.resumeFromStore();
+    const messages = await deps.actorTranscriptStore?.messages({ sessionID: input.sessionId });
+    await runtime.resumeFromStore({ persistedMessages: messages });
+    if (messages !== undefined) input.onTranscriptRestored(messages);
     // 会话行、task link 都在上一世落库过（两者皆 upsert），重挂不再重建。
     return "rehydrated";
   } catch (error) {
