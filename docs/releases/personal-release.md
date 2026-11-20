@@ -186,3 +186,7 @@ versionCode 递增至 5。本次授权含提交与推送发布分支（触发构
 ## 3.18.2-personal.4
 
 工作区助手研究预览从 v3.18.2-personal.3 开发。公开为 Pre-release，稳定版 Latest 保持在 personal.3。Android versionCode 为 9。功能与验证范围见[预览说明](3.18.2-personal.4.md)。
+
+## 3.18.2-personal.5
+
+本版从 personal.4 修复动态工作流恢复运行时子代理任务指令重复下发的问题，Android versionCode 为 10。范围与验收见[发布说明](3.18.2-personal.5.md)。
