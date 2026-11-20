@@ -106,8 +106,6 @@ export interface AskMessage {
   instructions: string;
   typed: boolean;
   schema?: unknown;
-  /** 同一 run 恢复时，该 actor 首条未结算的 ask 可能已有输入。上一交换的转录边界供旧记录校验。 */
-  resume?: { previousMessageBoundary?: number };
 }
 
 // ————————————————————————————————————————————————————————————————

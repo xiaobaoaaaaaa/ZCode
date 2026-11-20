@@ -4119,8 +4119,6 @@ TypeScript 错误会让分析器规则不再执行，所以 DWE-01 只用分析�
 | DWO-01～DWO-04 | `on-demand`      | 入口保留、工具面推迟（激活后多出 10 个受灰度门管的工作流工具；`ListModels` 不受门管，激活前后都在；2026-11-09 staging 实测 56 → 66）、`/workflow` 激活、压缩与重启不收回 | pending，未 promotion；容器 `dwo-2`、`dwo-3`、`dwf-all-6` 通过 |
 | DWI-01～DWI-02 | `english-dark`   | 英文文案无 CJK（含反向对照）、两主题的合成背景、文字 token 与 Primary 对比度                                                                                             | pending，未 promotion；容器 `dwi-4`、`dwi-5`、`dwf-all-6` 通过 |
 
-DWU-01 于 2026-11-19 通过 Linux/X11 Electron 回放。手动停止后从同一张卡恢复，已完成的记录员只请求一次，中断的核对员在停止前和恢复后各请求一次，两次请求都只含一份原指令。回放记录位于 `packages/desktop/.e2e-artifacts/desktop-e2e-20261119-081535-988`。
-
 DWW-03、DWW-04 钉住别的进程持有的在飞 run 在开窗前就被拒绝。
 
 ## SHARE. 会话分享与继续工作覆盖

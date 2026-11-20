@@ -1,4 +1,4 @@
-import type { AgentRuntime, ExecuteTurnOptions, TurnAttachment, TurnResult } from "@zcode/core";
+import type { AgentRuntime, TurnAttachment, TurnResult } from "@zcode/core";
 import {
   SessionEventType,
   traceContextToLogContext,
@@ -56,23 +56,6 @@ interface CreateInputFacadeDeps {
   runtime: AgentRuntime;
   sessionId: SessionId;
   traceContext: TraceContext;
-}
-
-/** 主会话和工作流子会话走相同的无输入控制轮，由 Core 持久化轮边界并解除旧中断。 */
-export function continueRuntimeTurn(
-  runtime: AgentRuntime,
-  options: Pick<
-    ExecuteTurnOptions,
-    "abortSignal" | "inputId" | "executionSubmission" | "continueActiveTargetAfterTurn" | "traceContext"
-  >,
-): Promise<TurnResult> {
-  return runtime.executeTurn("", undefined, {
-    ...options,
-    controlTurn: "continue",
-    inputVisibility: "model-only",
-    skipInputRecord: true,
-    skipUserPromptSubmitHooks: true,
-  });
 }
 
 export function createInputFacade(deps: CreateInputFacadeDeps): InputFacade {
@@ -189,10 +172,14 @@ export function createInputFacade(deps: CreateInputFacadeDeps): InputFacade {
       try {
         await preparePromptBoundary(options);
         // 继续是执行控制，不能用可见或隐藏的预制 user 消息驱动；已有上下文直接进循环。
-        return await continueRuntimeTurn(deps.runtime, {
+        return await deps.runtime.executeTurn("", undefined, {
           abortSignal: options.abortSignal,
           inputId: options.inputId,
           executionSubmission: options.executionSubmission,
+          controlTurn: "continue",
+          inputVisibility: "model-only",
+          skipInputRecord: true,
+          skipUserPromptSubmitHooks: true,
           continueActiveTargetAfterTurn: true,
           traceContext: options.traceContext ?? deps.traceContext,
         });

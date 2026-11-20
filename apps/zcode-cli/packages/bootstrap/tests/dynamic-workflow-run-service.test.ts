@@ -11,7 +11,6 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createNodeFileSystemAdapter } from "@zcode/adapters/fs";
 import { createInMemorySessionEventStore, createSqliteSessionStore } from "@zcode/adapters/storage";
 import type {
   DwfArtifactItem,
@@ -28,7 +27,6 @@ import {
   createSessionId,
   createToolCallId,
   createTurnId,
-  modelMessageContentToText,
   DYNAMIC_WORKFLOW_RUN_EVENT_PAYLOAD_LIMITS,
   LIST_WORKFLOW_RUNS_MAX_LIMIT,
   type CollaborationMode,
@@ -37,9 +35,7 @@ import {
   type DynamicWorkflowRunListQuery,
   type DynamicWorkflowRunListResult,
   type DynamicWorkflowRunProgressPayload,
-  type FileSystemPort,
   type MessageWithParts,
-  type ModelInputMessage,
   type ModelSelection,
   type SessionEventStorePort,
   type SessionId,
@@ -294,7 +290,6 @@ interface HarnessOptions {
    * （ask 边界记账的前提，apps/zcode-cli/packages/dynamic-workflow/docs/execution-engine.md）。缺省不接。
    */
   sessionStore?: SessionStorePort;
-  actorWorkspace?: { cwd: string; fileSystemPort: FileSystemPort };
   /** 用户面产物的落点。缺省不接——内容成员因此以 ArtifactStoreUnavailable 拒绝。 */
   artifactStore?: ToolArtifactStorePort;
   taskLinkStore?: { createSessionTaskLink(input: CreateSessionTaskLinkInput): Promise<unknown> };
@@ -495,7 +490,7 @@ function makeHarness(options: HarnessOptions = {}): Harness {
   const order: string[] = [];
   const actorModelRequests: Record<string, ModelRequestLog> = {};
 
-  const fileSystemPort = options.actorWorkspace?.fileSystemPort ?? fakeFileSystemPort({});
+  const fileSystemPort = fakeFileSystemPort({});
   const logger = {
     debug: (message: string, context?: Record<string, unknown>) =>
       logs.push({ level: "debug", message, context }),
@@ -531,7 +526,6 @@ function makeHarness(options: HarnessOptions = {}): Harness {
         input.sessionId,
         {
           systemPrompt: input.persona.system ?? "You are a workflow actor.",
-          workingDirectory: options.actorWorkspace?.cwd,
           mode: "yolo",
           taskType: "workflow_child",
           subagents: { enabled: false },
@@ -611,9 +605,10 @@ function makeHarness(options: HarnessOptions = {}): Harness {
         order.push(`persist:${key}`);
         return original(title, opts);
       };
-      // 带 SQLite 的用例走真实重挂，才能同时检查下一次模型请求和持久转录。
-      const resumeFromStore = runtime.resumeFromStore.bind(runtime);
-      runtime.resumeFromStore = async (resumeOptions) => {
+      // resumeFromStore 全量替身（不调 original）：harness 的 runtime 没有 sessionStore，
+      // 真实实现必抛配置错误。这里只钉「rehydration 被调/没被调」与回退路径；
+      // 真实的 messageHistory 水化语义由 core 的 resume 测试负责。
+      runtime.resumeFromStore = async () => {
         order.push(`resume:${key}`);
         resumeCalls.push(input.sessionId);
         if (options.resumeSessionMissing) {
@@ -621,7 +616,7 @@ function makeHarness(options: HarnessOptions = {}): Harness {
           (gone as unknown as { type: unknown }).type = CoreErrorType.SessionNotFound;
           throw gone;
         }
-        return options.sessionStore ? resumeFromStore(resumeOptions) : ({ resumed: true } as never);
+        return { resumed: true } as never;
       };
       return runtime;
     },
@@ -5198,185 +5193,6 @@ describe("resolveDynamicWorkflowJournalStore", () => {
 });
 
 describe("dynamic workflow run service — resume", () => {
-  const userInputs = (messages: MessageWithParts[]) =>
-    messages.filter(({ info }) => info.role === "user" && !info.synthetic);
-
-  async function stopRun(harness: Harness, runId: string) {
-    expect(await harness.service.cancel(runId)).toBe(true);
-    expect((await harness.service.waitForTask(runId))?.stopReason).toBe("user");
-  }
-
-  it.each(["current", "legacy"] as const)(
-    "重复停止并恢复已收到的 ask：%s 转录只继续，排队的同文 ask 首次交付",
-    async (format) => {
-      const root = await mkdtemp(join(tmpdir(), "dwf-continue-ask-"));
-      const store = await createSqliteSessionStore({ dbPath: join(root, "session.sqlite") });
-      const actor = "actor#1@1";
-      const marker = "check the shared resume marker";
-      const scripts: Record<string, ActorPlan[]> = {
-        [actor]: [
-          { kind: "text", text: "finished before stop" },
-          {
-            kind: "write",
-            path: join(root, "progress.txt"),
-            content: "saved-progress-before-stop",
-          },
-          { kind: "hang-until-cancelled" },
-        ],
-      };
-      const journal = store.workflowJournalStore();
-      const fileSystemPort = createNodeFileSystemAdapter();
-      const writes = vi.spyOn(fileSystemPort, "writeTextFile");
-      const harness = makeHarness({
-        actorScripts: scripts,
-        actorWorkspace: { cwd: root, fileSystemPort },
-        journal,
-        sessionStore: store,
-      });
-      try {
-        const runId = await submitRun(harness, {
-          cwd: root,
-          scriptText: [
-            'const worker = agent("worker");',
-            `const first = await worker.ask("${marker}");`,
-            `const rest = await Promise.all([worker.ask("${marker}"), worker.ask("${marker}")]);`,
-            "return [first, ...rest];",
-          ].join("\n"),
-          trace: traceFor("resume-without-duplicate-input"),
-        });
-        const requests = () => harness.actorModelRequests[actor]?.requests;
-        await vi.waitFor(() => expect(requests()).toHaveLength(3));
-        const sessionID = harness.actorRuntimeInputs[0]!.sessionId;
-        const readMessages = () => store.messages({ sessionID });
-        const beforeStop = requests()![2]!.messages as ModelInputMessage[];
-        const toolResult = beforeStop.find((message) => message.role === "tool")!;
-        expect(toolResult).toBeDefined();
-        expect(toolResult.isError, modelMessageContentToText(toolResult.content)).not.toBe(true);
-        expect(await readFile(join(root, "progress.txt"), "utf8")).toBe(
-          "saved-progress-before-stop",
-        );
-        await stopRun(harness, runId);
-        const original = userInputs(await readMessages());
-        expect(original.map(({ info }) => info.anchor?.sourceCommandId)).toEqual([
-          `${sessionID}/ask#1@1`,
-          `${sessionID}/ask#2@1`,
-        ]);
-        if (format === "legacy") {
-          for (const { info } of original) {
-            await store.saveMessage({
-              ...info,
-              anchor: { ...info.anchor, sourceCommandId: undefined },
-            });
-          }
-        } else {
-          // 即使前一问的边界未能补写，新版原指令的稳定 ID 也足以判定已交付。
-          const previous = journal.getNode(runId, "ask#1", 1)!;
-          journal.putNode({ ...previous, messageBoundary: undefined });
-        }
-
-        const resume = async (responses: ActorPlan[]) => {
-          scripts[actor] = responses;
-          expect(await harness.service.resume!(runId)).toMatchObject({ ok: true, runId });
-        };
-        const checkResumedRequest = () => {
-          const messages = requests()![0]!.messages as ModelInputMessage[];
-          const inputTexts = messages
-            .filter((m) => m.role === "user")
-            .map((m) => modelMessageContentToText(m.content));
-          expect(inputTexts.filter((text) => text.startsWith(marker))).toHaveLength(2);
-          expect(inputTexts).not.toContain("[Request interrupted by user]");
-          expect(messages).toContainEqual(
-            expect.objectContaining({
-              role: "tool",
-              toolCallId: toolResult.toolCallId,
-              content: toolResult.content,
-            }),
-          );
-        };
-
-        await resume([{ kind: "hang-until-cancelled" }]);
-        await vi.waitFor(() => expect(requests()).toHaveLength(1));
-        checkResumedRequest();
-        await stopRun(harness, runId);
-        expect(userInputs(await readMessages()).map((m) => m.info.id)).toEqual(
-          original.map((m) => m.info.id),
-        );
-
-        await resume([
-          { kind: "text", text: "continued" },
-          { kind: "text", text: "new assignment" },
-        ]);
-        await settle(harness, runId);
-        checkResumedRequest();
-        expect(journal.getRun(runId)?.result).toEqual([
-          "finished before stop",
-          "continued",
-          "new assignment",
-        ]);
-        const messages = await readMessages();
-        expect(userInputs(messages)).toHaveLength(3);
-        expect(messages.filter((m) => m.info.anchor?.controlTurn === "continue")).toHaveLength(2);
-        expect(writes).toHaveBeenCalledTimes(1);
-      } finally {
-        await harness.service.close();
-        store.close();
-        await rm(root, { force: true, recursive: true });
-      }
-    },
-  );
-
-  it("旧会话中只有上一问的同文消息时，恢复排队的 ask 会首次交付指令", async () => {
-    const root = await mkdtemp(join(tmpdir(), "dwf-resume-queued-"));
-    const store = await createSqliteSessionStore({ dbPath: join(root, "session.sqlite") });
-    const worker = "actor#1@1";
-    const blocker = "actor#2@1";
-    const scripts: Record<string, ActorPlan[]> = {
-      [worker]: [{ kind: "text", text: "first answer" }],
-      [blocker]: [{ kind: "hang-until-cancelled" }],
-    };
-    const journal = store.workflowJournalStore();
-    const harness = makeHarness({ sessionStore: store, journal, actorScripts: scripts });
-    try {
-      const runId = await submitRun(harness, {
-        cwd: root,
-        maxConcurrency: 1,
-        scriptText: [
-          'const worker = agent("worker");',
-          'const blocker = agent("blocker");',
-          'await worker.ask("repeat this task");',
-          'return await Promise.all([blocker.ask("hold the seat"), worker.ask("repeat this task")]);',
-        ].join("\n"),
-        trace: traceFor("resume-queued-identical-input"),
-      });
-      await vi.waitFor(() => {
-        expect(harness.actorModelRequests[blocker]?.requests).toHaveLength(1);
-        expect(journal.getNode(runId, "ask#3", 1)?.status).toBe("running");
-      });
-      await stopRun(harness, runId);
-      const sessionID = harness.actorRuntimeInputs[0]!.sessionId;
-      const original = userInputs(await store.messages({ sessionID }));
-      expect(original).toHaveLength(1);
-      const { info } = original[0]!;
-      await store.saveMessage({ ...info, anchor: { ...info.anchor, sourceCommandId: undefined } });
-
-      scripts[blocker] = [{ kind: "text", text: "seat released" }];
-      scripts[worker] = [{ kind: "text", text: "second answer" }];
-      expect(await harness.service.resume!(runId)).toMatchObject({ ok: true, runId });
-      await settle(harness, runId);
-      expect(journal.getRun(runId)?.result).toEqual(["seat released", "second answer"]);
-      const restored = await store.messages({ sessionID });
-      expect(userInputs(restored).map((m) => m.info.anchor?.sourceCommandId)).toEqual([
-        undefined,
-        `${sessionID}/ask#3@1`,
-      ]);
-      expect(restored.some((m) => m.info.anchor?.controlTurn === "continue")).toBe(false);
-    } finally {
-      await harness.service.close();
-      store.close();
-      await rm(root, { force: true, recursive: true });
-    }
-  });
-
   const TWO_ASK_SCRIPT = [
     "interface Answer { text: string }",
     'const worker = agent("worker");',

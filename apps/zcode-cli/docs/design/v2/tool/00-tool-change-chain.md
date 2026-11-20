@@ -1,7 +1,5 @@
 # Tool Change Chain Spec
 
-`ResumeWorkflowRun` 和工作流侧栏的恢复操作都由同一 run service 执行。已收到当前指令的子代理复用主会话的无输入继续，保留已完成的工具结果。排队中尚未收到指令的子代理按首次派发处理。验收以子会话的持久化消息、续跑模型请求和工作流结果为准。见[工作流执行规格](../../../../packages/dynamic-workflow/docs/execution-engine.md#resume-by-replay)。
-
 思考阶段引导（2026-11-12）：Core 只在流式模型请求尚无正文或工具事件时抢占该请求。
 tool_input_start/tool_call/provider_tool_result 在投影与调度前关闭资格，取消后的迟到工具包
 不得进入执行器。已有工具不取消、不重放，配对结果与审批沿用原合同。详见

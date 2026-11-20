@@ -48,16 +48,13 @@ export class AskScheduler {
    */
   private readonly priorTranscriptAsks = new Set<string>();
   /**
-   * 按 actor 汇总 journal 里的 ask 行数与第一条未结算 ask 的转录起点，由引擎的 resume 分支用它
+   * 每个 actor 在 journal 里已记录的 ask 行数（`siteId@ordinal` → 行数），由引擎的 resume 分支用它
    * 已经读好的 ask 行一次建好（{@link seedRecordedAsks}）。修复原因：registerActor 原先每建一个
    * actor 就把整张节点表读一遍再过滤——宽扇出下是 O(actor × 行) 次解码，而且解的是每条 ask 的回答
    * 与每条 report item。一次建表是对的：actor 总在它的第一次 ask 之前注册，所以注册那一刻 journal
    * 里属于它的 ask 行只可能来自前几世；全新 run 的表为空。
    */
-  private readonly recordedAsks = new Map<
-    string,
-    { count: number; firstUnsettledSeq: number; previousMessageBoundary?: number }
-  >();
+  private readonly recordedAsks = new Map<string, number>();
   private activeAsks = 0;
 
   /** scheduler-submit.ts 的自由函数经它查 live 节点、按结果结算（见 {@link SubmitSeam}）。 */
@@ -83,19 +80,7 @@ export class AskScheduler {
         continue;
       }
       const actorKey = refToString({ siteId: row.actorSiteId, ordinal: row.actorOrdinal });
-      const replay = this.recordedAsks.get(actorKey) ?? {
-        count: 0,
-        firstUnsettledSeq: 0,
-        previousMessageBoundary: 0,
-      };
-      replay.count++;
-      // 同一 actor 的 ask 串行。最后一次已结算交换之后的第一条 running 才可能已经交付。
-      const seq = row.actorSeq ?? 0;
-      if (row.status !== "running" && seq >= replay.firstUnsettledSeq) {
-        replay.firstUnsettledSeq = seq + 1;
-        replay.previousMessageBoundary = row.messageBoundary;
-      }
-      this.recordedAsks.set(actorKey, replay);
+      this.recordedAsks.set(actorKey, (this.recordedAsks.get(actorKey) ?? 0) + 1);
     }
   }
 
@@ -114,7 +99,7 @@ export class AskScheduler {
     persona: PersonaSpec,
     imported?: ImportedActorState,
   ): Actor {
-    const recordedCount = this.recordedAsks.get(refToString(ref))?.count ?? 0;
+    const recordedCount = this.recordedAsks.get(refToString(ref)) ?? 0;
     const actor: Actor = {
       ref,
       id,
@@ -468,14 +453,10 @@ export class AskScheduler {
       ...(node.instructionsHead === undefined ? {} : { instructionsHead: node.instructionsHead }),
     });
     node.dispatched = true;
-    const replay = this.recordedAsks.get(refToString(node.actor.ref));
     const message: AskMessage = {
       instructions: node.instructions,
       typed: node.spec.typed,
       schema: node.spec.schema,
-      ...(replay && node.actorSeq === replay.firstUnsettledSeq && node.actorSeq < replay.count
-        ? { resume: { previousMessageBoundary: replay.previousMessageBoundary } }
-        : {}),
     };
     this.host.driver.startAsk(session, node.instance, message);
   }

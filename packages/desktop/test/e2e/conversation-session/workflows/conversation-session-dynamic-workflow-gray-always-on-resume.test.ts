@@ -3,7 +3,6 @@ import { join } from "node:path";
 import {
   countUpstreamRequests,
   getLatestUpstreamToolResultByToolCallId,
-  getUpstreamRequestEvidence,
   waitForUpstreamRequest,
   type UpstreamRequestQuery,
 } from "#e2e/helpers/conversation-session-network";
@@ -298,13 +297,7 @@ describe("动态工作流 · 恢复停下的 run", () => {
     // 命令只跑过一次：副作用文件只有一行。
     expect((await readFile(COUNT_FILE, "utf8")).trim().split("\n")).toHaveLength(1);
     expect(await countUpstreamRequests(subagentAsk("E2E_DWU_A_DONE_TASK"))).toBe(1);
-    const heldMarker = "E2E_DWU_A_HELD_TASK";
-    const attempts = await getUpstreamRequestEvidence(subagentAsk(heldMarker));
-    // 两次模型请求都保留原始任务。续跑把指令再塞进同一子会话时，第二份请求会出现两次标记。
-    const copiesPerRequest = attempts.map(
-      ({ requestJson }) => JSON.stringify(requestJson).split(heldMarker).length - 1,
-    );
-    expect(copiesPerRequest).toEqual([1, 1]);
+    expect(await countUpstreamRequests(subagentAsk("E2E_DWU_A_HELD_TASK"))).toBe(2);
 
     // 结果拼的是第一条命中的缓存答案与重跑的答案；被停掉的那份回答没有进入结果。
     await waitForUpstreamRequest(

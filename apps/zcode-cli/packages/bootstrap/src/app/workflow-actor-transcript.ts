@@ -1,8 +1,8 @@
 // ============================================================
-// actor 会话转录：按消息边界核对已交付的 ask、计数和截断复制
+// actor 会话转录的两件事：边界计数与种子截断复制（amend-resume）
 // ============================================================
 //
-// 这些操作共享同一个消息计数口径：
+// 这两件事必须同住一个模块，因为它们共享一条**载荷性**的不变式：
 //
 //   边界 N ⇒ 复制源会话前 N 条消息，恰好得到「到该 ask 为止」的完整转录。
 //
@@ -28,7 +28,7 @@ import {
   type SessionId,
 } from "@zcode/contracts";
 import { cloneMessageForFork, clonePartForFork } from "@zcode/core";
-import { WorkflowError, type ActorSessionSeed, type AskMessage } from "@zcode/dynamic-workflow";
+import { WorkflowError, type ActorSessionSeed } from "@zcode/dynamic-workflow";
 
 /**
  * driver 侧需要的会话转录存取面：读一个会话的全部消息、写一条消息 / 一个 part。
@@ -54,33 +54,6 @@ export async function countActorTranscript(
   sessionId: SessionId,
 ): Promise<number> {
   return (await store.messages({ sessionID: sessionId })).length;
-}
-
-/** running 在排队时就落库。只有重挂的转录中已写入当前 ask 的正文，才能无输入继续。 */
-export function hasRestoredAskInput(
-  messages: readonly MessageWithParts[],
-  message: AskMessage,
-  inputId: string,
-  fullInput: string,
-): boolean {
-  const { resume, instructions } = message;
-  if (!resume) return false;
-  return messages.some(({ info, parts }, index) => {
-    if (info.role !== "user" || info.synthetic) return false;
-    const text = parts.find((part) => part.type === "text")?.text;
-    if (!text) return false;
-    const source = info.anchor?.sourceCommandId;
-    if (source !== undefined) return source === inputId;
-    // 旧版本没有 ask 身份。只认上一次完整交换之后的原文，避免前一问同文时吞掉新任务。
-    if (resume.previousMessageBoundary === undefined || index < resume.previousMessageBoundary) {
-      return false;
-    }
-    return (
-      text === fullInput ||
-      text === instructions ||
-      (info.metadata?.epilogueStart === instructions.length && text.startsWith(instructions))
-    );
-  });
 }
 
 /**
