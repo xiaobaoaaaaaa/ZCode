@@ -1,3 +1,4 @@
+import type { ToolSearchDelivery } from "@zcode/contracts";
 import type { BackgroundBashOutputResult } from "@zcode/shared";
 import type { ModelToolContract, RuntimeInputPresentation } from "@zcode/contracts";
 import type {
@@ -363,10 +364,12 @@ export interface AgentRuntimeTurnMethods {
     compactBoundary: CompactBoundaryPayload,
     traceContext: TraceContext,
     options?: {
+      created?: number;
       model?: Model;
       operationId?: string;
       leadingReminderEntries?: readonly RuntimeMessageEntry[];
       postCompactReminderEntries?: readonly RuntimeMessageEntry[];
+      toolSearchDelivery?: ToolSearchDelivery;
     },
   ): Promise<void>;
   persistUserPrompt(
@@ -431,6 +434,7 @@ export interface AgentRuntimeTurnMethods {
           tokens?: unknown;
           signedReasoningReset?: boolean;
           requestPerformance?: import("@zcode/shared").RequestPerformance;
+          toolSearchDelivery?: ToolSearchDelivery;
         }
       | undefined,
     traceContext: TraceContext,

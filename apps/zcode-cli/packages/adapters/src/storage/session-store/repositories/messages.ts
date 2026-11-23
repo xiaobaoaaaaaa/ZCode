@@ -223,31 +223,47 @@ export async function removePart(
   );
 }
 
+// 索引最终会丢弃这些正文；在 SQLite 中裁剪，避免先把整段工具输出复制到 JS 堆再 JSON.parse。
+// input/metadata 仍参与 TodoWrite 分组与来源判定，不能照搬最终协议裁剪；json_replace 不补造缺失字段。
+const INDEX_PART_DATA = `case json_extract(data, '$.type')
+  when 'reasoning' then case when json_type(data, '$.text') = 'text'
+    then json_replace(data, '$.text', '') else data end
+  when 'tool' then case json_extract(data, '$.state.status')
+    when 'pending' then json_replace(data, '$.state.raw', '')
+    when 'completed' then json_replace(data, '$.state.output', '')
+    when 'error' then json_replace(data, '$.state.error', '')
+    else data end
+  else data end`;
+
 export function messages(
   db: DatabaseSync,
-  input: { sessionID: SessionId; tail?: number },
+  input: Parameters<SessionStorePort["messages"]>[0],
 ): MessageWithParts[] {
   const limited = input.tail !== undefined;
   const messageRows = (limited
     ? db
         .prepare(`select * from message where session_id=?
-        order by sequence is null desc, sequence desc, time_created desc, rowid desc limit ?`)
+          order by sequence is null desc, sequence desc, time_created desc, rowid desc limit ?`)
         .all(input.sessionID, input.tail!)
         .reverse()
     : db
         .prepare(`select * from message where session_id=?
-        order by sequence is null, sequence, time_created, rowid`)
+          order by sequence is null, sequence, time_created, rowid`)
         .all(input.sessionID)) as unknown as MessageRow[];
+
   const partFilter = limited ? "and message_id in (select value from json_each(?))" : "";
   const partRows = db
-    .prepare(`select * from part where session_id=? ${partFilter}
+    .prepare(`select id, message_id, session_id, sequence, time_created, time_updated,
+        ${input.contentProfile === "index" ? INDEX_PART_DATA : "data"} as data
+      from part where session_id=? ${partFilter}
       order by message_id, sequence is null, sequence, time_created, id`)
-    .all(
+    .iterate(
       input.sessionID,
       ...(limited ? [JSON.stringify(messageRows.map((row) => row.id))] : []),
-    ) as unknown as PartRow[];
+    ) as unknown as Iterable<PartRow>;
   const partsByMessage = new Map<string, MessagePart[]>();
 
+  // 长会话曾同时持有全量原始 JSON 数组和解码对象；逐条消费保持返回值/排序不变，释放中间行。
   for (const row of partRows) {
     const part = decodePartRow(row);
     const list = partsByMessage.get(row.message_id) ?? [];

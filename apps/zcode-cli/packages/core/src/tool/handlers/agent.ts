@@ -6,6 +6,8 @@ import {
   AgentErrorCode,
   AgentInputJsonSchema,
   AgentInputSchema,
+  AgentInputWithBackgroundJsonSchema,
+  AgentInputWithBackgroundSchema,
   AgentOutputSchema,
   AgentType,
   CoreErrorType,
@@ -13,11 +15,13 @@ import {
   readAgentFailureHandback,
   type AgentInput,
   type AgentOutput,
+  type SessionId,
   type TraceContext,
   type ModelSelection,
 } from "@zcode/contracts";
 import { resolveModelReference } from "./model-reference.js";
 import { TASK_TOOL_NAME } from "../compat.js";
+import { canReadBackgroundOutputFile } from "../executor/background-task-output.js";
 import { truncateMiddleForModel } from "../result-persistence-format.js";
 import type { ToolEntry, ToolHandler } from "../types.js";
 
@@ -90,9 +94,11 @@ const AGENT_TOOL_OUTPUT_SCHEMA = {
  * 是强制的」，于是模型被指向一个根本不存在的工具，只会白白撞一次 tool_not_found。
  * 缺省 true：TUI、headless 与既有调用方（包括模块加载期烘焙的 AGENT_PROVIDER_DESCRIPTION）
  * 行为不变，只有显式 false 才抹掉这一行。
+ * alwaysBackground 缺省 true，见 createAgentToolEntry。
  */
 function buildAgentProviderDescription(
   options: {
+    alwaysBackground?: boolean;
     dynamicWorkflowEnabled?: boolean;
   } = {},
 ): string {
@@ -112,8 +118,11 @@ function buildAgentProviderDescription(
     "- Omit `model` to use the agent definition, or inherit the parent model when the definition has none.",
     "- Set `model` to choose a model for this child only. Use ListModels to discover configured providerId/modelId values and optional $reasoningLevel; do not invent model names. The main session and saved agent definition are unchanged.",
     "- SendMessage keeps a child's invocation model; use a new Agent call to choose another model.",
-    // ZCode 默认前台运行；后台说明只写这一行，并要求不编造未到达的结果。
-    "- `run_in_background: true` runs the agent asynchronously; you'll be notified when it completes. Never fabricate or predict a pending agent's results — the notification is never something you write yourself; if the user asks before it arrives, say it's still running.",
+    // 总在后台时没有 run_in_background 参数；关闭开关时默认前台，后台说明只写这一行。
+    // 两种都要求不编造未到达的结果（07-subagent.md「ZCode 当前实现」）。
+    options.alwaysBackground === false
+      ? "- `run_in_background: true` runs the agent asynchronously; you'll be notified when it completes. Never fabricate or predict a pending agent's results — the notification is never something you write yourself; if the user asks before it arrives, say it's still running."
+      : "- Subagents run in the background; you'll be notified when one completes. Never fabricate or predict a pending agent's results — the notification is never something you write yourself; if the user asks before it arrives, say it's still running.",
     // 只保留「用户点名工作流」这一种情形：工作流一律由用户显式请求触发，与系统提示词其余
     // 部分一致。不能把「结果层层喂给下一步的多代理编排」也划给 CreateWorkflow，
     // 那等于让模型在用户没开口时自行选择工作流。
@@ -219,82 +228,105 @@ function formatAgentOutputForModel(output: unknown): string {
   ].join("\n");
 }
 
-const agentHandler: ToolHandler = async (input, context) => {
-  const parsed = AgentInputSchema.parse(input) as AgentInput;
-  const agentType = parsed.subagent_type ?? AgentType.GeneralPurpose;
+function createAgentHandler(alwaysBackground: boolean): ToolHandler {
+  const inputSchema = alwaysBackground ? AgentInputSchema : AgentInputWithBackgroundSchema;
+  return async (input, context) => {
+    const parsed = inputSchema.parse(input) as AgentInput;
+    const agentType = parsed.subagent_type ?? AgentType.GeneralPurpose;
 
-  if (!context.subagentPort) {
-    throw createCoreError(
-      CoreErrorType.ConfigurationError,
-      "SubagentPort is not configured for Agent tool",
-      {
-        context: {
-          code: AgentErrorCode.SUBAGENT_UNAVAILABLE,
-          toolCallId: context.toolCallId,
-          toolName: "Agent",
+    if (!context.subagentPort) {
+      throw createCoreError(
+        CoreErrorType.ConfigurationError,
+        "SubagentPort is not configured for Agent tool",
+        {
+          context: {
+            code: AgentErrorCode.SUBAGENT_UNAVAILABLE,
+            toolCallId: context.toolCallId,
+            toolName: "Agent",
+          },
+          recoverable: false,
         },
-        recoverable: false,
-      },
-    );
-  }
+      );
+    }
 
-  let modelSelection: ModelSelection | undefined;
-  if (parsed.model !== undefined) {
-    if (context.subagentModelOverride) {
-      throw createCoreError(
-        CoreErrorType.ConfigurationError,
-        "agent_model_override_unavailable: this execution binds the child model; omit Agent.model.",
-        { recoverable: true },
-      );
+    let modelSelection: ModelSelection | undefined;
+    if (parsed.model !== undefined) {
+      if (context.subagentModelOverride) {
+        throw createCoreError(
+          CoreErrorType.ConfigurationError,
+          "agent_model_override_unavailable: this execution binds the child model; omit Agent.model.",
+          { recoverable: true },
+        );
+      }
+      if (!context.modelCatalogPort) {
+        throw createCoreError(
+          CoreErrorType.ConfigurationError,
+          "model_catalog_unavailable: cannot validate Agent.model on this host; omit model to use the agent definition or parent model.",
+          { recoverable: true },
+        );
+      }
+      const resolution = resolveModelReference(parsed.model, context.modelCatalogPort.listModels());
+      if (!resolution.ok) {
+        throw createCoreError(
+          CoreErrorType.ConfigurationError,
+          `agent_model_${resolution.reason}: ${resolution.message}`,
+          { recoverable: true },
+        );
+      }
+      modelSelection = resolution.selection;
     }
-    if (!context.modelCatalogPort) {
-      throw createCoreError(
-        CoreErrorType.ConfigurationError,
-        "model_catalog_unavailable: cannot validate Agent.model on this host; omit model to use the agent definition or parent model.",
-        { recoverable: true },
-      );
-    }
-    const resolution = resolveModelReference(parsed.model, context.modelCatalogPort.listModels());
-    if (!resolution.ok) {
-      throw createCoreError(
-        CoreErrorType.ConfigurationError,
-        `agent_model_${resolution.reason}: ${resolution.message}`,
-        { recoverable: true },
-      );
-    }
-    modelSelection = resolution.selection;
-  }
-  const request = {
-    ...(modelSelection ? { modelSelection } : {}),
-    sessionId: context.sessionId,
-    turnId: context.turnId,
-    parentToolCallId: context.toolCallId,
-    agentType,
-    description: parsed.description,
-    prompt: parsed.prompt,
-    callerCanReadOutputFile: canReadBackgroundOutputFile(context.providerVisibleToolNames),
-    workingDirectory: context.workingDirectory,
-    workspaceRoot: context.workspaceRoot,
-    trace: {
-      traceId: context.traceId,
-      spanId: context.spanId,
-      parentSpanId: context.parentSpanId,
+    const request = {
+      ...(modelSelection ? { modelSelection } : {}),
       sessionId: context.sessionId,
       turnId: context.turnId,
-    } as TraceContext,
+      parentToolCallId: context.toolCallId,
+      agentType,
+      description: parsed.description,
+      prompt: parsed.prompt,
+      callerCanReadOutputFile: canReadBackgroundOutputFile(context.providerVisibleToolNames),
+      workingDirectory: context.workingDirectory,
+      workspaceRoot: context.workspaceRoot,
+      trace: {
+        traceId: context.traceId,
+        spanId: context.spanId,
+        parentSpanId: context.parentSpanId,
+        sessionId: context.sessionId,
+        turnId: context.turnId,
+      } as TraceContext,
+    };
+    const output = await context.subagentPort.launch(
+      {
+        ...request,
+        // 总在后台时不读 run_in_background：模型仍传入的字段已被 runtime schema 丢掉。
+        ...(alwaysBackground
+          ? { alwaysBackground: true }
+          : { runInBackground: parsed.run_in_background === true }),
+      },
+      {
+        signal: context.abortSignal,
+        ...(context.model ? { model: context.model } : {}),
+        ...(context.subagentModelOverride ? { modelOverride: context.subagentModelOverride } : {}),
+        ...(context.recordSubagent ? { onChildSessionReady: context.recordSubagent } : {}),
+        // 立即发送时由 runner 判断转后台还是取消；executor 读同一个判断。
+        ...(context.inputPreemption ? { inputPreemption: context.inputPreemption } : {}),
+      },
+    );
+    // 后台启动的事实与模型可见的启动回执出自这同一个返回值；记成结构化字段，读的一侧不再解析回执文本。
+    if (output.status === "async_launched") {
+      context.recordSubagent?.({
+        agentId: output.agentId,
+        childSessionId: output.childSessionId as SessionId,
+        background: true,
+        outputFile: output.outputFile,
+      });
+    }
+    return output;
   };
-  return context.subagentPort.launch(
-    {
-      ...request,
-      runInBackground: parsed.run_in_background === true,
-    },
-    {
-      signal: context.abortSignal,
-      ...(context.model ? { model: context.model } : {}),
-      ...(context.subagentModelOverride ? { modelOverride: context.subagentModelOverride } : {}),
-    },
-  );
-};
+}
+
+// 两种形态各一个 handler，Agent 与 Task 别名共用同一个对象。
+const ALWAYS_BACKGROUND_AGENT_HANDLER = createAgentHandler(true);
+const OPTIONAL_BACKGROUND_AGENT_HANDLER = createAgentHandler(false);
 
 export const agentToolEntry: ToolEntry = {
   capability: "Launch a profile-backed subagent; background execution is runtime-configured",
@@ -309,7 +341,7 @@ export const agentToolEntry: ToolEntry = {
     riskLevel: "low",
     needsApproval: false,
   },
-  handler: agentHandler,
+  handler: ALWAYS_BACKGROUND_AGENT_HANDLER,
   formatModelContent: formatAgentOutputForModel,
   formatErrorModelContent: formatAgentFailureForModel,
   inputSchema: AgentInputJsonSchema,
@@ -355,11 +387,6 @@ export const agentToolEntry: ToolEntry = {
   },
 };
 
-function canReadBackgroundOutputFile(toolNames: readonly string[] | undefined): boolean {
-  const names = new Set(toolNames ?? []);
-  return names.has("Read") || names.has("Bash");
-}
-
 export const taskToolEntry: ToolEntry = {
   ...agentToolEntry,
   capability: "Claude Code-compatible alias for launching a ZCode subagent",
@@ -396,22 +423,33 @@ function createTaskToolEntryFromAgent(entry: ToolEntry): ToolEntry {
 
 export function createAgentToolEntry(
   options: {
+    /**
+     * Agent 是否总在后台运行（07-subagent.md「ZCode 当前实现」）。缺省 true：输入没有
+     * run_in_background，每次调用都在后台启动。只有显式 false 回到旧形态：可选 run_in_background，
+     * 省略时前台。schema、描述与 handler 一起切换，tools 段字节随之不同。
+     */
+    alwaysBackground?: boolean;
     /** 见 buildAgentProviderDescription：缺省 true，只有灰度显式关闭时才去掉工作流那一行。 */
     dynamicWorkflowEnabled?: boolean;
   } = {},
 ): ToolEntry {
+  const alwaysBackground = options.alwaysBackground !== false;
   return {
     ...agentToolEntry,
     metadata: {
       ...agentToolEntry.metadata,
       description: buildAgentProviderDescription(options),
     },
+    handler: alwaysBackground ? ALWAYS_BACKGROUND_AGENT_HANDLER : OPTIONAL_BACKGROUND_AGENT_HANDLER,
+    inputSchema: alwaysBackground ? AgentInputJsonSchema : AgentInputWithBackgroundJsonSchema,
+    runtimeInputSchema: alwaysBackground ? AgentInputSchema : AgentInputWithBackgroundSchema,
   };
 }
 
 export function createTaskToolEntry(
   options: {
-    /** Task 是 Agent 的兼容别名，描述整段内嵌 Agent 的，因此同一道门一起传下去。 */
+    /** Task 是 Agent 的兼容别名，描述与 schema 整段沿用 Agent 的，因此同样的选项一起传下去。 */
+    alwaysBackground?: boolean;
     dynamicWorkflowEnabled?: boolean;
   } = {},
 ): ToolEntry {

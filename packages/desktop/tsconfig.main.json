@@ -13,7 +13,9 @@
     "src/shared",
     "src/scheduler",
     "src/extension-host",
-    "src/side-pane-windows"
+    "src/side-pane-windows",
+    "src/preinstalled-tools",
+    "src/preinstalled-tools/catalog.json"
   ],
   // main 直接依赖 shared 和 services；把引用补齐后，desktop 子工程也能稳定复用上游声明产物。
   "references": [

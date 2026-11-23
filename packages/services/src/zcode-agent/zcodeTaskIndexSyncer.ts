@@ -178,6 +178,7 @@ export interface ZCodeTaskIndexSyncer {
 interface CreateZCodeTaskIndexSyncerOptions {
   agentService: IZCodeAgentService;
   taskIndexRepo: TaskIndexRepo;
+  reportActiveSessionCount?: (count: number) => void;
 }
 
 /** phase 终态集合（sessions-index 的 conflated 最新态里判定迁移用）。 */
@@ -239,6 +240,8 @@ interface WorkspaceIngestState {
   configLastWarnAt: number | null;
   /** 会话摘要基线（terminal 迁移/标题变化的 diff 依据）。 */
   summaries: Map<string, SessionSummary>;
+  /** 当前 runtime 已应用过活动快照；同代重订阅保留，换代撤销。 */
+  hasActivityBaseline: boolean;
   /** 首帧（snapshot）静默补缺失行，但不回放历史终态事件或列表广播。 */
   seeded: boolean;
   /** workspace 级 frame emitter 跨 runtime generation 保持稳定，只允许安装一组 listener。 */
@@ -279,6 +282,27 @@ export function createZCodeTaskIndexSyncer(
   // workspace-config topic 提供配置目录热更新；正文搜索索引在 phase 终态迁移时
   // 回源完整 snapshot 收敛（v4 命令路径不再有 op 驱动的 snapshot 同步兜底）。
   const workspaceIngests = new Map<string, WorkspaceIngestState>();
+  let reportedActiveSessionCount = 0;
+  function reportActiveSessions(): void {
+    if (!options.reportActiveSessionCount) return;
+    let count = 0;
+    for (const state of workspaceIngests.values()) {
+      // 旧 runtime 的摘要仍留给 task-index 对账；只有当前代已应用的基线能证明活动。
+      if (!state.hasActivityBaseline) continue;
+      for (const summary of state.summaries.values()) {
+        if (
+          summary.phase === "prewarming" ||
+          summary.phase === "running" ||
+          summary.hasBackgroundWork ||
+          summary.hasCompactWork === true
+        )
+          count += 1;
+      }
+    }
+    if (count === reportedActiveSessionCount) return;
+    reportedActiveSessionCount = count;
+    options.reportActiveSessionCount(count);
+  }
   // 之前 workspaceEmitters 私有在 adapter 里，syncer 写完 sqlite 没有广播渠道，
   // UI 永远收不到 workspace_task_list_changed。把 emitter 上提到 syncer，adapter 改为转发，
   // 让 adapter 路径和 desktop-continuous 路径共用同一份订阅，事件不再分裂。
@@ -1029,6 +1053,8 @@ export function createZCodeTaskIndexSyncer(
         // 防止远端/新安装的空 sqlite 因纯 V4 路径永远没有存量。
         state.summaries = nextSummaries;
         state.seeded = true;
+        state.hasActivityBaseline = true;
+        reportActiveSessions();
         void seedMissingRowsFromInitialSnapshot(state, nextSummaries.values()).then(() =>
           reconcileSnapshotOmissions(state, frame.toSeq),
         );
@@ -1057,6 +1083,8 @@ export function createZCodeTaskIndexSyncer(
       for (const summary of nextSummaries.values()) {
         processSummary(state, previousSummaries.get(summary.sessionId), summary, deliveryKind);
       }
+      state.hasActivityBaseline = true;
+      reportActiveSessions();
       void reconcileSnapshotOmissions(state, frame.toSeq);
       completeIndexRecoveryFrame(state, deliveryKind);
       return;
@@ -1102,6 +1130,7 @@ export function createZCodeTaskIndexSyncer(
     }
     state.indexSeq = frame.toSeq;
     state.indexHasAppliedBase = true;
+    reportActiveSessions();
     completeIndexRecoveryFrame(state, deliveryKind);
   }
 
@@ -1467,7 +1496,12 @@ export function createZCodeTaskIndexSyncer(
       if (isLiveState(state) && state.indexSubscriptionGeneration === generation) {
         clearIndexPendingState(state);
         if (isRuntimeUnavailableError(error)) {
-          state.runtimeGeneration = null;
+          if (state.runtimeGeneration !== null) {
+            suspendWorkspaceAfterRuntimeUnavailable(
+              resolveWorkspaceKey(state.target),
+              state.runtimeGeneration,
+            );
+          }
           return;
         }
         const retryKind = isProviderNotReadyError(error) ? "provider-not-ready" : "transient";
@@ -1508,7 +1542,12 @@ export function createZCodeTaskIndexSyncer(
       if (isLiveState(state) && state.configSubscriptionGeneration === generation) {
         clearConfigPendingState(state);
         if (isRuntimeUnavailableError(error)) {
-          state.runtimeGeneration = null;
+          if (state.runtimeGeneration !== null) {
+            suspendWorkspaceAfterRuntimeUnavailable(
+              resolveWorkspaceKey(state.target),
+              state.runtimeGeneration,
+            );
+          }
           return;
         }
         const retryKind = isProviderNotReadyError(error) ? "provider-not-ready" : "transient";
@@ -1571,6 +1610,8 @@ export function createZCodeTaskIndexSyncer(
     const state = workspaceIngests.get(workspaceKey);
     if (!state || state.runtimeGeneration !== generation) return;
     state.runtimeGeneration = null;
+    state.hasActivityBaseline = false;
+    reportActiveSessions();
     state.indexSubscriptionGeneration += 1;
     state.configSubscriptionGeneration += 1;
     state.indexRecoveryGeneration += 1;
@@ -1615,15 +1656,20 @@ export function createZCodeTaskIndexSyncer(
     }
     if (existing.runtimeGeneration === event.runtimeIdentity.generation) return;
     existing.runtimeGeneration = event.runtimeIdentity.generation;
+    existing.hasActivityBaseline = false;
+    reportActiveSessions();
     resubscribeWorkspaceAfterRuntimeRestart(event.workspaceKey);
   });
 
   // 旧测试夹具/host 没有 lifecycle 时保留 restart 兼容；生产只走 available/unavailable。
   const runtimeRestartedDisposable = hasRuntimeLifecycle
     ? undefined
-    : agentService.onAgentRuntimeRestarted?.((event) =>
-        resubscribeWorkspaceAfterRuntimeRestart(event.workspaceKey),
-      );
+    : agentService.onAgentRuntimeRestarted?.((event) => {
+        const state = workspaceIngests.get(event.workspaceKey);
+        if (state) state.hasActivityBaseline = false;
+        reportActiveSessions();
+        resubscribeWorkspaceAfterRuntimeRestart(event.workspaceKey);
+      });
 
   function ensureWorkspaceSubscription(target: ZCodeAgentWorkspaceTarget): void {
     if (disposed) {
@@ -1665,6 +1711,7 @@ export function createZCodeTaskIndexSyncer(
       indexLastWarnAt: null,
       configLastWarnAt: null,
       summaries: new Map(),
+      hasActivityBaseline: false,
       seeded: false,
       frameListenersInstalled: false,
       disposables: [],
@@ -1831,6 +1878,7 @@ export function createZCodeTaskIndexSyncer(
         }
       }
       workspaceIngests.clear();
+      reportActiveSessions();
       for (const emitter of workspaceEmitters.values()) {
         emitter.dispose();
       }

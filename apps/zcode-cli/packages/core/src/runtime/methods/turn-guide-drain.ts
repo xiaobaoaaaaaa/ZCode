@@ -116,7 +116,8 @@ export async function continueAfterGuideInterrupt(
   state.turnMachine = new TurnMachineImpl(state.turnMachine.receiveModelResponse(""));
   state.turnMachine = new TurnMachineImpl(state.turnMachine.aggregateResults());
   if (await drainInlineGuideForNextRequest(runtime, state)) {
-    state.inputAttachmentCollectionPending = "text_guide";
+    // 引导抢占后复用上游的 MCP 与输入附件准备阶段。
+    state.normalInputPreparationPending = "text_guide";
   }
 }
 

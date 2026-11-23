@@ -69,6 +69,8 @@ for (const flavor of ["personal", "production"]) {
         },
         bundle: true,
         platform: "node",
+        // Native keyring bindings are loaded by Node, as in the packaged Host.
+        external: ["@napi-rs/keyring"],
         format: "cjs",
         outfile,
         logLevel: "silent",
@@ -86,6 +88,7 @@ for (const flavor of ["personal", "production"]) {
           ...process.env,
           HOME: root,
           USERPROFILE: root,
+          NODE_PATH: resolve("node_modules"),
           ZCODE_PROFILE_BASE_DIR: imported,
           ZCODE_DESKTOP_HOME_DIR: imported,
         },

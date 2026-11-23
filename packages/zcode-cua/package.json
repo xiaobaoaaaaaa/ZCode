@@ -1,6 +1,6 @@
 {
   "name": "@zcode/zcode-cua",
-  "version": "0.6.6-open.1",
+  "version": "0.6.6-open.2",
   "private": true,
   "description": "Open-source Windows Computer Use with system UI Automation. Private native helpers and other platforms remain unavailable.",
   "license": "Apache-2.0",
@@ -37,6 +37,10 @@
     "./broker/server": {
       "types": "./broker-server.d.ts",
       "import": "./broker-server.js"
+    },
+    "./broker/in-process": {
+      "types": "./broker-in-process.d.ts",
+      "import": "./broker-in-process.js"
     },
     "./broker/ports": {
       "types": "./broker-ports.d.ts",

@@ -47,11 +47,87 @@ truncation is explicit. Password values are never exposed or set.
 
 ## API
 
-```ts
-const cua = agent.computerUse;
-await cua.getState(); // { apps }
-await cua.listApps();
-const app = await cua.getApp({ pid, window_id });
+```typescript
+type Vec2 = [x: number, y: number];
+type ObservationOptions = { emit?: boolean };
+type StateOptions = ObservationOptions & { disableDiffing?: boolean };
+type StateAndScreenshot = { state: string; screenshot?: Uint8Array };
+type Direction = "up" | "down" | "left" | "right" | "u" | "d" | "l" | "r";
+type MouseButton = "left" | "right" | "middle" | "l" | "r" | "m";
+type SelectionType = "text" | "cursor_before" | "cursor_after";
+type Strategy = "auto" | "a11y" | "event";
+
+type ClickOptions = {
+  mouseButton?: MouseButton;
+  clickCount?: number;
+  modifiers?: string;
+  strategy?: Strategy;
+};
+type SelectTextOptions = { prefix?: string; suffix?: string; selectionType?: SelectionType };
+type PasteOptions = { format?: "text" | "md" | "html" };
+type PressKeyOptions = { holdSeconds?: number; strategy?: Strategy };
+
+interface Target {
+  getAXState(options?: StateOptions): Promise<string>;
+  getScreenshot(options?: ObservationOptions): Promise<Uint8Array>;
+  getAXStateAndScreenshot(options?: StateOptions): Promise<StateAndScreenshot>;
+  elements(): Promise<{ index: number; kind: string; title: string | null; value: string | null; actions: string[] }[]>;
+
+  paste(text: string, options?: PasteOptions): Promise<void>;
+  click(target: number | Vec2, options?: ClickOptions): Promise<void>;
+  drag(from: number | Vec2, to: number | Vec2, options?: { modifiers?: string }): Promise<void>;
+  pressKey(key: string, options?: PressKeyOptions): Promise<void>;
+  scroll(target: number | Vec2, direction: Direction, pages?: number): Promise<void>;
+  selectText(elementIndex: number, text: string, options?: SelectTextOptions): Promise<void>;
+  setValue(elementIndex: number, value: string): Promise<void>;
+  typeText(text: string): Promise<void>;
+  performSecondaryAction(elementIndex: number, action: string): Promise<void>;
+}
+
+interface App extends Target {}
+
+type AppRef = { name?: string; bundle_id?: string; pid?: number; window_id?: number };
+type AppInfo = { pid: number; name: string | null; bundle_id: string | null; active: boolean };
+type State = { apps: AppInfo[] };
+
+declare const agent: {
+  computerUse: {
+    getState(options?: ObservationOptions): Promise<State>;
+    getApp(target: string | AppRef): Promise<App>;
+    listApps(options?: ObservationOptions): Promise<AppInfo[]>;
+    computer: Record<string, (args: object) => Promise<unknown>>;
+
+    requestAccess(capabilities?: string[]): Promise<Record<string, unknown>>;
+    stop(reason?: string): Promise<void>;
+  };
+};
+```
+
+The full reference is `agent.documentation.get("computer-use")`, fetched on demand;
+read it only for an argument shape or response field this page does not give.
+
+## The loop
+
+Observe once, act, then observe again before deciding the next step.
+
+`agent.computerUse.getApp(...)` binds an app and shows nothing; call `getAXState`
+when you need to see its state. Binding also launches it if not running; there is
+no separate launch tool. Its argument is a display name or a bundle identifier —
+the same strings `listApps()` returns — or an `AppRef`.
+
+When the user names an application, copy it character-for-character into the app
+identifier. Do not translate, localize, normalize, shorten, or remove a suffix.
+A rewritten name resolves to a different app or to nothing, and the failure reads
+"app not found". If the exact string does not resolve, call
+`agent.computerUse.listApps()` once and pick the matching identifier.
+
+Batch related actions and a single closing observation into one cell:
+
+```js
+const app = await agent.computerUse.getApp("Notes");
+await app.click(box);
+await app.typeText("hello");
+await app.pressKey("Return");
 await app.getAXState();
 await app.getScreenshot();
 await app.getAXStateAndScreenshot();

@@ -102,6 +102,7 @@ function textDelta(log: EventLog, text: string): SessionEvent {
 interface HostStub {
   frames: ConversationTopicFrame[];
   telemetryFacts: ConversationTelemetryFact[];
+  telemetryNotifications: Array<{ channel: string; value: unknown }>;
   executed: CommandEnvelope[];
   errors: Array<{ scope: string; error: unknown }>;
   sessions: Set<string>;
@@ -141,6 +142,7 @@ function makeHost(): HostStub {
   return {
     frames: [],
     telemetryFacts: [],
+    telemetryNotifications: [],
     executed: [],
     errors: [],
     sessions: new Set(["session-1"]),
@@ -182,7 +184,13 @@ function makeGateway(host: HostStub): ConversationV4Gateway {
         return { status: host.resumeOutcome };
       },
       emitWireFrame: (wire) => collectCompleteConversationFrame(host.frames, wire),
-      emitConversationTelemetryFact: (fact) => host.telemetryFacts.push(fact),
+      emitConversationTelemetryFact: (fact) => {
+        host.telemetryFacts.push(fact);
+        host.telemetryNotifications.push({ channel: "fact", value: fact });
+      },
+      emitTurnAdmissionTelemetry: (value) => {
+        host.telemetryNotifications.push({ channel: "admission", value });
+      },
       onTargetCompleted: (sessionId, event) => {
         host.projectionEvents.push({ sessionId, event });
       },
@@ -467,6 +475,39 @@ describe("订阅与帧调度", () => {
       }
     },
   );
+  it("先发送兼容旧 App 的 started，再发送同 eventId 的独立接纳通知", () => {
+    const host = makeHost();
+    const gateway = makeGateway(host);
+    const log = new EventLog();
+    gateway.ingest("session-1", sessionCreated(log));
+    const started = log.push(
+      SessionEventType.TurnStarted,
+      {
+        turnNumber: 1,
+        inputId: "command-1",
+        isFirstMessage: true,
+        intent: { admittedDelivery: "queue" },
+      },
+      { turnId: "turn-1" },
+    );
+    gateway.ingest("session-1", started);
+    gateway.ingest("session-1", started);
+
+    expect(host.telemetryNotifications.map(({ channel }) => channel)).toEqual([
+      "fact",
+      "admission",
+    ]);
+    expect(host.telemetryFacts[0]).not.toHaveProperty("isFirstMessage");
+    expect(host.telemetryFacts[0]).not.toHaveProperty("sendMode");
+    expect(host.telemetryNotifications[1]?.value).toMatchObject({
+      kind: "turn.admission",
+      eventId: String(started.id),
+      sourceCommandId: "command-1",
+      isFirstMessage: true,
+      sendMode: "queued",
+    });
+    gateway.dispose();
+  });
 
   it("只从 live ingest 发送 telemetry fact，并按 eventId 有界入口去重", () => {
     const host = makeHost();
