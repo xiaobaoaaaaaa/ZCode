@@ -190,3 +190,10 @@ versionCode 递增至 5。本次授权含提交与推送发布分支（触发构
 ## 3.18.2-personal.5
 
 本版从 personal.4 修复动态工作流恢复运行时子代理任务指令重复下发的问题，Android versionCode 为 10。范围与验收见[发布说明](3.18.2-personal.5.md)。
+
+## 4.0.0-personal.1：官方 4.0.0 合入
+
+从已发布的 `v3.18.2-personal.5` 快进接收合并提交 `e38abe1e`，其中官方源码提交为 `a4b44451`。
+重叠功能采用官方实现，保留 Personal 独有功能。根版本为 `4.0.0-personal.1`，Android versionCode 为 11。
+用户已授权发布，沿用五平台桌面与签名 Android 联合构建。资产校验完成后公开并设为 Latest。
+范围见[发布说明](4.0.0-personal.1.md)与[合入规格](../specs/upstream-4.0.0-personal-integration.md)。
