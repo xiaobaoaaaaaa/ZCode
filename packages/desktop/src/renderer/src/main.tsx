@@ -344,7 +344,7 @@ function initializeBusinessRoot(port: MessagePort): void {
   const services = connectViaMessagePort(port, {
     sourceServerManagementService: true,
     deviceSyncStateService: true,
-    workspaceAssistantService: true,
+    // 本版本 Host 未注册助手，省略代理后侧栏按现有能力判断隐藏入口。
     managedWorktreeService: true,
     // 扩展门面只在桌面本机 Host 注册（docs/plugins/extension-host.md）。
     extensionsService: true,

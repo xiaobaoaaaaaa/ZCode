@@ -1,5 +1,22 @@
 # 桌面工作区助手
 
+## 4.0.0 Personal 正式版撤回
+
+从 `4.0.0-personal.2` 起，桌面 Local Host 不注册工作区助手服务。Renderer 按现有服务能力隐藏入口，并将失效的助手主视图回到普通会话。旧版创建的普通任务仍由原有会话服务管理，升级不迁移或清除助手历史，也不会重新分派尚未送达普通任务的助手输入。
+
+```mermaid
+sequenceDiagram
+    participant H as Desktop Local Host
+    participant UI as Renderer
+    participant W as 普通任务 owner
+    H-->>UI: 公布已注册的服务能力
+    UI->>UI: 隐藏助手入口，失效视图回到会话
+    UI->>W: 按原任务 ID 打开既有会话
+    W-->>UI: 恢复既有对话
+```
+
+撤回验收覆盖本地工作区入口缺失、重启后保留并打开同一普通会话。下文记录研究预览版的功能和验收历史。
+
 ## 设计依据
 
 DeepSeek Harness 团队的[设计文章](https://mp.weixin.qq.com/s/zoS7GlReWPhfCjENGxXCdg)把跨事项的连续交互交给 Router，把耗时执行和详细上下文交给隔离的 Worker。原文讨论了按引用召回旧上下文、已订阅事件直达执行者、后台完成后再通知前台，以及人的注意力成本。第 7 节消融实验用合成消息流和模拟耗时工作比较调度方案，不能据此推断本产品真实编码速度。公开[研究原型](https://github.com/deepseek-ai/dsh-superagent-prototype/tree/8c32a9dc5d72c033816c6a8110b37f40cf94fba4)的 Engine 持有事项和分派，Executor 持有会话，通过结构化报告和待办提示请求人介入。原型与团队内部系统及文章设想有差别。

@@ -13,6 +13,8 @@ const CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
 const AUTH = "https://auth.openai.com";
 const BACKEND = "https://chatgpt.com/backend-api";
 const VERSION = "0.159.0";
+// 模型目录按客户端版本返回。实测同一账号用 0.159.0 缺少 GPT-6.2 Sol 和 Astra。
+const MODEL_CATALOG_VERSION = "0.171.0";
 const STORE_KEY = "codex-subscription-accounts-v1";
 const TIMEOUT_MS = 30_000;
 const REFRESH_MARGIN_MS = 60_000;
@@ -99,12 +101,12 @@ function expiresAt(token: Token, now: number): number {
       ? exp * 1000
       : now;
 }
-function headers(account: StoredAccount): Record<string, string> {
+function headers(account: StoredAccount, version = VERSION): Record<string, string> {
   return {
     Authorization: `Bearer ${account.accessToken}`,
     "ChatGPT-Account-Id": account.workspaceId,
     originator: "codex_cli_rs",
-    version: VERSION,
+    version,
   };
 }
 
@@ -351,7 +353,9 @@ export function createCodexSubscription(deps: Dependencies) {
         try {
           await ensureToken(a, all);
           const [modelResult, quotaResult] = await Promise.allSettled([
-            json(`${BACKEND}/codex/models?client_version=${VERSION}`, { headers: headers(a) }),
+            json(`${BACKEND}/codex/models?client_version=${MODEL_CATALOG_VERSION}`, {
+              headers: headers(a, MODEL_CATALOG_VERSION),
+            }),
             json(`${BACKEND}/wham/usage`, { headers: headers(a) }),
           ]);
           if (modelResult.status === "fulfilled") {

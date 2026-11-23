@@ -1,3 +1,4 @@
+import { restartIntoWorkspacePreservingProfile } from "#e2e/helpers/model-provider-restart-runtime";
 import {
   TID_CHAT_MODEL_SELECT_GROUP,
   TID_CHAT_MODEL_SELECT_ITEM,
@@ -26,7 +27,9 @@ import {
 } from "#e2e/helpers/upstream-provider";
 import {
   E2E_REPLY_TOKEN,
+  getV4PaneSnapshot,
   prepareV4ConversationE2E,
+  selectV4TaskById,
   sendV4Prompt,
   waitForV4AssistantMessageContaining,
   waitForV4ConversationState,
@@ -41,10 +44,11 @@ describe("会话区 上游 工作区首发冒烟 E2E", () => {
   });
 
   it("I07: 启动打开工作区后，上游 模型列表、首发请求和回复应正确", async function () {
-    this.timeout(150000);
+    this.timeout(240000);
 
     await prepareV4ConversationE2E();
     await assertDefaultWorkspaceOpened();
+    expect(await $('[data-testid="workspace-assistant-open"]').isExisting()).toBe(false);
     await assertUpstreamModelListShowsTargetModel();
     await selectUpstreamModelById(UPSTREAM_MODEL);
     await assertSelectedUpstreamModel();
@@ -71,6 +75,14 @@ describe("会话区 上游 工作区首发冒烟 E2E", () => {
       "Upstream workspace smoke 首轮完成后没有回到 idle",
       90000,
     );
+
+    const { sessionId } = await getV4PaneSnapshot();
+    if (!sessionId || sessionId === "draft") throw new Error("普通会话尚未持久化");
+    await restartIntoWorkspacePreservingProfile(DEFAULT_WORKSPACE);
+    await selectV4TaskById(sessionId);
+    await waitForV4UserMessageContaining(marker);
+    await waitForV4AssistantMessageContaining(E2E_REPLY_TOKEN);
+    expect(await $('[data-testid="workspace-assistant-open"]').isExisting()).toBe(false);
   });
 });
 

@@ -121,6 +121,8 @@ conversation-session 还剩 **47 个 pending 文件**；全部 desktop E2E 还�
 | WA03 | partial | `desktop-e2e-20261118-095014-384` 离开重入、完整冷重启后 B 显式续接带回旧上下文。测试在隔离 Host 关闭后回退 A 的结算标记；重试后同一 ID 和最新结果恢复，A 初次模型请求总数仍为 1。未做双窗口 UI 和跨工作区 UI 验收                                                                                  |
 | WA04 | partial | `desktop-e2e-20261118-095014-384` 从助手打开 B 原会话，手动续发后的最新回复回到 B 卡片；独立 `desktop-e2e-20261118-095440-044` 真实 AskUserQuestion 等待时卡片显示需要处理，用户进入原会话回答，下一条模型请求携带该回答，结果回到原卡片且变为已完成。权限批准/拒绝、删除、失败及不可达未在桌面实跑 |
 
+WA05 已覆盖。Fedora Electron `desktop-e2e-20261123-153503-169` 的 `conversation-session-upstream-workspace-smoke.test.ts` 验证本地工作区无助手入口，普通任务发送一轮后冷重启，按同一任务 ID 打开并恢复原输入与回复。使用隔离配置和回放响应，未迁移真实用户数据。
+
 本轮交互截图在 `packages/desktop/.e2e-artifacts/desktop-e2e-20261118-095014-384/workspace-assistant-results.png`（1280×800）与同目录 `workspace-assistant-results-compact.png`（480×640）。用例保留为 pending。
 
 ## 思考阶段提前接收引导（GI，2026-11-12）

@@ -197,3 +197,9 @@ versionCode 递增至 5。本次授权含提交与推送发布分支（触发构
 重叠功能采用官方实现，保留 Personal 独有功能。根版本为 `4.0.0-personal.1`，Android versionCode 为 11。
 用户已授权发布，沿用五平台桌面与签名 Android 联合构建。资产校验完成后公开并设为 Latest。
 范围见[发布说明](4.0.0-personal.1.md)与[合入规格](../specs/upstream-4.0.0-personal-integration.md)。
+
+## 4.0.0-personal.2：撤回工作区助手并修复 Codex 目录
+
+从已发布的 `v4.0.0-personal.1` 创建修订版，Android versionCode 递增至 12。先核验五平台桌面包和签名 Android 包，再公开修订版并设为 Latest。将 `v4.0.0-personal.1` 标为已撤回的预发布，保留标签和校验记录，并从其 GitHub Release 指向替代版本。
+
+范围见[发布说明](4.0.0-personal.2.md)、[工作区助手规格](../workspace-assistant.md)与[Codex 订阅规格](../codex-subscription/spec.md)。

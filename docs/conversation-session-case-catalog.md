@@ -30,6 +30,8 @@ prewarming/running、后台工作及独立 compact；不扩展 pending interacti
 
 桌面回放承担 WA01、WA02、WA03 离开重入、冷续接及遗失结算确认的显式重试，WA04 手动接手及原任务 AskUserQuestion 回答。双窗口同时选择同一澄清（同目标只提交一次、不同目标拒绝后者）、删除任务后检查消息跳转与候选禁用、工作区切换和人工审批独立取证，详细状态见[覆盖矩阵](testing/conversation-session-e2e-coverage-matrix.md)。
 
+WA05（正式版撤回）在本地工作区确认助手入口缺失，创建普通任务并完整重启后，仍可按原任务 ID 打开同一会话和回复。
+
 ## 思考阶段提前接收引导（GI，2026-11-12）
 
 GI01–GI06 accepted，设置、动作、断言与剪枝见

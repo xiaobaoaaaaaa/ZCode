@@ -18,6 +18,7 @@
 - 额度采用与官方相同的数字 + 进度条小卡，168 小时显示每周，其余按服务端窗口时长命名；条形长度限制在 0–100%，未知额度显示未知，不伪造额度。额外 credits 为 0 时省略，为正数或不限量时显示。过期/重新登录等异常仍可见。
 - 每个账号卡片下展示服务端发现的“可用模型”列表与“同步模型”操作；此列表只表示账号模型目录，不假装是本地已启用列表，不增加无服务状态支撑的开关。同步成功仅在该账号按钮旁显示短状态；不持久化另一份绑定状态。多账号互不混淆。
 - 刷新保留图标按钮及无障碍标签；重新登录和退出在更多菜单中，键盘和手机可达。空账号才显示登录说明。窄屏额度卡自动换行，模型长名不撑破布局；中英文、深浅主题一致。
+- Host 刷新账号模型目录时，在 `client_version` 查询参数和 `version` 请求头中使用已验证的目录兼容版本 `0.171.0`。目录可见性由服务端按账号和客户端版本决定。额度与模型执行继续使用各自现有的请求版本。
 - 登录只发现账号和模型；“添加 / 同步模型”通过既有 ProviderSettingsService 创建/补充个人供应商，不改变当前会话模型。新建时不传 `initialConfig.group`，分组由 ProviderConfigService 唯一设置；再次同步保留既有模型配置，不重复创建模型或供应商。
 - 同步失败使用专门的重试文案，不把本地配置错误归因为网络或要求重新登录；原始异常不直接显示，避免泄露账号信息。
 
@@ -29,6 +30,10 @@ sequenceDiagram
   participant Provider as ProviderSettingsService
   Settings->>Panel: 选中 Codex，挂载
   Panel->>Host: listAccounts
+  Panel->>Host: 刷新账号目录
+  Host->>Codex: 查询该账号的模型目录（0.171.0）
+  Codex-->>Host: 返回该账号的可用模型
+  Host-->>Panel: 保存并返回更新后的目录
   Panel->>Host: connectAccount(accountId)
   Host->>Provider: 创建供应商（不传 group）/补齐模型
   Provider-->>Panel: 既有 Provider 变更事件刷新模型选择器
@@ -82,6 +87,7 @@ Provider access schema / Registry → 请求级鉴权协议 → Host 服务与�
 | 首次/重复同步                        | 真实 ProviderConfigService 接受创建，模型启用且无重复；新模型可补齐 | 隔离运行时场景，外部授权使用合成响应 |
 | Codex 导航与同步失败                 | 同组卡片选中、详情切换/取消、错误可重试；390px 中英文/深浅色不溢出  | 浏览器验收 + 更新 CS-02              |
 | 模型发现与手动切换                   | 每个账号独立 Provider，无自动切换                                   | CLI + UI E2E                         |
+| 模型目录兼容版本                     | 已获授权的账号刷新可发现 GPT-6.2 Sol 和 Astra，后续同步补齐模型     | 同账号目录对照与隔离 Host 运行时验收 |
 | 额度成功、未知、网络失败、401        | 正确剩余/重置，保留旧值且标记 stale，重新登录提示                   | 隔离 Host 集成用例                   |
 | Responses 文本、工具调用、错误、取消 | 兼容 backend 字段与 SSE；不泄漏令牌至其他 URL                       | CLI adapter 回归                     |
 | 窄屏、深浅主题、中英文               | 操作可达，长文案换行                                                | UI E2E / 截图                        |

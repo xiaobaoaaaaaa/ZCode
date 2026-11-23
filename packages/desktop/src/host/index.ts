@@ -4090,7 +4090,7 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
           log: (message, details) => logger.warn(message, details),
           establishOwner: () => {
             const initializedServices = createLocalServices({
-              workspaceAssistantEnabled: true,
+              // 正式版撤回研究预览，保持助手服务未注册，避免继续分派旧输入。
               // 固定目录与发布目标无关；准备完成后，既有会话下一条命令即可找到入口。
               preinstalledToolsBinDir: resolvePreinstalledToolsBinDir({
                 dataRoot: getZCodeDataRootDir(),
