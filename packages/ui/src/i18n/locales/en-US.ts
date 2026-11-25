@@ -7883,6 +7883,8 @@ const enUS: Record<string, string> = {
     "This remote attachment could not be staged, so its local path was not sent.",
   "chat.attachments.upload.retry": "Retry upload",
   "chat.composer.actionMenu": "Add context",
+  "chat.composer.expandInput": "Expand input",
+  "chat.composer.collapseInput": "Collapse input",
   "chat.composer.insertMentionShortcut": "Use @ to add context",
   "chat.composer.insertSessionShortcut": "Insert # session",
   "chat.composer.insertSlashShortcut": "Use / for capabilities",

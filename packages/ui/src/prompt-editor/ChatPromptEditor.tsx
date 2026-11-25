@@ -9,7 +9,7 @@ import type {
 } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { TID_CHAT_SEND_BUTTON } from "@zcode/shared/test-ids";
-import { ArrowUpIcon, Hand, XIcon } from "lucide-react";
+import { ArrowUpIcon, Hand, Maximize2, Minimize2, XIcon } from "lucide-react";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
 import { Button } from "@/components/ui/button.js";
 import { Spinner } from "@/components/ui/spinner.js";
@@ -175,6 +175,10 @@ export function ChatPromptEditor({
 }) {
   const { intl } = useZCodeIntl();
   const isInline = layout === "inline";
+  const [expanded, setExpanded] = useState(false);
+  const expansionLabel = intl.formatMessage({
+    id: expanded ? "chat.composer.collapseInput" : "chat.composer.expandInput",
+  });
   const toolbarRef = useComposerToolbarFit({ iconOnly: isInline });
   const internalInputApiRef = useRef<LexicalChatInputHandle | null>(null);
   const resolvedInputApiRef = inputApiRef ?? internalInputApiRef;
@@ -357,9 +361,15 @@ export function ChatPromptEditor({
       : undefined;
 
   const editorNode = (
-    // 单行时输入区至少占一半宽度，上下留白与 h-7 控件对齐；两行布局下 contents 不改变原有排版。
-    <div className={isInline ? "min-w-1/2 flex-1 py-1 [&_[contenteditable]]:min-h-5" : "contents"}>
+    <div
+      className={
+        isInline
+          ? "min-w-1/2 flex-1 py-1 [&_[contenteditable]]:min-h-5"
+          : "flex min-w-0 items-start gap-1"
+      }
+    >
       <LexicalChatInput
+        expanded={expanded && !isInline}
         extraPlugins={extraPlugins}
         placeholder={placeholder}
         tabCompletion={tabCompletion}
@@ -390,6 +400,23 @@ export function ChatPromptEditor({
         appSlashCommands={appSlashCommands}
         enableMentionPanel={enableMentionPanel}
       />
+      {!isInline && (
+        <ControlHintTooltip title={expansionLabel}>
+          <Button
+            type="button"
+            size="icon-md"
+            variant="ghost"
+            className="text-foreground-subtle focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={expansionLabel}
+            aria-expanded={expanded}
+            data-testid="composer-input-expansion"
+            onPointerDown={(event) => event.preventDefault()}
+            onClick={() => setExpanded((value) => !value)}
+          >
+            {expanded ? <Minimize2 /> : <Maximize2 />}
+          </Button>
+        </ControlHintTooltip>
+      )}
     </div>
   );
   const actionMenuNode = hasActionMenu ? (

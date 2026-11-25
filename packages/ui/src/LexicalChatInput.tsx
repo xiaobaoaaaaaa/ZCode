@@ -1702,6 +1702,7 @@ function EditorApiPlugin({
 }
 
 interface LexicalChatInputProps {
+  expanded?: boolean;
   placeholder?: string;
   tabCompletion?: string;
   disabled?: boolean;
@@ -1742,6 +1743,7 @@ const EDITOR_THEME = {
 };
 
 export function LexicalChatInput({
+  expanded = false,
   placeholder,
   tabCompletion,
   disabled = false,
@@ -1870,13 +1872,16 @@ export function LexicalChatInput({
           placeholder: null,
         };
 
+  const heightClassName = expanded ? "h-[50dvh]" : "max-h-40";
   const contentEditable = (
     <ContentEditable
       // Bugfix: mention node 使用固定行高的 inline-flex chip，普通正文如果继承浏览器 normal line-height，
       // 在 token 后继续输入文字时会按不同 line box 计算基线；这里显式收口正文行高，并允许手机远控使用 16px 防止 iOS 聚焦放大。
-      className={`min-h-10 max-h-40 overflow-y-auto ${resolveMobileInputTextSizeClassName({
-        avoidIosInputFocusZoom,
-      })} text-foreground outline-none`}
+      className={`min-h-10 ${heightClassName} overflow-y-auto ${resolveMobileInputTextSizeClassName(
+        {
+          avoidIosInputFocusZoom,
+        },
+      )} text-foreground outline-none`}
       data-testid={inputTestId}
       onFocus={onFocus}
       {...contentEditableProps}
@@ -1898,7 +1903,7 @@ export function LexicalChatInput({
   );
 
   return (
-    <div className="relative flex-1">
+    <div className="relative min-w-0 flex-1">
       <LexicalComposer initialConfig={initialConfig}>
         <div className="relative">
           <PlainTextPlugin contentEditable={contentEditable} ErrorBoundary={LexicalErrorBoundary} />

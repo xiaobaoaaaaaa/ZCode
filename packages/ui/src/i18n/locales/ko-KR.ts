@@ -7305,6 +7305,8 @@ const koKR: Record<string, string> = {
     "이 원격 첨부 파일을 준비할 수 없어 로컬 경로를 보내지 않았습니다.",
   "chat.attachments.upload.retry": "업로드 다시 시도",
   "chat.composer.actionMenu": "컨텍스트 추가",
+  "chat.composer.expandInput": "입력창 펼치기",
+  "chat.composer.collapseInput": "입력창 접기",
   "chat.composer.insertMentionShortcut": "@로 컨텍스트 추가",
   "chat.composer.insertSessionShortcut": "# 세션 삽입",
   "chat.composer.insertSlashShortcut": "/로 기능 사용",

@@ -7472,6 +7472,8 @@ const zhCN: Record<string, string> = {
     "远端附件未完成物化，已阻止发送本地路径。",
   "chat.attachments.upload.retry": "重试上传",
   "chat.composer.actionMenu": "添加上下文",
+  "chat.composer.expandInput": "展开输入框",
+  "chat.composer.collapseInput": "收起输入框",
   "chat.composer.insertMentionShortcut": "使用 @ 添加上下文",
   "chat.composer.insertSessionShortcut": "插入 # 会话",
   "chat.composer.insertSlashShortcut": "使用 / 选择能力",

@@ -7477,6 +7477,8 @@ const jaJP: Record<string, string> = {
     "このリモートの添付ファイルをステージングできなかったため、ローカルパスは送信されませんでした。",
   "chat.attachments.upload.retry": "アップロードを再試行",
   "chat.composer.actionMenu": "コンテキストを追加",
+  "chat.composer.expandInput": "入力欄を広げる",
+  "chat.composer.collapseInput": "入力欄を折りたたむ",
   "chat.composer.insertMentionShortcut": "@ でコンテキストを追加",
   "chat.composer.insertSessionShortcut": "# セッションを挿入",
   "chat.composer.insertSlashShortcut": "/ で機能を呼び出す",

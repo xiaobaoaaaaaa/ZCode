@@ -7452,6 +7452,8 @@ const ruRU: Record<string, string> = {
     "Не удалось подготовить это удалённое вложение, поэтому его локальный путь не был отправлен.",
   "chat.attachments.upload.retry": "Повторить загрузку",
   "chat.composer.actionMenu": "Добавить контекст",
+  "chat.composer.expandInput": "Развернуть поле ввода",
+  "chat.composer.collapseInput": "Свернуть поле ввода",
   "chat.composer.insertMentionShortcut": "@ — добавить контекст",
   "chat.composer.insertSessionShortcut": "Вставить # сеанс",
   "chat.composer.insertSlashShortcut": "/ — возможности",
