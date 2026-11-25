@@ -2666,6 +2666,15 @@ nodes:
       - symbol: "createZCodeTaskIndexSyncer"
         file: "packages/services/src/zcode-agent/zcodeTaskIndexSyncer.ts"
 
+  - id: "surface.composer-follow-up-question"
+    kind: "ui-surface"
+    label: "Completed reply follow-up question placeholder accepted with Tab"
+    aliases: ["候选追问", "Tab 补全"]
+    docs: ["docs/web-remote-control/mobile-input-prediction.md"]
+    codeSeeds:
+      - { file: "packages/ui/src/hooks/useFollowUpQuestion.ts", symbol: "useFollowUpQuestion" }
+      - { file: "packages/ui/src/LexicalChatInput.tsx", symbol: "LexicalChatInput" }
+
   - id: "state.composer-text-draft"
     kind: "state"
     label: "Text-only Composer draft persistence"
@@ -5761,6 +5770,11 @@ edges:
     type: "verified-by"
     rank: "evidence-only"
 
+  - from: "surface.composer-follow-up-question"
+    to: "state.composer-text-draft"
+    type: "commits-to"
+    rank: "must-inspect"
+    condition: "Only accepting a visible suggestion with Tab edits the draft."
   - from: "surface.conversation-model-control"
     to: "state.composer-text-draft"
     type: "commits-to"

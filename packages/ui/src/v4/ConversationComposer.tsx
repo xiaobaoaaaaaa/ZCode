@@ -124,6 +124,7 @@ import { usePromptEditorDragState } from "@/prompt-editor/usePromptEditorDragSta
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { advanceComposerDraftRevision } from "@/v4/composer/composerDraftRevision.js";
 import type { AppSlashCommand } from "@/slashCommandHelpers.js";
+import { useFollowUpQuestion } from "@/hooks/useFollowUpQuestion.js";
 import { useOptionalServices } from "@/hooks/useServices.js";
 import { logger } from "@/logger.js";
 import { runUserAction, startUserAction } from "@/lib/userActionTelemetry.js";
@@ -2374,6 +2375,25 @@ function ConversationComposerImpl({
       : null;
   // 切回已有会话时 lease 先切换、快照后到；未知历史不能当作新草稿，
   // 否则运行中的输入框会闪出新任务提示。只等待当前快照，不复用上一会话状态。
+  const followUpQuestion = useFollowUpQuestion(
+    autoFocusEnabled &&
+      !draftMode &&
+      !editBar &&
+      !hasComposerDraftContent &&
+      !blockingRequestId &&
+      !disabled &&
+      !runtimeBlocked &&
+      !inputPending &&
+      !pending &&
+      !canStop &&
+      mode === "startNow" &&
+      !snapshot?.queue.items.length,
+    snapshot,
+    sessionId,
+    workspacePath,
+    workspaceIdentity,
+    remoteSessionId,
+  );
   const normalPlaceholder =
     sessionId !== null && snapshot === null
       ? ""
@@ -3274,6 +3294,7 @@ function ConversationComposerImpl({
           workspaceIdentity={workspaceIdentity}
           taskId={sessionId}
           skillCatalogSessionId={skillCatalogSessionId}
+          tabCompletion={followUpQuestion}
           placeholder={
             remoteAvailable
               ? normalPlaceholder

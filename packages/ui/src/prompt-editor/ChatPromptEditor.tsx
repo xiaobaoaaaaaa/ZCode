@@ -47,6 +47,7 @@ export function ChatPromptEditor({
   initialValue,
   syncInitialValueOnMount = true,
   placeholder,
+  tabCompletion,
   disabled = false,
   disabledReason,
   submitting = false,
@@ -105,6 +106,7 @@ export function ChatPromptEditor({
   initialValue?: string;
   syncInitialValueOnMount?: boolean;
   placeholder?: string;
+  tabCompletion?: string;
   disabled?: boolean;
   disabledReason?: string;
   submitting?: boolean;
@@ -360,6 +362,7 @@ export function ChatPromptEditor({
       <LexicalChatInput
         extraPlugins={extraPlugins}
         placeholder={placeholder}
+        tabCompletion={tabCompletion}
         disabled={disabled}
         submitDisabled={submitDisabled}
         allowSubmitWhenEmpty={allowSubmitWhenEmpty}

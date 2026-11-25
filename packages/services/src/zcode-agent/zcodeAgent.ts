@@ -487,6 +487,7 @@ export type ZCodeAgentConversationPlansParams = ZCodeAgentSessionTarget;
 
 /** 手机远控输入预测（ghost hint）；线格式见 docs/web-remote-control/mobile-input-prediction.md。 */
 export interface ZCodeAgentConversationInputPredictionParams extends ZCodeAgentSessionTarget {
+  purpose?: "followUpQuestion";
   /** 手机当前看到的会话 revision；参与 CLI 侧缓存键，回包据此丢弃过期结果。 */
   revision: number;
   /** 当前草稿；缺省/空 = 预测下一条输入，非空 = 续写草稿。 */

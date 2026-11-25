@@ -49,6 +49,7 @@ import {
   COMPOSITION_START_COMMAND,
   HISTORY_MERGE_TAG,
   KEY_ENTER_COMMAND,
+  KEY_TAB_COMMAND,
   type EditorState,
   type LexicalEditor,
   type NodeKey,
@@ -733,6 +734,7 @@ function selectAfterPromptMentionById(mentionId: string): boolean {
  * 阻止 Lexical 默认的段落插入行为。
  */
 function KeyboardPlugin({
+  tabCompletion,
   onSubmit,
   onModifiedSubmit,
   disabled,
@@ -746,6 +748,7 @@ function KeyboardPlugin({
   submitDisabled?: boolean;
   allowSubmitWhenEmpty?: boolean;
   enterSubmits: boolean;
+  tabCompletion?: string;
 }) {
   const [editor] = useLexicalComposerContext();
   // 作用域改绑层：读生效表的 composer 命令切片；ref 透传避免按键监听重挂。
@@ -760,6 +763,39 @@ function KeyboardPlugin({
   };
 
   useEffect(() => {
+    const unregisterTab = editor.registerCommand(
+      KEY_TAB_COMMAND,
+      (event) => {
+        if (
+          !tabCompletion ||
+          disabled ||
+          event.defaultPrevented ||
+          event.isComposing ||
+          editor.isComposing() ||
+          event.shiftKey ||
+          event.ctrlKey ||
+          event.altKey ||
+          event.metaKey
+        )
+          return false;
+        const selection = $getSelection();
+        const root = $getRoot();
+        const paragraph = root.getFirstChild();
+        if (
+          !$isRangeSelection(selection) ||
+          !selection.isCollapsed() ||
+          root.getChildrenSize() !== 1 ||
+          !$isParagraphNode(paragraph) ||
+          paragraph.getTextContentSize() !== 0 ||
+          paragraph.getChildrenSize() > 0
+        )
+          return false;
+        event.preventDefault();
+        selection.insertText(tabCompletion);
+        return true;
+      },
+      COMMAND_PRIORITY_LOW,
+    );
     const unregisterEnter = editor.registerCommand(
       KEY_ENTER_COMMAND,
       (event: KeyboardEvent | null) => {
@@ -1005,6 +1041,7 @@ function KeyboardPlugin({
     );
 
     return () => {
+      unregisterTab();
       unregisterEnter();
       unregisterBackspace();
       unregisterRootListener();
@@ -1017,6 +1054,7 @@ function KeyboardPlugin({
     };
   }, [
     allowSubmitWhenEmpty,
+    tabCompletion,
     disabled,
     editor,
     enterSubmits,
@@ -1665,6 +1703,7 @@ function EditorApiPlugin({
 
 interface LexicalChatInputProps {
   placeholder?: string;
+  tabCompletion?: string;
   disabled?: boolean;
   submitDisabled?: boolean;
   allowSubmitWhenEmpty?: boolean;
@@ -1704,6 +1743,7 @@ const EDITOR_THEME = {
 
 export function LexicalChatInput({
   placeholder,
+  tabCompletion,
   disabled = false,
   submitDisabled = false,
   allowSubmitWhenEmpty = false,
@@ -1802,24 +1842,33 @@ export function LexicalChatInput({
   // Lexical 的 ContentEditable props 是一个互斥联合类型，
   // aria-placeholder 一旦出现就要求 placeholder 同时存在。
   // 之前直接写三元 JSX，TypeScript 在合并两条分支时没有正确保留这组联动约束，导致误报缺少 placeholder。
-  const contentEditableProps: React.ComponentProps<typeof ContentEditable> = placeholder
-    ? {
-        "aria-placeholder": placeholder,
-        placeholder: (
-          <div
-            className={`pointer-events-none absolute left-0 top-0 ${compactPlaceholder ? "line-clamp-2" : ""} ${resolveMobileInputTextSizeClassName(
-              {
-                avoidIosInputFocusZoom,
-              },
-            )} text-foreground-subtlest`}
-          >
-            {placeholder}
-          </div>
-        ),
-      }
-    : {
-        placeholder: null,
-      };
+  const contentEditableProps: React.ComponentProps<typeof ContentEditable> =
+    tabCompletion || placeholder
+      ? {
+          "aria-placeholder": tabCompletion || placeholder || "",
+          placeholder: (
+            <div
+              className={`pointer-events-none absolute left-0 top-0 ${compactPlaceholder ? "line-clamp-2" : ""} ${resolveMobileInputTextSizeClassName(
+                {
+                  avoidIosInputFocusZoom,
+                },
+              )} text-foreground-subtlest`}
+            >
+              {tabCompletion || placeholder}
+              {tabCompletion && (
+                <kbd
+                  aria-hidden="true"
+                  className="ml-2 rounded border border-card-border px-1 text-ui-xs"
+                >
+                  Tab
+                </kbd>
+              )}
+            </div>
+          ),
+        }
+      : {
+          placeholder: null,
+        };
 
   const contentEditable = (
     <ContentEditable
@@ -1863,6 +1912,7 @@ export function LexicalChatInput({
             taskId={taskId}
           />
           <KeyboardPlugin
+            tabCompletion={tabCompletion}
             onSubmit={handleSubmit}
             onModifiedSubmit={onModifiedSubmit}
             disabled={disabled}

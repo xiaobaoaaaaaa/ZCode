@@ -8117,3 +8117,5 @@ Activity 头像回归（2026-11-18）：停止／异常 Workflow 的本轮完成
 ACT11：真实 Subagent 完成后发送新轮次，全进程重启后编辑最新轮次；完成总数保留，再次重启后一致。沿用正式 `subagents/conversation-session-activity-subagent-retention.test.ts`，macOS 真实链路通过（`packages/desktop/.e2e-artifacts/desktop-e2e-20261118-160401-662`，ACT11 随 Subagent 用例完成，另有 4 个 Workflow 恢复 case 通过）。无投影行旧 child、新 child 同时撤销、多来源与连续回退由 CLI 查询／投影回归覆盖，不把普通桌面路径记作无行历史场景的执行证据。
 
 ACT11 完成屏障补强：编辑请求使用独立 marker 与受控流，先证明旧响应已存在但新响应未结算，再放行并等待本轮独立响应和非 streaming 状态，之后核对在线／重启计数。补强已通过独立夹具回放 `desktop-e2e-20261118-161830-867` 与默认回放 `desktop-e2e-20261118-162043-380`（均 1/1）；上轮普通完成等待不能证明此屏障。
+
+FS-Tab：在 `conversation-session-first-send.test.ts` 的首轮完成与第二轮发送之间验证真实输入框灰字、Tab 与无自动提交。桌面默认回放通过（`packages/desktop/.e2e-artifacts/desktop-e2e-20261125-065631-942`），同时验证 Shift+Tab、手写草稿保护与清空后再次采纳。

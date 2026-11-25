@@ -4,6 +4,24 @@
   "spec": "./test/e2e/conversation-session/composer/conversation-session-first-send.test.ts",
   "fixtures": [
     {
+      "id": "first-send-follow-up-question",
+      "metadata": {
+        "kind": "main",
+        "source": "synthetic",
+        "timingPolicy": "fast-text",
+        "syntheticReason": "固定首轮候选问题及置信度以验证占位和 Tab 采纳。"
+      },
+      "match": {
+        "method": "POST",
+        "pathIncludes": "/messages",
+        "bodyIncludes": ["追问生成器", "E2E_FIRST_SEND_"]
+      },
+      "response": {
+        "statusCode": 200,
+        "text": "{\"candidates\":[{\"text\":\"如何验证这次修改？\",\"confidence\":0.96}]}"
+      }
+    },
+    {
       "id": "first-send-title",
       "metadata": {
         "kind": "common",

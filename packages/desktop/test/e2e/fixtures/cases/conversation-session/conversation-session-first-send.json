@@ -41,6 +41,13 @@
       "timingPolicy": "fast-text",
       "source": "synthetic",
       "syntheticReason": "只读工具首段用于构造稳定 tool_use/tool_result 历史；工具业务由本地文件 fixture 决定，不依赖真实模型选择。"
+    },
+    {
+      "id": "first-send-follow-up-question",
+      "kind": "main",
+      "source": "synthetic",
+      "timingPolicy": "fast-text",
+      "syntheticReason": "固定首轮候选问题及置信度以验证占位和 Tab 采纳。"
     }
   ]
 }

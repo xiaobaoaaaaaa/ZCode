@@ -80,6 +80,20 @@ describe("ConversationInputPredictionHandler", () => {
     await expect(fresh).resolves.toMatchObject({ decision: "show", requestId: "new" });
   });
 
+  it("首轮完成即可建议追问，与手机普通预测分别缓存", async () => {
+    const callModel = vi.fn<InputPredictionModelCall>(async () => ({ text: SHOW_RESPONSE }));
+    const handler = new ConversationInputPredictionHandler({
+      loadSession: async () => ({ turns: material(null).turns.slice(0, 1), callModel }),
+    });
+    const firstTurn = { sessionId: "s", revision: 1 };
+    expect((await handler.handle(firstTurn)).decision).toBe("suppress_no_context");
+    const question = { ...firstTurn, purpose: "followUpQuestion" };
+    expect((await handler.handle(question)).decision).toBe("show");
+    expect((await handler.handle(question)).decision).toBe("show");
+    expect(callModel).toHaveBeenCalledTimes(1);
+    expect(callModel.mock.calls[0]?.[0][0]?.content).toContain("追问生成器");
+  });
+
   it("不同会话互不中止", async () => {
     const pending = deferred<{ text: string }>();
     const handler = new ConversationInputPredictionHandler({

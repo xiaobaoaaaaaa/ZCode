@@ -1,3 +1,4 @@
+import { TID_V4_COMPOSER_INPUT } from "@zcode/shared/test-ids";
 import { clearAppData } from "#e2e/helpers/desktop-app";
 import { waitForUpstreamNetworkCapture } from "#e2e/helpers/upstream-capture";
 import {
@@ -5,6 +6,7 @@ import {
   getV4ConversationState,
   prepareV4ConversationE2E,
   sendV4Prompt,
+  setV4ComposerText,
   waitForV4AssistantMessageContaining,
   waitForV4ConversationState,
   waitForV4ComposerText,
@@ -47,6 +49,32 @@ describe("会话区首发和完成态 E2E", () => {
       "首轮完成后 chat-view 没有回到 idle",
       90000,
     );
+
+    const question = "如何验证这次修改？";
+    const editor = $(`[data-testid="${TID_V4_COMPOSER_INPUT}"]`);
+    await browser.waitUntil(
+      async () =>
+        (await editor.getAttribute("aria-placeholder")) === question &&
+        (await $("kbd=Tab").isDisplayed()),
+      { timeout: 25000, timeoutMsg: "首轮完成后没有显示可按 Tab 采纳的候选追问" },
+    );
+    await waitForV4ComposerText("", "候选只应显示在占位层");
+    await editor.click();
+    await browser.keys(["Shift", "Tab"]);
+    await waitForV4ComposerText("", "Shift+Tab 应保留焦点导航");
+    await setV4ComposerText("自己的追问");
+    await browser.keys("Tab");
+    await waitForV4ComposerText("自己的追问", "已有正文时 Tab 不得覆盖草稿");
+    await setV4ComposerText("");
+    await browser.waitUntil(
+      async () => (await editor.getAttribute("aria-placeholder")) === question,
+    );
+    await editor.click();
+    await browser.keys("Tab");
+    await waitForV4ComposerText(question, "Tab 应将候选写入可编辑正文");
+    const accepted = await getV4ConversationState();
+    expect(accepted.state).toBe("idle");
+    expect(accepted.queueCount).toBe(0);
 
     const secondPrompt = `E2E_SECOND_TURN_${runId}: Reply with exactly "${E2E_REPLY_TOKEN}" and no other text.`;
     await sendV4Prompt(secondPrompt);

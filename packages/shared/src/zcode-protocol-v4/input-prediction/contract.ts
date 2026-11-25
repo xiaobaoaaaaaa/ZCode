@@ -48,6 +48,8 @@ export const v4ConversationInputPredictionParamsSchema = z
     sessionId: z.string().min(1),
     // 手机当前看到的快照 revision：缓存键的一部分；迟到响应由手机按它丢弃。
     revision: z.number().int().nonnegative(),
+    // 完成回答后的追问可在首轮生成；缺省沿用既有预测规则。
+    purpose: z.literal("followUpQuestion").optional(),
     // 输入框当前草稿；缺席或纯空白 = 预测下一条完整输入。
     draft: z.string().max(INPUT_PREDICTION_MAX_DRAFT_CHARS).optional(),
     // 手机生成的请求号，原样回显，供手机丢弃过期响应。

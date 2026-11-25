@@ -94,14 +94,14 @@ hello 只能说明 Host 侧已经开启。如果 Host 连接的是远端（SSH�
 
 ### 取消、替代与超时
 
-- **同会话替代**：同一个 `sessionId` 只保留一个进行中的预测。新请求一到达就中止旧请求，旧请求回 `cancelled`。不同会话互不影响。
+- **同会话替代**：同一个 `sessionId` 的每种预测用途只保留一个进行中的预测。新请求一到达就中止旧请求，旧请求回 `cancelled`。不同会话互不影响。
 - **超时**：CLI 单次模型调用上限为 20s（`INPUT_PREDICTION_MODEL_TIMEOUT_MS`），超时回 `unavailable`。即使模型执行面没有及时响应 abort，也会立刻放弃等待。
 - **连接断开或进程关闭**：中止全部进行中的预测，并清空缓存。
 - 目前没有显式的 cancel RPC。手机想取消时，直接发下一次请求即可（会触发替代）。如果手机只是不再需要结果，丢弃回包即可。
 
 ### 缓存
 
-以 `(sessionId, revision, normalizedDraft)` 为键，做 16 条的 LRU 缓存，缓存终态结果（`unavailable` 和 `cancelled` 不缓存）。命中缓存时不调用模型，只换上本次的 `requestId`。纯空白草稿和无草稿使用同一个键。
+以 `(sessionId, purpose, revision, normalizedDraft)` 为键，做 16 条的 LRU 缓存，缓存终态结果（`unavailable` 和 `cancelled` 不缓存）。命中缓存时不调用模型，只换上本次的 `requestId`。纯空白草稿和无草稿使用同一个键。
 
 ### 上下文与决策
 
@@ -133,3 +133,24 @@ hello 只能说明 Host 侧已经开启。如果 Host 连接的是远端（SSH�
 - 新 Host + 旧 CLI（例如远端 SSH 上的旧版本）：方法不存在，service 层回 `unavailable`。
 - 旧 Host：hello 中没有该字段，手机不会发请求。
 - 旧手机：不会发这个请求。hello 里多出的可选字段不影响旧手机解析。
+
+## 会话输入框的 Tab 候选追问
+
+桌面和 Web 的会话输入框在最新一轮回答成功完成后，用一个与回答相关的简短问题替换「提出后续修改要求」，旁边显示 Tab。候选由当前工作区的会话模型生成，沿用 Host 的预测开关、最低辅助推理档位、置信度门槛及超时。只对当前面板的空白、可编辑输入框发起查询。手动输入（包括空格）、已有附件或引用、编辑历史、排队、停止及失败各自沿用原交互。服务不可用时显示原占位文案。
+
+请求可选字段 `purpose: "followUpQuestion"` 指定空草稿的追问预测，最近一轮有用户输入及助手正文即有足够上下文。CLI 将用途计入缓存键。省略用途沿用上文的手机预测规则。桌面 continuous 与 Web replayable 均从当前投影读取已完成回答，按 workspace、远程连接、session、logEpoch 和回答身份隔离；同一回答的无关 revision 更新不重复请求。可见性与草稿分离，迟到的候选不能写入已输入的文字或另一会话。
+
+```mermaid
+sequenceDiagram
+  participant C as 当前 Composer
+  participant H as 目标 Host / CLI
+  participant E as Lexical 编辑器
+  H-->>C: 最新回答完成
+  C->>H: 只读预测（空草稿、追问用途）
+  H-->>C: 返回候选与决策
+  C-->>E: 作用域仍有效时展示最高分候选
+  E->>E: 空白输入框内按 Tab，写入可编辑草稿
+  E->>C: 显式发送时走既有提交路径
+```
+
+Tab 仅在候选可见且编辑器有焦点时采纳；Shift+Tab、输入法组字和提及/命令菜单继续使用各自键盘行为。展示候选不会创建草稿，采纳不提交。

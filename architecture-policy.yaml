@@ -908,13 +908,15 @@ modules:
   # 规格：docs/web-remote-control/mobile-input-prediction.md。
   - id: remote-input-prediction
     roots:
+      - packages/ui/src/hooks/useFollowUpQuestion.ts
       - packages/shared/src/zcode-protocol-v4/input-prediction
       - packages/services/src/zcode-agent/inputPredictionSwitch.ts
       - apps/zcode-cli/packages/bootstrap/src/zcode-protocol/input-prediction-handler.ts
       - apps/zcode-cli/packages/core/src/runtime/methods/input-prediction-sidecar.ts
     managed: true
-    requires: [shared, zcode-cli]
+    requires: [services, shared, ui, zcode-cli]
     publicEntrypoints:
+      - packages/ui/src/hooks/useFollowUpQuestion.ts
       - packages/shared/src/zcode-protocol-v4/input-prediction/contract.ts
       - packages/services/src/zcode-agent/inputPredictionSwitch.ts
       - apps/zcode-cli/packages/bootstrap/src/zcode-protocol/input-prediction-handler.ts

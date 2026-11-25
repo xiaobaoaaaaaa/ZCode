@@ -2,8 +2,8 @@
 // 规格：docs/web-remote-control/mobile-input-prediction.md。
 //
 // 职责：
-// - 同一会话只保留一个进行中的预测：新请求到达即中止旧请求，旧请求回 cancelled；
-// - 按 (sessionId, revision, draft) 小 LRU 缓存终态结果，重连/重发不重复打模型；
+// - 同一会话、同用途只保留一个进行中的预测：新请求到达即中止旧请求，旧请求回 cancelled；
+// - 按 (sessionId, purpose, revision, draft) 小 LRU 缓存终态结果，重连/重发不重复打模型；
 // - 会话不在内存 / 轮数不够 → suppress_no_context；无模型、超时、模型失败 → unavailable。
 // 只读、不做 CAS：预测是建议，不是状态。
 import type { Logger, MessageWithParts, SessionId, SessionStorePort } from "@zcode/contracts";
@@ -49,9 +49,10 @@ export class ConversationInputPredictionHandler {
 
   async handle(rawParams: unknown): Promise<V4ConversationInputPredictionResult> {
     const params = v4ConversationInputPredictionParamsSchema.parse(rawParams);
-    const { sessionId, requestId } = params;
+    const { sessionId, requestId, purpose } = params;
     const draft = normalizeInputPredictionDraft(params.draft);
-    const cacheKey = JSON.stringify([sessionId, params.revision, draft]);
+    const requestScope = JSON.stringify([sessionId, purpose]);
+    const cacheKey = JSON.stringify([requestScope, params.revision, draft]);
     const withRequestId = (result: CachedResult): V4ConversationInputPredictionResult =>
       requestId === undefined ? result : { ...result, requestId };
 
@@ -63,17 +64,17 @@ export class ConversationInputPredictionHandler {
       return withRequestId(cached);
     }
 
-    // 新请求替代同会话的旧请求：手机只关心最新草稿。
-    this.inFlight.get(sessionId)?.abort();
+    // 追问与手机草稿续写分别取消，桌面回合结束不能打断手机输入。
+    this.inFlight.get(requestScope)?.abort();
     const controller = new AbortController();
-    this.inFlight.set(sessionId, controller);
+    this.inFlight.set(requestScope, controller);
     try {
-      const result = await this.predict(sessionId, draft, controller.signal);
+      const result = await this.predict(sessionId, draft, controller.signal, purpose);
       if (controller.signal.aborted) return emptyInputPredictionResult("cancelled", requestId);
       if (result.decision !== "unavailable") this.remember(cacheKey, result);
       return withRequestId(result);
     } finally {
-      if (this.inFlight.get(sessionId) === controller) this.inFlight.delete(sessionId);
+      if (this.inFlight.get(requestScope) === controller) this.inFlight.delete(requestScope);
     }
   }
 
@@ -88,6 +89,7 @@ export class ConversationInputPredictionHandler {
     sessionId: string,
     draft: string,
     abortSignal: AbortSignal,
+    purpose?: "followUpQuestion",
   ): Promise<CachedResult> {
     let material: InputPredictionSessionMaterial | null;
     try {
@@ -96,7 +98,11 @@ export class ConversationInputPredictionHandler {
       this.warn("transcript_failed", sessionId, error);
       return emptyInputPredictionResult("unavailable");
     }
-    if (!material || material.turns.length < inputPredictionMinTurns(draft)) {
+    if (
+      !material ||
+      material.turns.length < inputPredictionMinTurns(draft, purpose) ||
+      (purpose === "followUpQuestion" && (draft !== "" || !material.turns.at(-1)?.assistantText))
+    ) {
       return emptyInputPredictionResult("suppress_no_context");
     }
     if (!material.callModel) return emptyInputPredictionResult("unavailable");
@@ -105,6 +111,7 @@ export class ConversationInputPredictionHandler {
     try {
       rawCandidates = await generateInputPredictionCandidates({
         turns: material.turns,
+        purpose,
         draft,
         callModel: material.callModel,
         abortSignal,
@@ -121,6 +128,7 @@ export class ConversationInputPredictionHandler {
       draft,
       recentUserInputs: material.turns.map((turn) => turn.userText),
       turnCount: material.turns.length,
+      purpose,
     });
   }
 

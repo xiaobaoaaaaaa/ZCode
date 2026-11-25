@@ -7520,6 +7520,7 @@ export function createZCodeAgentService(
           {
             sessionId: params.sessionId,
             revision: params.revision,
+            ...(params.purpose ? { purpose: params.purpose } : {}),
             ...(params.draft !== undefined ? { draft: params.draft } : {}),
             ...(params.requestId !== undefined ? { requestId: params.requestId } : {}),
           },
